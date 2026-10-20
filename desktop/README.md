@@ -39,6 +39,8 @@ src/currency.tsx  display currency + formatting (React context)
 src/useFlights.ts the engine: loadStored reads the DB, runSearch is the only scrape
 src/App.tsx       header of search controls, source panel, results list
 src/Details.tsx   itinerary detail and every seller, in the side panel
+src/styles.css    base layout and interaction styles
+src/theme.css     Ledger: dark blue slate, compact grid, tabular figures
 src-tauri/        spawns the sidecar on a free port; open_challenge, open_external
 ```
 
@@ -49,14 +51,17 @@ UI in the Python package; keeping two in step failed often enough that deleting
 one was the fix.
 
 The window is a frame, not a page: every search control across a fixed header,
-the results down the left, and a fixed side panel on the right holding the
-sources (collapsible) above the flight you have picked. The results *are* the
+the results down the left, and a fixed side panel on the right showing either
+the search queue or the flight you have picked. The results *are* the
 page and scroll the window; the header and the panel are pinned out of that
 flow, which is why the header remeasures itself into `--header-h` whenever
 Advanced opens. Rows carry only what you scan by — price, day, itinerary,
 duration — and the panel carries the full itinerary, layovers and every
 seller's price for whichever row is selected, by click or with ↑ and ↓.
-Nothing is rounded and nothing is boxed: one hairline where two regions meet.
+The chosen Ledger theme keeps the grid compact, with dark blue-slate surfaces,
+blue accents, and a sidebar on the right. Geist and Geist Mono are bundled in
+`src/assets/fonts`; their OFL licenses ship in `public/licenses`. The temporary
+design comparison and picker are not part of the application build.
 
 All money crossing `/v1` is EUR — numbers, never formatted strings, and the
 database stores EUR only — so the "show prices in" selector is a re-render rather
@@ -126,6 +131,51 @@ leaves the scraper just as blocked — which is the whole reason the desktop she
 exists. Use the desktop app when a source actually asks for a human.
 
 ## Notes
+
+- Flight rows use the chosen Timeline design. All filtered results share one
+  time-of-day scale per direction, from the earliest departure to the latest
+  elapsed-time arrival. Departure dates align on day zero; later days continue
+  as +1, +2, and so on. Rulers use the departure airport's clock as a reference;
+  endpoint labels and tooltips use each airport's local clock.
+- Timeline bounds and per-leg positions are memoized on the results dataset,
+  including offscreen rows. Bounds follow the filtered results; segment timings
+  are reused from the full dataset. Sorting and favorites do not rescan it.
+  Rows remain virtualized. Dates sit below the price; journey durations sit
+  inside the timeline, leaving most of the width for comparison.
+- Colored segments use reported flight durations and same-airport connection
+  times. Missing segment timing produces a neutral summary interval. Complete
+  details stay visible when their sum disagrees with the reported total; a
+  warning explains the difference, and shared bounds include both arrivals.
+  The scale never treats naive local timestamps at different airports as
+  elapsed time.
+
+- Connections default to a maximum of 12 hours each, including overnight waits.
+  The Layovers filter offers 6, 8, 12 and 16 hours, a custom limit, and No limit.
+  Stops also hides routes that revisit an airport within either direction by
+  default; the ordinary arrival/departure at a connection is one visit, and
+  outbound and return are independent. Both preferences are remembered, and
+  Reset restores these defaults. Legacy unrestricted defaults migrate once;
+  subsequent explicit No limit choices persist. Empty results offer to relax
+  connection preferences when doing so would reveal flights. Filtering never
+  deletes stored results or starts a scrape.
+  Stop and layover choices that yield no flights under the other active filters
+  are hidden. The selected value remains available, as do the unrestricted
+  choices and custom layover input.
+  Default connection preferences use neutral toolbar styling. Only changes from
+  the defaults highlight a filter and reveal Reset, including choosing No limit
+  or allowing routes that revisit an airport.
+  Price and journey duration colors compare the minimum and maximum of the
+  matching results, including offscreen rows, independently for price, outbound
+  duration and return duration. Sorting and scrolling do not change the colors.
+
+- A visible selected flight keeps its screen position when results are added,
+  removed, reordered or remeasured. Normal scrolling moves the anchor, and an
+  offscreen selection does not pull the view back. One extra selected row may
+  stay mounted outside the virtual range; the rest of the list remains virtual.
+  New visible arrivals fade in for 160 ms without moving their geometry.
+  Initial loads, sorting, filtering and virtual remounts do not replay that fade;
+  reduced-motion preferences skip it. Hover uses a light tint, while selection
+  has a stronger fill and a persistent accent edge.
 
 - `open_challenge` is an **async** command on purpose. Reading webview cookies
   deadlocks on Windows from a synchronous command or an event handler.

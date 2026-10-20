@@ -42,6 +42,7 @@ from lxml import html as lxml_html
 
 from .models import Offer, SearchQuery
 from .sources import REGISTRY, Source
+from .sources.flightsfinder import _modal_id
 
 #: Bodies larger than this are cut. One ff-sky poll answers with 2.7 MB and a
 #: full search is 32 MB of near-identical payloads — not something to commit.
@@ -418,9 +419,8 @@ def trim_cffi_payload(body: bytes, keep: int = 3) -> bytes:
 
     A full capture of one ff-sky search is 32 MB of near-identical payloads,
     which is not worth committing; three cards exercise every branch of the
-    parser. The card and its modal are joined by position — the parser reads
-    ``myModalN`` for the Nth ``.list-item`` — so the ids are renumbered to keep
-    that promise after the ones in between are dropped.
+    parser. Follow each card's modal reference before renumbering the kept
+    cards: upstream IDs can skip list positions.
     """
     text = body.decode("utf-8", errors="replace")
     parts = text.split("|")
@@ -433,7 +433,7 @@ def trim_cffi_payload(body: bytes, keep: int = 3) -> bytes:
 
     kept: List[str] = []
     for new_index, (old_index, card) in enumerate(list(enumerate(cards))[:keep]):
-        modal = modals.get(f"myModal{old_index}")
+        modal = modals.get(_modal_id(card, old_index))
         chunk = lxml_html.tostring(card, encoding="unicode")
         if modal is not None:
             chunk += lxml_html.tostring(modal, encoding="unicode")

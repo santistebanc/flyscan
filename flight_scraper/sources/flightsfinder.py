@@ -62,6 +62,22 @@ def _minutes_to_clock(minutes: Optional[int]) -> str:
     return f"{minutes // 60:02d}:{minutes % 60:02d}"
 
 
+def _modal_id(item, index: int) -> str:
+    """Follow the card's details link; source IDs can skip list positions.
+
+    Sky copies a numbered modal into ``myModalX`` with inline jQuery. Read
+    that reference as text, without executing it. Older markup without a
+    reference retains the positional fallback; a missing *referenced* modal
+    must never fall back to the neighboring flight's details.
+    """
+    for node in item.iter():
+        for attr in ("data-target", "data-bs-target", "href", "onclick"):
+            match = re.search(r"\bmyModal\d+\b", node.get(attr, ""))
+            if match:
+                return match.group()
+    return f"myModal{index}"
+
+
 class _CFFLiveParser:
     """Reads the rendered result list both portals emit.
 
@@ -86,7 +102,7 @@ class _CFFLiveParser:
         offers: List[Offer] = []
         for index, item in enumerate(tree.cssselect("div.list-item")):
             try:
-                offer = self._one(item, modals.get(f"myModal{index}"))
+                offer = self._one(item, modals.get(_modal_id(item, index)))
             except Exception:
                 continue  # one malformed card must not lose the other 150
             if offer is not None:

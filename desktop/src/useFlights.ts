@@ -48,12 +48,9 @@ export type Freshness =
   | { kind: "stored"; hours: number }
   | { kind: "scraped"; oldestCacheHours: number | null };
 
-const ROW_CAP = 300;
-
 function sortRows(byKey: Map<string, FlightRow>): FlightRow[] {
   return [...byKey.values()]
-    .sort((a, b) => (a.best?.price_base ?? Infinity) - (b.best?.price_base ?? Infinity))
-    .slice(0, ROW_CAP);
+    .sort((a, b) => (a.best?.price_base ?? Infinity) - (b.best?.price_base ?? Infinity));
 }
 
 const STORED_LABELS: Record<string, { label: string; tone: SourceView["tone"] }> = {
@@ -146,6 +143,7 @@ export function useFlights(api: FlightScraperApi | null, onChallenge?: () => voi
   const [total, setTotal] = useState(0);
   const [freshness, setFreshness] = useState<Freshness>({ kind: "none" });
   const [running, setRunning] = useState(false);
+  const [loadingStored, setLoadingStored] = useState(false);
   const [summary, setSummary] = useState("");
   /**
    * Trips finished out of trips asked for.
@@ -180,6 +178,7 @@ export function useFlights(api: FlightScraperApi | null, onChallenge?: () => voi
   /** Guards against a late response overwriting a newer one. */
   const token = useRef(0);
   const searching = useRef(false);
+  const storedRead = useRef<{ key: string; token: number; api: FlightScraperApi; result: Promise<void> } | null>(null);
 
   const sources = merge(stored, live);
   const anyRunning = sources.some((s) => s.running);
@@ -199,13 +198,15 @@ export function useFlights(api: FlightScraperApi | null, onChallenge?: () => voi
 
   useEffect(() => () => stream.current?.close(), []);
 
-  const selectView = useCallback(() => {
+  const selectView = useCallback((awaitingStored = false) => {
     searching.current = false;
     token.current++;
+    storedRead.current = null;
     stream.current?.close();
     stream.current = null;
     searchId.current = null;
     setRunning(false);
+    setLoadingStored(awaitingStored);
     byKey.current.clear();
     publish();
     setStored([]);
@@ -218,25 +219,42 @@ export function useFlights(api: FlightScraperApi | null, onChallenge?: () => voi
   /** Read the database. No source is contacted. */
   const loadStored = useCallback(async (request: SearchRequest) => {
     if (!api || searching.current) return;
+    const key = JSON.stringify(request);
+    const pending = storedRead.current;
+    // A slow initial read must survive the next poll. Supersede reads only
+    // when the selected query changes, not when the same query refreshes.
+    if (pending?.api === api && pending.token === token.current && pending.key === key) {
+      return pending.result;
+    }
     const mine = ++token.current;
-    try {
-      const answer = await api.storedFlights(request);
-      if (mine !== token.current) return;   // the form moved on
-      byKey.current = new Map(answer.results.map((row) => [row.trip_key, row]));
-      publish();
-      setStored(answer.sources ?? []);
-      setExecution(emptyProgress());                          // the live view belongs to one run
-      if (!answer.results.length) {
-        setFreshness({ kind: "empty" });
-        return;
+    setLoadingStored(true);
+    const result = (async () => {
+      try {
+        const answer = await api.storedFlights(request);
+        if (mine !== token.current) return;   // the form moved on
+        byKey.current = new Map(answer.results.map((row) => [row.trip_key, row]));
+        publish();
+        setStored(answer.sources ?? []);
+        setExecution(emptyProgress());                          // the live view belongs to one run
+        if (!answer.results.length) {
+          setFreshness({ kind: "empty" });
+          return;
+        }
+        const seen = Date.parse(answer.last_seen);
+        setFreshness({
+          kind: "stored",
+          hours: Number.isFinite(seen) ? (Date.now() - seen) / 3_600_000 : NaN,
+        });
+      } catch {
+        /* each source's own row already says what is known */
       }
-      const seen = Date.parse(answer.last_seen);
-      setFreshness({
-        kind: "stored",
-        hours: Number.isFinite(seen) ? (Date.now() - seen) / 3_600_000 : NaN,
-      });
-    } catch {
-      /* each source's own row already says what is known */
+    })();
+    storedRead.current = { key, token: mine, api, result };
+    try {
+      await result;
+    } finally {
+      if (mine === token.current) setLoadingStored(false);
+      if (storedRead.current?.result === result) storedRead.current = null;
     }
   }, [api, publish]);
 
@@ -279,6 +297,7 @@ export function useFlights(api: FlightScraperApi | null, onChallenge?: () => voi
     if (!api) return;
     searching.current = true;
     const mine = ++token.current; // abandon any stored read still in flight
+    setLoadingStored(false);
     stream.current?.close();
     stream.current = null;
 
@@ -315,7 +334,7 @@ export function useFlights(api: FlightScraperApi | null, onChallenge?: () => voi
   }, [api]);
 
   return {
-    rows, total, freshness, running, summary, sources, progress, fetches,
+    rows, total, freshness, running, loadingStored, summary, sources, progress, fetches,
     selectView, loadStored, runSearch, cancel,
     /** Sources a scrape would actually contact. */
     pending: sources.filter((s) => s.pending).map((s) => s.source as SourceName),

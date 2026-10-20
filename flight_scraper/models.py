@@ -167,10 +167,11 @@ class Itinerary:
         numbers. Sources disagree on the operating carrier: the same easyJet
         service comes back as EC7336 from one and U27336 from another, so a key
         made of flight numbers splits matches that are really the same seat.
-        Two distinct itineraries sharing a route, a departure minute, an
-        arrival minute and a stop count are not a realistic collision — but a
-        one-way and a round trip *are*, so the return date is part of the key
-        whenever one was searched for.
+        Connection schedules belong to identity too: two itineraries can share
+        their first departure, final arrival and stop count while taking
+        different connecting flights. The per-flight airports and minutes
+        distinguish those without splitting operating/marketing codeshares.
+        The return date is part of the key whenever one was searched for.
         """
         parts = [
             self.query.depart.isoformat(),
@@ -197,6 +198,15 @@ class Itinerary:
                 _minute(self.inbound.arrival),
                 str(self.inbound.stops if self.inbound.stops is not None else "?"),
             ]
+        # Keep existing nonstop identities. Connecting journeys need the full
+        # schedule; endpoint-only keys once merged AA81 with AA6950 and copied
+        # one flight's duration into the other flight's clock times.
+        for direction, leg in (("outbound", self.outbound), ("inbound", self.inbound)):
+            if leg and len(leg.segments) > 1:
+                parts.append(direction)
+                for segment in leg.segments:
+                    parts.extend((segment.origin, segment.destination,
+                                  _minute(segment.departure), _minute(segment.arrival)))
         return hashlib.sha1("|".join(parts).encode()).hexdigest()
 
     def to_row(self) -> Dict[str, Any]:

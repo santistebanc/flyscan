@@ -162,21 +162,32 @@ def _merge_segments(stored: Optional[str], fresh: Optional[str]) -> Optional[str
     is ever overwritten — the column-level rule this sits beside, applied
     inside the JSON where the real gaps are.
 
-    Only lists describing the same flights are merged: a different number of
-    segments means a different itinerary detail, and the stored one is left
-    alone rather than guessed at.
+    Only lists describing the same per-flight airports and minute-level clock
+    times are merged. Equal segment counts alone do not establish identity.
+    Marketing/operating flight numbers may differ for the same physical flight.
     """
     try:
         old = json.loads(stored or "[]") or []
         new = json.loads(fresh or "[]") or []
     except (TypeError, ValueError):
         return None
-    if not old or not new or len(old) != len(new):
+    if not isinstance(old, list) or not isinstance(new, list) or not old or not new or len(old) != len(new):
         return None
+
+    def identity(segment):
+        return (str(segment.get("origin") or "").upper(),
+                str(segment.get("destination") or "").upper(),
+                str(segment.get("departure") or "")[:16],
+                str(segment.get("arrival") or "")[:16])
 
     changed = False
     out: List[Dict[str, Any]] = []
     for was, now in zip(old, new):
+        if not isinstance(was, dict) or not isinstance(now, dict):
+            return None
+        old_identity, new_identity = identity(was), identity(now)
+        if not all(old_identity) or not all(new_identity) or old_identity != new_identity:
+            return None
         merged = dict(was)
         for key, value in now.items():
             if value in (None, "", []) or merged.get(key) not in (None, "", []):
@@ -548,7 +559,7 @@ class FlightStore:
         infants: int = 0,
         cabin: str = "economy",
         max_stops: Optional[int] = None,
-        limit: int = 300,
+        limit: Optional[int] = 300,
     ) -> List[Dict[str, Any]]:
         """Stored flights for a search, each with every seller's price.
 
@@ -605,7 +616,7 @@ class FlightStore:
             data = self._row(row)
             trip = trips.get(data["id"])
             if trip is None:
-                if len(trips) >= limit:
+                if limit is not None and len(trips) >= limit:
                     continue
                 trip = {
                     key: value for key, value in data.items()

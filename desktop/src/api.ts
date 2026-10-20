@@ -15,6 +15,14 @@ export type SourceName =
 
 export type Cabin = "economy" | "premiumeconomy" | "business" | "first";
 
+/** One hit from `/places` autocomplete (Travelpayouts). */
+export interface PlaceSuggestion {
+  code: string;
+  name: string;
+  country: string;
+  kind: string;
+}
+
 /** One question for one source, as the queue describes it. */
 export interface QueueJob {
   id: number | null;
@@ -407,7 +415,7 @@ export class FlightScraperApi {
   }
 
   places(term: string) {
-    return this.json<{ code: string; name: string; country: string; kind: string }[]>(
+    return this.json<PlaceSuggestion[]>(
       `/places?q=${encodeURIComponent(term)}`,
     );
   }
@@ -418,7 +426,7 @@ export class FlightScraperApi {
    * This is the read side, and it is why editing the form can fill the table
    * instantly: asking the sources is a separate, deliberate act.
    */
-  storedFlights(request: SearchRequest, limit = 300) {
+  storedFlights(request: SearchRequest, limit = 0) {
     const query = new URLSearchParams({
       origin: request.origin,
       destination: request.destination,
@@ -427,8 +435,10 @@ export class FlightScraperApi {
       children: String(request.children ?? 0),
       infants: String(request.infants ?? 0),
       cabin: request.cabin ?? "economy",
-      limit: String(limit),
+      limit: String(limit === 0 ? 1000 : limit),
     });
+    // Older sidecars ignore `all` and still return a bounded, usable list.
+    if (limit === 0) query.set("all", "1");
     if (request.end) query.set("end", request.end);
     // Sent even when empty: a blank return means "one-way only", not "either".
     if (request.ret) query.set("ret", request.ret);

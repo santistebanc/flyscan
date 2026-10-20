@@ -15,6 +15,7 @@ packaging/dist/
 packaging/*.spec
 desktop/node_modules/
 desktop/dist/
+desktop/prototypes/
 desktop/src-tauri/target/
 desktop/src-tauri/gen/
 desktop/src-tauri/binaries/

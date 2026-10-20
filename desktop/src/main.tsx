@@ -14,6 +14,10 @@ import App from "./App";
 import { FlightScraperApi } from "./api";
 import { apiBase } from "./platform";
 import "./styles.css";
+import "./theme.css";
+import "./flightTimeline.css";
+import "./details.css";
+import "./filters.css";
 
 /** Whatever the page was doing when it broke, for whoever reads this later. */
 const surroundings = () => ({

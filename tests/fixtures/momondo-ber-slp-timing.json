@@ -1,0 +1,58 @@
+{
+  "capture_note": "Minimal non-sensitive Momondo flight metadata captured on 2026-10-20 for BER-SLP on 2026-12-10.",
+  "leg": {
+    "id": "BERSLP1796900400000AA66931796911200000AA69501796979600000AA10973",
+    "segments": [
+      {
+        "id": "1796900400000AA669306050710"
+      },
+      {
+        "id": "1796911200000AA695009451410"
+      },
+      {
+        "id": "1796979600000AA109704580716"
+      }
+    ]
+  },
+  "legs_index": {
+    "BERSLP1796900400000AA66931796911200000AA69501796979600000AA10973": {
+      "duration": 1931,
+      "arrival": "2026-12-11T12:16:00",
+      "departure": "2026-12-10T11:05:00"
+    }
+  },
+  "segments_index": {
+    "1796900400000AA669306050710": {
+      "airline": "AA",
+      "flightNumber": "6693",
+      "origin": "BER",
+      "destination": "LHR",
+      "arrival": "2026-12-10T12:10:00",
+      "departure": "2026-12-10T11:05:00",
+      "duration": 125
+    },
+    "1796911200000AA695009451410": {
+      "airline": "AA",
+      "flightNumber": "6950",
+      "origin": "LHR",
+      "destination": "DFW",
+      "arrival": "2026-12-10T19:10:00",
+      "departure": "2026-12-10T14:45:00",
+      "duration": 625
+    },
+    "1796979600000AA109704580716": {
+      "airline": "AA",
+      "flightNumber": "1097",
+      "origin": "DFW",
+      "destination": "SLP",
+      "arrival": "2026-12-11T12:16:00",
+      "departure": "2026-12-11T09:58:00",
+      "duration": 138
+    }
+  },
+  "airlines": {
+    "AA": {
+      "name": "American Airlines"
+    }
+  }
+}

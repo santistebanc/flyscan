@@ -1,0 +1,81 @@
+/* The chosen Timeline design. Dates share the fare column so the plot receives
+   all remaining width. */
+.results-loading { display: flex; align-items: center; justify-content: center; gap: 8px; min-height: 160px; padding: 24px 16px; color: var(--muted); font-size: 14px; line-height: 20px; }
+:root { --flight-columns: 136px minmax(0, 1fr); --flight-gap: 12px; }
+:root .results .flight { grid-template-columns: var(--flight-columns); gap: var(--flight-gap); align-items: center; padding: 12px 16px; scroll-margin-top: calc(var(--header-h) + 128px); }
+:root .results .fare-cell { --fare-star-size: 32px; grid-column: 1; grid-row: 1; display: flex; flex-direction: column; justify-content: center; gap: 12px; }
+.fare-header { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.fare-header .favorite-button { flex-shrink: 0; width: var(--fare-star-size); min-width: var(--fare-star-size); height: var(--fare-star-size); }
+.fare-header .price { min-width: 0; text-align: right; font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
+:root .results .price { font-size: 20px; line-height: 28px; }
+.flight-dates { display: flex; flex-direction: column; gap: 8px; font-size: 12px; line-height: 16px; color: var(--muted); }
+.fare-journey { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: baseline; gap: 8px; }
+.fare-journey-label { display: flex; align-items: baseline; flex-wrap: wrap; gap: 2px 4px; min-width: 0; padding-left: calc((var(--fare-star-size) - 16px) / 2); }
+.fare-journey-label strong { color: var(--accent); font: 600 12px/16px "Geist Mono", monospace; }
+.fare-route { display: inline-flex; align-items: center; gap: 4px; white-space: nowrap; }
+.fare-route > .icon { color: var(--muted); }
+.fare-journey--one-way { row-gap: 4px; }
+.fare-journey--one-way .fare-journey-label { display: contents; }
+.fare-journey--one-way .fare-route { grid-column: 1 / -1; padding-left: calc((var(--fare-star-size) - 16px) / 2); }
+.fare-journey--one-way .fare-journey-date { padding-left: calc((var(--fare-star-size) - 16px) / 2); }
+.fare-journey--one-way > .timeline-duration { grid-column: 2; grid-row: 2; }
+.fare-journey-date { color: var(--muted); white-space: nowrap; font-variant-numeric: tabular-nums; }
+.fare-journey > .timeline-duration { align-self: start; }
+:root .results .trip { grid-column: 2; grid-row: 1; min-width: 0; }
+:root .results .trip > .back { margin-top: 12px; }
+.flight-timeline { display: block; min-width: 0; }
+.timeline-meta { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; font: 14px/20px "Geist Mono", monospace; }
+.timeline-meta > span { display: inline-flex; align-items: baseline; gap: 8px; white-space: nowrap; }
+.timeline-meta b { font-weight: 550; }
+.timeline-meta strong { color: var(--accent); font: 600 12px/16px Geist, sans-serif; }
+.timeline-meta sup { color: var(--warn); font-size: 10px; line-height: 1; margin-left: 2px; }
+.timeline-plot { position: relative; display: block; width: 100%; height: 24px; }
+.timeline-plot::before { content: ""; position: absolute; inset: 11px 0 auto; border-top: 1px solid var(--line); }
+.timeline-guide { position: absolute; top: 0; bottom: 0; width: 1px; background: var(--line-soft); pointer-events: none; }
+.timeline-hotspot { display: flex; justify-content: center; align-items: center; background: transparent; border: 0; padding: 0; min-width: 0; color: var(--ink-soft); font: inherit; cursor: help; }
+.timeline-part { position: absolute; top: 0; height: 24px; }
+.timeline-ink { position: absolute; top: 9px; left: 0; right: 0; height: 5px; background: var(--airline); pointer-events: none; }
+.timeline-part.layover .timeline-ink { top: 10px; height: 0; background: transparent; border-top: 3px dotted #8494ac; }
+.timeline-part.summary .timeline-ink { top: 10px; height: 0; background: transparent; border-top: 3px dashed var(--muted); }
+.timeline-midnight { position: absolute; bottom: calc(100% - 8px); z-index: 1; display: flex; margin-left: 4px; color: var(--muted); opacity: .6; font-size: 12px; line-height: 14px; white-space: nowrap; pointer-events: none; }
+.timeline-midnight[data-edge] { margin-left: -4px; transform: translateX(-100%); }
+:root .timeline-hotspot:hover { filter: none; background: #31415a; }
+.timeline-hotspot:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; z-index: 2; }
+.timeline-footer { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; font-size: 12px; line-height: 16px; }
+.timeline-stops { display: flex; flex-wrap: wrap; gap: 4px 12px; min-width: 0; color: var(--accent); }
+.timeline-stops > span { white-space: nowrap; }
+.timeline-stops > span > span { color: var(--muted); margin-left: 4px; }
+.layover-night { display: inline-flex; vertical-align: -3px; margin-left: 4px; color: var(--muted); opacity: .7; }
+.layover-night .icon { fill: currentColor; }
+.timeline-summary-hint { display: inline-flex; align-items: center; gap: 4px; color: var(--muted); }
+.timeline-duration { display: inline-flex; align-items: center; gap: 4px; white-space: nowrap; font: 12px/16px "Geist Mono", monospace; }
+.timeline-timing-warning { display: inline-flex; color: var(--warn); }
+.timeline-unavailable { display: block; padding-block: 4px; color: var(--muted); font-size: 12px; }
+:root .results-bar { padding-inline: 16px; column-gap: 12px; row-gap: 4px; }
+.timeline-tooltip { position: fixed; z-index: 10000; width: 300px; max-width: calc(100vw - 24px); padding: 12px 16px; background: #1b2739; border: 1px solid #526b90; box-shadow: 0 8px 24px #0006; font-size: 12px; color: var(--ink); pointer-events: auto; }
+.tip-heading { display: flex; align-items: center; gap: 8px; font-weight: 600; margin-bottom: 8px; }
+.tip-heading i { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+.tip-route, .tip-times { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; }
+.tip-route { color: var(--accent); }
+.tip-route b { color: var(--ink); font-weight: 500; }
+.tip-times { font: 12px/24px "Geist Mono", monospace; }
+.tip-times > span { color: var(--muted); }
+.tip-foot { color: var(--muted); font-size: 12px; border-top: 1px solid var(--line); padding-top: 8px; line-height: 16px; }
+.tip-timing-note { color: var(--warn); margin-top: 8px; font-size: 12px; line-height: 16px; }
+@media (max-width: 600px) {
+  :root { --flight-columns: 112px minmax(0, 1fr); --flight-gap: 8px; }
+  .fare-journey-label { flex-direction: column; }
+  :root .results .flight { padding: 12px 16px; }
+  .timeline-meta { flex-wrap: wrap; font-size: 12px; line-height: 16px; gap: 0 8px; }
+  .timeline-meta > span { gap: 4px; }
+  .timeline-meta > span:last-child { margin-left: auto; }
+  .timeline-stops > span > span:not(.layover-night) { display: none; }
+}
+@media (pointer: coarse) {
+  :root .results .fare-cell { --fare-star-size: 44px; }
+  .timeline-plot, .timeline-part { height: 44px; }
+  .timeline-ink { top: 19px; }
+  .timeline-midnight { bottom: calc(100% - 18px); }
+  .timeline-plot::before { top: 21px; }
+  .timeline-part.layover .timeline-ink, .timeline-part.summary .timeline-ink { top: 20px; }
+}

@@ -1,0 +1,75 @@
+/* Compact, value-first filters in the existing Ledger toolbar. */
+.sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; border: 0; }
+:root .results-bar { gap: 4px 8px; padding-block: 8px; }
+.results-view-controls { display: flex; flex: 0 0 auto; align-items: center; gap: 12px; margin-left: auto; }
+.currency-field { position: relative; display: flex; flex-direction: row; align-items: center; gap: 0; }
+:root .currency-field input { width: 64px; min-width: 0; min-height: 28px; padding: 4px 24px 4px 8px; font: 500 12px/16px Geist, sans-serif; background: var(--bg); border: 1px solid var(--line); }
+:root .currency-field input:focus { width: 144px; border-color: var(--accent); outline: 2px solid var(--accent); outline-offset: 2px; }
+.currency-field > .icon { position: absolute; top: 50%; right: 4px; transform: translateY(-50%); color: var(--muted); pointer-events: none; }
+.currency-suggest { position: fixed; z-index: 70; display: flex; flex-direction: column; width: 304px; max-width: calc(100vw - 24px); padding: 4px 0 0; background: var(--panel); border: 1px solid var(--line); box-shadow: 0 8px 24px #0006; }
+.currency-suggest ul { min-height: 0; overflow-y: auto; overscroll-behavior: contain; margin: 0; padding: 0 4px; list-style: none; }
+.currency-option { display: flex; align-items: center; gap: 12px; padding: 8px; min-height: 36px; font-size: 12px; line-height: 16px; color: var(--ink-soft); cursor: pointer; }
+.currency-option:hover, .currency-option.active { background: var(--line-soft); color: var(--ink); }
+.currency-code { min-width: 28px; color: var(--accent); font-weight: 600; }
+.currency-name { flex: 1; min-width: 0; }
+.currency-option > .icon { flex-shrink: 0; color: var(--accent); }
+.currency-hint { flex-shrink: 0; margin: 0; padding: 8px 12px; color: var(--muted); font-size: 12px; line-height: 16px; }
+.currency-rate-source { display: flex; flex-shrink: 0; align-items: center; justify-content: space-between; gap: 8px; padding: 8px 12px; border-top: 1px solid var(--line-soft); color: var(--muted); font-size: 12px; line-height: 16px; }
+.currency-rate-source a { color: var(--muted); }
+.currency-rate-source a:hover { color: var(--accent); }
+@media (pointer: coarse) { :root .currency-field input, .currency-option { min-height: 44px; } }
+.flight-filters { display: flex; flex: 1 1 auto; align-items: center; flex-wrap: wrap; gap: 4px 8px; min-width: 0; }
+.flight-filter-trigger { display: inline-flex; align-items: center; justify-content: center; gap: 4px; min-height: 32px; padding: 4px 8px; color: var(--ink-soft); background: transparent; border: 1px solid var(--line); font: 500 12px/16px Geist, sans-serif; white-space: nowrap; }
+.flight-filter-trigger > .icon:first-child { color: var(--muted); }
+.flight-filter-trigger > .icon:last-child { color: var(--muted); }
+.flight-filter-trigger b { font-weight: 500; color: inherit; }
+.flight-filter-trigger:hover, .flight-filter-trigger[aria-expanded="true"] { background: var(--line-soft); color: var(--ink); filter: none; }
+.flight-filter-trigger[data-active] { border-color: color-mix(in srgb, var(--accent) 55%, var(--line)); color: var(--accent); background: var(--accent-soft); }
+.flight-filter-trigger[data-active] > .icon { color: var(--accent); }
+.flight-filters .filter-count { white-space: nowrap; font-size: 12px; line-height: 16px; }
+.filter-reset-all { display: inline-flex; align-items: center; gap: 4px; min-height: 32px; padding: 4px; color: var(--muted); background: transparent; border: 0; font-size: 12px; line-height: 16px; }
+.filter-reset-all:hover { color: var(--ink); filter: none; }
+.filter-checkbox { display: flex; flex-direction: row; align-items: center; gap: 8px; padding: 12px 0; color: var(--ink); font-size: 14px; line-height: 20px; font-weight: 400; letter-spacing: 0; text-transform: none; }
+.filter-checkbox input { flex-shrink: 0; width: 16px; min-width: 16px; height: 16px; min-height: 16px; margin: 0; padding: 0; accent-color: var(--accent); }
+.flight-filters button:focus-visible, .flight-filter-panel :is(button, input, select):focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.flight-filter-panel { position: fixed; z-index: 30; width: 320px; max-width: calc(100vw - 24px); overflow-y: auto; overscroll-behavior: contain; padding: 16px; color: var(--ink); background: var(--panel); border: 1px solid var(--line); box-shadow: 0 8px 24px #0006; }
+.filter-panel-heading { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 12px; }
+.filter-panel-heading h3 { margin: 0; font-size: 14px; line-height: 20px; font-weight: 600; }
+.filter-panel-heading > button { display: inline-flex; align-items: center; justify-content: center; width: 28px; height: 28px; padding: 4px; background: transparent; color: var(--muted); border: 0; }
+.filter-panel-heading > button:hover { color: var(--ink); background: var(--line-soft); filter: none; }
+.filter-panel-note { margin: 8px 0; font-size: 12px; line-height: 16px; color: var(--muted); }
+.filter-stop-options { display: flex; flex-direction: column; gap: 4px; margin-top: 8px; }
+.filter-stop-options button { display: flex; align-items: center; justify-content: space-between; gap: 8px; min-height: 36px; padding: 8px; text-align: left; color: var(--ink-soft); border: 0; background: transparent; font-size: 12px; line-height: 16px; }
+.filter-stop-options button:hover { color: var(--ink); background: var(--line-soft); filter: none; }
+.filter-stop-options button[aria-pressed="true"] { color: var(--accent); background: var(--accent-soft); }
+.filter-limit-label { display: flex; flex-direction: column; align-items: stretch; gap: 8px; color: var(--ink-soft); font-size: 12px; line-height: 16px; }
+.filter-limit-field { display: flex; align-items: center; gap: 8px; border: 1px solid var(--line); background: var(--bg); }
+.filter-limit-field:focus-within { border-color: var(--accent); }
+.filter-limit-field input { flex: 1; min-width: 0; width: 100%; min-height: 40px; padding: 8px 12px; border: 0; color: var(--ink); background: transparent; font: 14px/20px "Geist Mono", monospace; }
+.filter-limit-field > span { padding-right: 12px; color: var(--muted); }
+.filter-presets { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
+.filter-presets button, .filter-dayparts button, .filter-direction-tabs button { min-height: 32px; padding: 4px 8px; color: var(--ink-soft); background: transparent; border: 1px solid var(--line); font-size: 12px; line-height: 16px; }
+.filter-presets button:hover, .filter-dayparts button:hover, .filter-direction-tabs button:hover { background: var(--line-soft); color: var(--ink); filter: none; }
+.filter-presets button[aria-pressed="true"], .filter-dayparts button[aria-pressed="true"], .filter-direction-tabs button[aria-pressed="true"] { color: var(--accent); background: var(--accent-soft); border-color: var(--accent); }
+.filter-direction-tabs { display: flex; gap: 8px; margin-bottom: 16px; }
+.filter-direction-tabs button { flex: 1; }
+.filter-times-panel { width: 360px; }
+.filter-time-range { position: relative; min-width: 0; border: 0; margin: 0; padding: 0; }
+.filter-time-range + .filter-time-range { margin-top: 16px; padding-top: 16px; border-top: 1px solid var(--line-soft); }
+.filter-time-bound-label { display: flex; flex-direction: row; align-items: center; justify-content: space-between; gap: 12px; font-size: 12px; line-height: 16px; }
+.filter-time-bound-label select { min-width: 100px; min-height: 32px; padding: 4px 8px; font: 12px/16px "Geist Mono", monospace; }
+.filter-time-range .time-range-track { height: 32px; margin-top: 8px; }
+.filter-time-range .time-range-rail, .filter-time-range .time-range-fill { top: 14px; }
+.filter-time-range .time-range-track input[type="range"] { height: 32px; }
+.filter-time-range .time-range-track input[type="range"]::-webkit-slider-thumb { width: 16px; height: 16px; margin-top: -6px; }
+.filter-time-range .time-range-track input[type="range"]::-moz-range-thumb { width: 16px; height: 16px; }
+.filter-dayparts { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 4px; margin-top: 4px; }
+.filter-dayparts button { padding-inline: 0; font-size: 12px; }
+.filter-times-footer { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-top: 16px; color: var(--muted); font-size: 12px; line-height: 16px; }
+.filter-times-footer button { min-height: 28px; padding: 4px 0; background: transparent; border: 0; color: var(--accent); font-size: 12px; }
+@media (pointer: coarse) {
+  .flight-filter-trigger, .filter-reset-all, .filter-presets button, .filter-direction-tabs button, .filter-stop-options button, .filter-dayparts button, .filter-panel-heading > button, .filter-time-bound-label select { min-height: 44px; }
+  .filter-panel-heading > button { width: 44px; }
+  .filter-time-range .time-range-track, .filter-time-range .time-range-track input[type="range"] { height: 44px; }
+  .filter-time-range .time-range-rail, .filter-time-range .time-range-fill { top: 20px; }
+}

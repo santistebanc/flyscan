@@ -1,0 +1,62 @@
+{
+  "airlines": "American Airlines",
+  "arrival": "2026-12-14T22:20",
+  "departure": "2026-12-12T13:28",
+  "destination_airport": "BER",
+  "duration": "49h 52m",
+  "flight_numbers": "",
+  "origin_airport": "SLP",
+  "segments": [
+    {
+      "arrival": "2026-12-12T16:51",
+      "carrier": "Y4",
+      "carrier_name": "Volaris",
+      "departure": "2026-12-12T13:28",
+      "destination": "MDW",
+      "duration": "3h 23m",
+      "flight_number": "Y41892",
+      "origin": "SLP"
+    },
+    {
+      "arrival": "2026-12-14T05:15",
+      "carrier": "EI",
+      "carrier_name": "Aer Lingus",
+      "departure": "2026-12-13T15:55",
+      "destination": "DUB",
+      "duration": "7h 20m",
+      "flight_number": "EI122",
+      "origin": "ORD"
+    },
+    {
+      "arrival": "2026-12-14T10:50",
+      "carrier": "EI",
+      "carrier_name": "Aer Lingus",
+      "departure": "2026-12-14T07:10",
+      "destination": "BCN",
+      "duration": "2h 40m",
+      "flight_number": "EI562",
+      "origin": "DUB"
+    },
+    {
+      "arrival": "2026-12-14T19:50",
+      "carrier": "SN",
+      "carrier_name": "Brussels Airlines",
+      "departure": "2026-12-14T17:40",
+      "destination": "BRU",
+      "duration": "2h 10m",
+      "flight_number": "SN3704",
+      "origin": "BCN"
+    },
+    {
+      "arrival": "2026-12-14T22:20",
+      "carrier": "SN",
+      "carrier_name": "Brussels Airlines",
+      "departure": "2026-12-14T20:55",
+      "destination": "BER",
+      "duration": "1h 25m",
+      "flight_number": "SN2591",
+      "origin": "BRU"
+    }
+  ],
+  "stops": 4
+}

@@ -1,5 +1,5 @@
 /**
- * One stylesheet for the whole app.
+ * Base layout and interaction styles. The selected visual theme is in theme.css.
  *
  * The page is a frame, not a document: a header of search controls across the
  * top, the results down the left, the sources and the picked flight down the
@@ -16,42 +16,11 @@
  */
 
 :root {
-  --bg: #f6f7f9;
-  --panel: #fff;
-  --ink: #16191d;
-  --ink-soft: #454b54;
-  --muted: #78818d;
-  --line: #dfe3e8;
-  --line-soft: #eef0f4;
-  --accent: #0770e3;
-  --accent-soft: #e8f1fd;
-  --ok: #0b7a52;
-  --bad: #c0392b;
-  --warn: #a4630b;
-
-  --side-width: 380px;
   /* Both are remeasured by the elements themselves — the header grows when
      Advanced opens, and the side panel is only as tall as what it holds once
      it stacks. These are the values the first paint uses. */
   --header-h: 64px;
   --side-h: 0px;
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --bg: #101316;
-    --panel: #171a1e;
-    --ink: #eef2f6;
-    --ink-soft: #c3ccd6;
-    --muted: #8b97a5;
-    --line: #2b3138;
-    --line-soft: #1e2329;
-    --accent: #4a9df8;
-    --accent-soft: #16273c;
-    --ok: #3fd39a;
-    --bad: #f2705f;
-    --warn: #e0a53f;
-  }
 }
 
 * { box-sizing: border-box; }
@@ -128,6 +97,49 @@ input:focus, select:focus { outline: none; border-color: var(--accent); }
 .params input[type="number"] { width: 58px; }
 .params select { min-width: 0; width: auto; }
 
+/* From/To grow while typing a city name so suggestions stay under the field. */
+.place-field { position: relative; }
+.place-field input { width: 74px; transition: width .12s ease; }
+.place-field--open input, .place-field:focus-within input { width: 168px; }
+
+.place-suggest {
+  position: fixed; z-index: 70;
+  margin: 0; padding: 4px 0; list-style: none;
+  max-height: min(280px, 50vh); overflow-y: auto; overscroll-behavior: contain;
+  background: var(--panel); border: 1px solid var(--line);
+  box-shadow: 0 10px 30px rgba(0, 0, 0, .18);
+}
+.place-suggest-item {
+  display: flex; align-items: baseline; gap: 10px;
+  width: 100%; margin: 0; padding: 8px 12px;
+  border: 0; background: transparent; color: var(--ink);
+  font: inherit; font-size: 13px; text-align: left; cursor: pointer;
+}
+.place-suggest-item:hover,
+.place-suggest-item--active { background: var(--line-soft); }
+.place-suggest-item--recent { background: color-mix(in srgb, var(--accent) 10%, transparent); }
+.place-suggest-item--recent:hover,
+.place-suggest-item--recent.place-suggest-item--active {
+  background: color-mix(in srgb, var(--accent) 18%, transparent);
+}
+.place-suggest-item--hint {
+  color: var(--muted); cursor: default; font-size: 12px; padding: 8px 12px;
+}
+.place-suggest-code {
+  flex: 0 0 auto; min-width: 2.4em;
+  font-weight: 700; font-variant-numeric: tabular-nums; color: var(--accent);
+}
+.place-suggest-label {
+  display: flex; align-items: baseline; gap: 8px; min-width: 0; flex: 1;
+}
+.place-suggest-name {
+  min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.place-suggest-kind {
+  flex: 0 0 auto; color: var(--muted); font-size: 11px; text-transform: uppercase;
+  letter-spacing: .04em;
+}
+
 /* Party, cabin and quote currency: the search too, folded away because most
    searches are one adult in economy. Open, it takes its own line across the
    header rather than pushing the dates around. */
@@ -174,13 +186,6 @@ button.disclose:hover { color: var(--ink); filter: none; }
 .cal-trigger.open { border-color: var(--accent); }
 .cal-span {
   margin-left: auto; color: var(--muted); font-size: 11.5px;
-  font-variant-numeric: tabular-nums; white-space: nowrap;
-}
-
-/* How many separate searches the two ranges add up to — the cost of widening
-   either one, in the one unit that matters: questions asked of every source. */
-.trip-count {
-  align-self: flex-end; padding-bottom: 8px;
   font-variant-numeric: tabular-nums; white-space: nowrap;
 }
 
@@ -288,19 +293,74 @@ label.inline select {
   border-bottom: 1px solid var(--line);
 }
 
-.empty-results { padding: 18px 16px; }
+.empty-results { padding: 16px; }
+.empty-results p { margin: 0 0 12px; text-wrap: pretty; }
 
-/* A list, not a table. Four self-evident fields need no headers; the grid is
+.filter-field { display: inline-flex; align-items: center; gap: 4px; }
+.filter-input { min-width: 0; width: 64px; min-height: 28px; padding: 4px 8px; font-size: 12px; background: var(--bg); }
+.filter-suffix { color: var(--muted); font-size: 12px; font-weight: 500; letter-spacing: 0; text-transform: none; }
+.filter-count { color: var(--muted); font-size: 12px; font-variant-numeric: tabular-nums; }
+.filter-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--accent); }
+.time-filter { position: relative; }
+.time-filter > button {
+  display: inline-flex; align-items: center; gap: 6px;
+  min-height: 28px; padding: 4px 8px;
+  background: var(--bg); color: var(--ink); border: 1px solid var(--line);
+  font-size: 12px; font-weight: 500;
+}
+.time-filter > button:hover { filter: none; background: var(--line-soft); }
+.time-filter > button.is-active { color: var(--accent); }
+.time-reset {
+  background: transparent; color: var(--ink-soft); border: 0;
+  min-height: 28px; padding: 4px 2px; font-size: 12px; font-weight: 500;
+}
+.time-reset:hover { filter: none; color: var(--ink); }
+.time-popup {
+  position: absolute; top: calc(100% + 8px); left: 0; z-index: 20;
+  width: 300px; max-width: calc(100vw - 24px);
+  padding: 12px 16px; background: var(--panel);
+  border: 1px solid var(--line); box-shadow: 0 12px 40px #0006;
+}
+.time-direction { border: 0; margin: 0; padding: 0 0 8px; }
+.time-direction legend {
+  padding: 0; font-size: 12px; font-weight: 600; color: var(--ink);
+}
+.time-range { display: block; margin-top: 8px; }
+.time-range-heading { display: flex; justify-content: space-between; gap: 8px; font-size: 12px; color: var(--muted); }
+.time-range-heading b { color: var(--ink); font-weight: 500; font-variant-numeric: tabular-nums; }
+.time-range-track { position: relative; display: block; height: 24px; margin-top: 4px; }
+.time-range-rail, .time-range-fill { position: absolute; top: 10px; height: 4px; }
+.time-range-rail { left: 0; right: 0; background: var(--line); }
+.time-range-fill { background: var(--accent); }
+.time-range-track input[type="range"] {
+  position: absolute; inset: 0; width: 100%; height: 24px; margin: 0; padding: 0;
+  min-width: 0; min-height: 0; border: 0; background: transparent;
+  pointer-events: none; appearance: none;
+}
+.time-range-track input[type="range"]::-webkit-slider-runnable-track { height: 4px; background: transparent; }
+.time-range-track input[type="range"]::-webkit-slider-thumb {
+  appearance: none; pointer-events: auto; width: 14px; height: 14px; margin-top: -5px;
+  border: 0; border-radius: 50%; background: var(--accent); cursor: grab;
+}
+.time-range-track input[type="range"]::-moz-range-track { height: 4px; background: transparent; border: 0; }
+.time-range-track input[type="range"]::-moz-range-thumb {
+  pointer-events: auto; width: 14px; height: 14px; border: 0; border-radius: 50%;
+  background: var(--accent); cursor: grab;
+}
+.time-range-ticks { display: flex; justify-content: space-between; color: var(--muted); font: 10px/12px "Geist Mono", monospace; }
+.time-popup-note { margin: 4px 0 0; color: var(--muted); font-size: 12px; line-height: 16px; }
+
+/* A list, not a table. The star and flight fields need no headers; the grid is
    only here so they still line up down the page.
 
    Only the visible rows exist: the container is given the height the whole
    list *would* have and each row is placed into it, so there is no stacking
    context to lay out and the scrollbar still means what it says. */
-.results { position: relative; }
+.results { position: relative; overflow-anchor: none; }
 .results .flight {
   display: grid;
-  grid-template-columns: minmax(78px, auto) minmax(58px, auto) 1fr auto;
-  align-items: baseline; gap: 20px;
+  grid-template-columns: 28px minmax(78px, auto) minmax(58px, auto) 1fr auto;
+  align-items: baseline; gap: 12px;
   padding: 10px 16px;
   border-bottom: 1px solid var(--line-soft);
   cursor: pointer;
@@ -313,9 +373,25 @@ label.inline select {
    a four-airport itinerary widens its track and pushes the duration out of the
    column — and, on a narrow window, under the side panel. */
 .results .flight > * { min-width: 0; }
-.results .flight:hover { background: var(--line-soft); }
+@media (hover: hover) and (pointer: fine) {
+  .results .flight:hover:not(.picked) { background: var(--line-soft); }
+}
 .results .flight.picked {
   background: var(--accent-soft); box-shadow: inset 2px 0 0 var(--accent);
+}
+.favorite-cell { align-self: center; display: flex; }
+.favorite-button {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 28px; height: 28px; min-width: 28px; padding: 4px;
+  border: 0; background: transparent; color: var(--muted);
+}
+.favorite-button[aria-pressed="true"] { color: var(--warn); }
+.favorite-button[aria-pressed="true"] .icon { fill: currentColor; }
+.favorite-button:hover:not(:disabled) { filter: none; background: var(--line); color: var(--warn); }
+.favorite-button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+@media (pointer: coarse) {
+  .results .flight { grid-template-columns: 44px minmax(78px, auto) minmax(58px, auto) 1fr auto; }
+  .favorite-button { width: 44px; height: 44px; min-width: 44px; }
 }
 
 .results .price {
@@ -327,6 +403,11 @@ label.inline select {
 .results .dur {
   font-size: 12.5px; color: var(--muted); white-space: nowrap; text-align: right;
 }
+.results [data-rating="1"] { color: var(--rating-1); }
+.results [data-rating="2"] { color: var(--rating-2); }
+.results [data-rating="3"] { color: var(--rating-3); }
+.results [data-rating="4"] { color: var(--rating-4); }
+.results [data-rating="5"] { color: var(--rating-5); }
 
 /* `21:15 BER → STN → CDG 12:20`
 
@@ -356,6 +437,7 @@ label.inline select {
    trip read down the same two lines. */
 .back { margin-top: 3px; }
 .results .day .back, .results .dur .back { font-size: 11.5px; opacity: .75; }
+.results .dur .back[data-rating] { opacity: 1; }
 .back .itin { font-size: 12.5px; }
 .back .itin .clock { font-weight: 500; color: var(--ink-soft); }
 .back .itin .path { color: var(--muted); }
@@ -507,6 +589,7 @@ label.inline select {
 
 /* -- the picked flight --------------------------------------------------- */
 
+.detail .section-head { align-items: center; justify-content: space-between; padding-block: 4px; }
 .detail h2 {
   font-size: 22px; font-weight: 700; letter-spacing: -.025em;
   margin: 0 16px 2px;

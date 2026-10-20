@@ -12,12 +12,11 @@
 import {
   useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState,
 } from "react";
-import { useWindowVirtualizer } from "@tanstack/react-virtual";
+import { defaultRangeExtractor, useWindowVirtualizer } from "@tanstack/react-virtual";
 import {
   FlightScraperApi,
   type Cabin,
   type FlightRow,
-  type Leg,
   type PendingChallenge,
   type SearchRequest,
   type SourceName,
@@ -32,7 +31,21 @@ import { useFlights } from "./useFlights";
 import { useQueue } from "./useQueue";
 import { RangeStatus } from "./RangeStatus";
 import { rangeStats } from "./queueModel";
-import { Icon } from "./Icon";
+import { Icon, Spinner } from "./Icon";
+import { flightRatings } from "./flightRatings";
+import { DEFAULT_SORT, SORT_LABELS, sortFlightRows, type SortKey } from "./flightSort";
+import { useFavorites } from "./useFavorites";
+import { FavoriteButton } from "./FavoriteButton";
+import { FlightTimeline, LegDuration } from "./TimelineFlight";
+import { TimelineTooltipProvider } from "./TimelineTooltip";
+import { flightTimelines, type FlightTimelines } from "./flightTimeline";
+import { FILTERS_KEY, FlightFiltersBar } from "./FilterBar";
+import { FILTERS_VERSION, filtersActive, matchesFlight, sanitizeFilters, type ListFilters } from "./flightFilters";
+import { connectionFilterOptions, filterRanges } from "./filterSuggestions";
+import { PlaceInput } from "./PlaceInput";
+import { CurrencyInput } from "./CurrencyInput";
+import { rememberPlace } from "./recentPlaces";
+import { useFlightArrivals, useSelectedFlightAnchor } from "./useFlightListEffects";
 
 /** Default to a couple of weeks out: today's flights are mostly gone. */
 function defaultDate(): string {
@@ -134,94 +147,6 @@ function readableDay(iso: string): string {
   return day.toLocaleDateString(undefined, { month: "short", day: "numeric" });
 }
 
-/** The airports actually touched: BER → STN → CDG, connections included. */
-function pathOf(leg: Leg | null, fallback: string): string[] {
-  const segments = leg?.segments ?? [];
-  if (!segments.length) {
-    return leg
-      ? [leg.origin_airport, leg.destination_airport]
-      : fallback.split("-");
-  }
-  return [segments[0]!.origin, ...segments.map((segment) => segment.destination)];
-}
-
-const clockOf = (iso: string) => (iso || "").slice(11, 16);
-
-/** Whole days between departure and arrival, for the "+1" an overnight needs. */
-function dayShift(from: string, to: string): number {
-  const a = Date.parse(`${(from || "").slice(0, 10)}T00:00:00`);
-  const b = Date.parse(`${(to || "").slice(0, 10)}T00:00:00`);
-  if (!Number.isFinite(a) || !Number.isFinite(b)) return 0;
-  return Math.round((b - a) / 86_400_000);
-}
-
-/** One direction as `21:15 BER → STN → CDG 12:20`. */
-function Itinerary({ leg, fallback }: { leg: Leg | null; fallback: string }) {
-  if (!leg) return null;
-  const stops = pathOf(leg, fallback);
-  const shift = dayShift(leg.departure, leg.arrival);
-  return (
-    <span className="itin">
-      <span className="clock">{clockOf(leg.departure)}</span>
-      <span className="path">
-        {stops.map((code, index) => (
-          <span key={`${code}-${index}`}>
-            {index > 0 && <Icon name="arrow-right" className="arrow" />}
-            {code}
-          </span>
-        ))}
-      </span>
-      <span className="clock">{clockOf(leg.arrival)}</span>
-      {shift > 0 && <span className="nextday">+{shift}</span>}
-    </span>
-  );
-}
-
-/** How the list is ordered. The database only ever hands it back cheapest-first. */
-type SortKey = "price" | "depart" | "duration" | "stops";
-
-const SORT_LABELS: Record<SortKey, string> = {
-  price: "Cheapest",
-  depart: "Departure",
-  duration: "Shortest",
-  stops: "Fewest stops",
-};
-
-/** Minutes in the air, from the timestamps; the printed duration is a fallback. */
-function minutesOf(row: FlightRow): number {
-  const from = Date.parse(row.departure), to = Date.parse(row.arrival);
-  if (Number.isFinite(from) && Number.isFinite(to) && to > from) {
-    return (to - from) / 60_000;
-  }
-  const match = /(?:(\d+)\s*h)?\s*(?:(\d+)\s*m)?/.exec(row.duration || "");
-  return (+(match?.[1] ?? 0)) * 60 + (+(match?.[2] ?? 0)) || Infinity;
-}
-
-/**
- * Reorder what is on screen — never re-query.
- *
- * These rows are the cheapest few hundred for this search, chosen by price
- * before they got here. Sorting by anything else re-orders that set; it does
- * not go looking for a shorter flight that was too dear to make the list.
- */
-function sortRows(rows: FlightRow[], key: SortKey): FlightRow[] {
-  const priceOf = (row: FlightRow) => row.best?.price_base ?? Infinity;
-  // Ties fall back to price, or two flights of equal length look shuffled.
-  const by = (rank: (row: FlightRow) => number) =>
-    [...rows].sort((a, b) => rank(a) - rank(b) || priceOf(a) - priceOf(b));
-
-  switch (key) {
-    case "depart":
-      return by((row) => Date.parse(row.departure) || Date.parse(`${row.depart_date}T00:00`));
-    case "duration":
-      return by(minutesOf);
-    case "stops":
-      return by((row) => row.outbound?.stops ?? row.stops ?? 9);
-    default:
-      return by(priceOf);
-  }
-}
-
 /**
  * The results, as a list rather than a table.
  *
@@ -230,14 +155,20 @@ function sortRows(rows: FlightRow[], key: SortKey): FlightRow[] {
  * seller's price live in the side panel, which is what keeps a row scannable.
  */
 function Results(
-  { rows, total, openKey, onOpen }:
+  { rows, dataset, total, limited, loading, openKey, onOpen, favorites, onToggleFavorite, ratings, timelines, connectionRecovery }:
   {
-    rows: FlightRow[]; total: number; openKey: string | null;
+    rows: FlightRow[]; dataset: FlightRow[]; total: number; limited: boolean; loading: boolean; openKey: string | null;
     onOpen: (key: string) => void;
+    favorites: ReadonlySet<string>; onToggleFavorite: (key: string) => void;
+    ratings: ReturnType<typeof flightRatings>;
+    timelines: FlightTimelines;
+    connectionRecovery: { label: string; onClick: () => void } | null;
   },
 ) {
   const { money } = useCurrency();
   const list = useRef<HTMLDivElement | null>(null);
+  const index = openKey ? rows.findIndex((row) => row.trip_key === openKey) : -1;
+  const isAnchored = useSelectedFlightAnchor(list, openKey);
   /**
    * How far down the document the list starts.
    *
@@ -271,18 +202,28 @@ function Results(
    */
   const virtual = useWindowVirtualizer({
     count: rows.length,
-    estimateSize: () => 69,
+    estimateSize: (i) => rows[i]?.inbound || rows[i]?.return_date ? 156 : 84,
     overscan: 10,
     scrollMargin: listTop,
     getItemKey: (index) => rows[index]?.trip_key ?? index,
+    rangeExtractor: (range) => {
+      const indexes = defaultRangeExtractor(range);
+      // One extra mounted row lets a large insert preserve the selection even
+      // when its new index would otherwise fall outside the virtual viewport.
+      if (index >= 0 && !indexes.includes(index)) indexes.push(index);
+      return indexes.sort((a, b) => a - b);
+    },
   });
+  // The selected row's anchor handles measurement changes before paint. Avoid
+  // a second correction from the virtualizer while that anchor is visible.
+  virtual.shouldAdjustScrollPositionOnItemSizeChange = isAnchored() ? () => false : undefined;
+  useFlightArrivals(list, dataset);
 
   // Arrow keys walk the selection past the edge of the screen, so the page has
   // to follow it. The neighbouring row is nearly always mounted thanks to the
   // overscan, and moving to a *rendered* row keeps `scroll-margin-top` doing
   // its job of clearing the sticky bar; only a jump to somewhere far away —
   // Home, End — has to be handed to the virtualiser.
-  const index = openKey ? rows.findIndex((row) => row.trip_key === openKey) : -1;
   useEffect(() => {
     if (index < 0) return;
     const node = list.current?.querySelector<HTMLElement>(`[data-index="${index}"]`);
@@ -291,15 +232,26 @@ function Results(
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [openKey]);
 
-  if (total === 0) return <p className="muted empty-results">no flights to show</p>;
+  if (rows.length === 0) {
+    if (loading && total === 0) return <div className="results-loading" role="status">
+      <Spinner /><span>Loading flights…</span>
+    </div>;
+    return <div className="empty-results">
+      <p className="muted">{connectionRecovery ? "No flights match your connection preferences."
+        : limited && total > 0 ? "Nothing matches these limits." : "No flights to show."}</p>
+      {connectionRecovery && <button type="button" onClick={connectionRecovery.onClick}>{connectionRecovery.label}</button>}
+    </div>;
+  }
 
   const items = virtual.getVirtualItems();
 
   return (
-    <div
+    <TimelineTooltipProvider resetKey={rows}><div
       className="results"
-      role="listbox"
+      role="grid"
       aria-label="Flights"
+      aria-rowcount={rows.length}
+      aria-colcount={2}
       ref={list}
       // The full height stands in for the rows that are not there, so the
       // scrollbar means what it says.
@@ -308,15 +260,18 @@ function Results(
       {items.map((item) => {
         const row = rows[item.index]!;
         const isOpen = row.trip_key === openKey;
+        const rating = ratings.get(row.trip_key);
+        const favorite = favorites.has(row.trip_key);
+        const oneWay = !row.return_date && !row.inbound;
         return (
           <div
             key={item.key}
             data-index={item.index}
+            data-flight-key={row.trip_key}
             ref={virtual.measureElement}
-            role="option"
+            role="row"
             aria-selected={isOpen}
-            aria-posinset={item.index + 1}
-            aria-setsize={rows.length}
+            aria-rowindex={item.index + 1}
             className={isOpen ? "flight picked" : "flight"}
             onClick={() => onOpen(row.trip_key)}
             style={{
@@ -324,23 +279,37 @@ function Results(
               transform: `translateY(${item.start - virtual.options.scrollMargin}px)`,
             }}
           >
-            <span className="price">{money(row.best?.price_base)}</span>
-            {/* Both dates, stacked to line up with the two itineraries beside
-                them. The return date matters more than it used to: a search is
-                a range of departures against a range of returns, so two rows
-                leaving on the same day can be different trips entirely. */}
-            <span className="day">
-              {readableDay(row.depart_date)}
-              {row.return_date && (
-                <div className="back">{readableDay(row.return_date)}</div>
-              )}
+            <span className="fare-cell" role="gridcell">
+              <span className="fare-header">
+                <FavoriteButton row={row} favorite={favorite} onToggle={onToggleFavorite} />
+                <span className="price" data-rating={rating?.price?.level} title={rating?.price?.description}>{money(row.best?.price_base)}</span>
+              </span>
+              <span className="flight-dates">
+                <span className={oneWay ? "fare-journey fare-journey--one-way" : "fare-journey"}>
+                  <span className="fare-journey-label">
+                    <span className="fare-route">
+                      <strong>{row.outbound.origin_airport}</strong>
+                      {oneWay && <><Icon name="arrow-right" /><strong>{row.outbound.destination_airport}</strong></>}
+                    </span>
+                    <time className="fare-journey-date" dateTime={row.depart_date} title={`Departure: ${row.depart_date}`}>{readableDay(row.depart_date)}</time>
+                  </span>
+                  <LegDuration leg={row.outbound} timing={timelines.journeys.get(row.outbound)} rating={rating?.outbound} />
+                </span>
+                {row.return_date && <span className="fare-journey">
+                  <span className="fare-journey-label">
+                    <strong>{row.inbound?.origin_airport || row.outbound.destination_airport}</strong>
+                    <time className="fare-journey-date" dateTime={row.return_date} title={`Return: ${row.return_date}`}>{readableDay(row.return_date)}</time>
+                  </span>
+                  {row.inbound && <LegDuration leg={row.inbound} timing={timelines.journeys.get(row.inbound)} rating={rating?.inbound} />}
+                </span>}
+              </span>
             </span>
-            <span className="trip">
-              <Itinerary leg={row.outbound} fallback={row.route} />
+            <span className="trip" role="gridcell">
+              <FlightTimeline leg={row.outbound} scale={timelines.outbound} timing={timelines.journeys.get(row.outbound)} />
               {/* A round trip is half-described by its outbound alone. */}
               {row.inbound ? (
                 <div className="back">
-                  <Itinerary leg={row.inbound} fallback={row.route} />
+                  <FlightTimeline leg={row.inbound} scale={timelines.inbound} timing={timelines.journeys.get(row.inbound)} />
                 </div>
               ) : row.return_date && (
                 // The seller priced the round trip without saying which flight
@@ -349,16 +318,10 @@ function Results(
                 <div className="back no-detail">return not detailed</div>
               )}
             </span>
-            <span className="dur">
-              {row.duration}
-              {row.return_duration && (
-                <div className="back">{row.return_duration}</div>
-              )}
-            </span>
           </div>
         );
       })}
-    </div>
+    </div></TimelineTooltipProvider>
   );
 }
 
@@ -389,7 +352,15 @@ function Shell() {
   );
 
   const [openKey, setOpenKey] = useState<string | null>(null);
-  const [sort, setSort] = useState<SortKey>("price");
+  const { favorites, toggleFavorite } = useFavorites();
+  const [sort, setSort] = useState<SortKey>(DEFAULT_SORT);
+  const [filters, setFilters] = useState<ListFilters>(() => {
+    try { return sanitizeFilters(JSON.parse(localStorage.getItem(FILTERS_KEY) || "null")); }
+    catch { return sanitizeFilters(null); }
+  });
+  useEffect(() => {
+    localStorage.setItem(FILTERS_KEY, JSON.stringify({ ...filters, version: FILTERS_VERSION }));
+  }, [filters]);
 
   const challengeRead = useRef(0);
   const refreshChallenges = useCallback(async () => {
@@ -428,9 +399,42 @@ function Shell() {
     void refreshChallenges().catch(() => {});
   }, [refreshChallenges]);
   const engine = useFlights(api, refreshChallengesInBackground);
-  const { currency, setCurrency } = useCurrency();
+  const { roundedIn } = useCurrency();
 
-  const shown = useMemo(() => sortRows(engine.rows, sort), [engine.rows, sort]);
+  const limits = useMemo(() => ({
+    maxPrice: filters.maxPriceEur == null ? null : roundedIn(filters.maxPriceEur),
+    maxDurationMinutes: filters.maxDurationMinutes,
+    maxLayoverMinutes: filters.maxLayoverMinutes,
+    maxStops: filters.maxStops,
+    excludeRepeatedAirports: filters.excludeRepeatedAirports,
+    outbound: filters.outbound,
+    inbound: filters.inbound,
+  }), [filters, roundedIn]);
+  const filtered = useMemo(() => engine.rows.filter((row) => matchesFlight(
+    row, limits, row.best?.price_base == null ? null : roundedIn(row.best.price_base),
+  )), [engine.rows, limits, roundedIn]);
+  const shown = useMemo(() => sortFlightRows(filtered, sort), [filtered, sort]);
+  // Ratings and bounds include every matching row, even offscreen. Sorting
+  // and favorites reuse them; suggestions still cover all loaded results.
+  const ratings = useMemo(() => flightRatings(filtered), [filtered]);
+  const allTimelines = useMemo(() => flightTimelines(engine.rows), [engine.rows]);
+  const timelines = useMemo(() => flightTimelines(filtered, allTimelines.journeys), [filtered, allTimelines]);
+  const suggestions = useMemo(() => filterRanges(engine.rows, allTimelines.journeys), [engine.rows, allTimelines]);
+  const connectionOptions = useMemo(() => connectionFilterOptions(engine.rows, limits,
+    (row) => row.best?.price_base == null ? null : roundedIn(row.best.price_base)), [engine.rows, limits, roundedIn]);
+  const connectionRecovery = useMemo(() => {
+    if (filtered.length || !engine.rows.length) return null;
+    const canShow = (next: typeof limits) => engine.rows.some((row) => matchesFlight(
+      row, next, row.best?.price_base == null ? null : roundedIn(row.best.price_base),
+    ));
+    if (limits.maxLayoverMinutes !== null && canShow({ ...limits, maxLayoverMinutes: null })) {
+      return { label: "Show longer connections", onClick: () => setFilters((old) => ({ ...old, maxLayoverMinutes: null })) };
+    }
+    if (limits.excludeRepeatedAirports && canShow({ ...limits, maxLayoverMinutes: null, excludeRepeatedAirports: false })) {
+      return { label: "Show all connections", onClick: () => setFilters((old) => ({ ...old, maxLayoverMinutes: null, excludeRepeatedAirports: false })) };
+    }
+    return null;
+  }, [filtered, engine.rows, limits, roundedIn]);
 
   // What a scrape will actually ask for. Every departure day against every
   // return day that is not before it — five trips out of three departures and
@@ -469,6 +473,8 @@ function Shell() {
   const queue = useQueue(api, request, engine.running, refreshChallengesInBackground);
   const fetchRange = useCallback((refresh: boolean) => {
     if (request && trips > 0 && !engine.running && !queue.busy) {
+      rememberPlace(request.origin);
+      rememberPlace(request.destination);
       void engine.runSearch({ ...request, refresh });
     }
   }, [request, trips, engine.running, engine.runSearch, queue.busy]);
@@ -507,7 +513,7 @@ function Shell() {
       ])
     : "";
   useEffect(() => {
-    engine.selectView();
+    engine.selectView(Boolean(request));
     if (!api || !request) return;
     const timer = window.setTimeout(() => void engine.loadStored(request), 350);
     return () => window.clearTimeout(timer);
@@ -608,6 +614,7 @@ function Shell() {
       if (focused === "INPUT" || focused === "SELECT" || focused === "TEXTAREA") return;
 
       if (event.key === "Escape") {
+        if (document.querySelector(".time-popup")) return;
         event.preventDefault();
         setOpenKey(null);      // return to the queue
         return;
@@ -648,7 +655,7 @@ function Shell() {
       const target = event.target as HTMLElement | null;
       if (!target) return;
       if (target.closest(".results, .side")) return;
-      if (target.closest("input, select, button, label, a, .cal-popup")) return;
+      if (target.closest("input, select, button, label, a, .cal-popup, .time-popup, .flight-filter-panel, .place-suggest, .currency-suggest")) return;
       setOpenKey(null);
     };
     document.addEventListener("mousedown", away);
@@ -666,16 +673,9 @@ function Shell() {
             fetchRange(selected.groups === trips && selected.total > 0 && selected.done === selected.total);
           }}
         >
-          <label>From
-            <input value={origin} onChange={(e) => setOrigin(e.target.value)} required />
-          </label>
-          <label>To
-            <input value={destination} onChange={(e) => setDestination(e.target.value)} required />
-          </label>
-          {/* Two ranges, not one span. Each departure day is priced against
-              each return day, so widening either one multiplies what a scrape
-              has to ask for — which is what the trip count next to them is
-              for. */}
+          <PlaceInput label="From" value={origin} onChange={setOrigin} api={api} required />
+          <PlaceInput label="To" value={destination} onChange={setDestination} api={api} required />
+          {/* Each departure day is priced against each return day. */}
           <RangePicker
             label="Depart"
             from={start}
@@ -694,9 +694,6 @@ function Shell() {
             hint={ret ? `${returnDays} return${returnDays > 1 ? "s" : ""}` : ""}
             onChange={(from, to) => { setRet(from); setRetEnd(to); }}
           />
-          <span className="trip-count muted" title="what one scrape asks each source">
-            {trips} {trips === 1 ? "trip" : "trips"}
-          </span>
 
           {/* Folded away because most searches are one adult in economy, but
               part of the search itself — changing any of it re-reads the
@@ -754,28 +751,34 @@ function Shell() {
         {/* What is on screen, and the two knobs that only change how it reads:
             neither sorting nor the display currency asks a source anything. */}
         <div className="results-bar">
-          <label className="inline">
-            Sort by
-            <select value={sort} onChange={(e) => setSort(e.target.value as SortKey)}>
-              {(Object.keys(SORT_LABELS) as SortKey[]).map((key) => (
-                <option key={key} value={key}>{SORT_LABELS[key]}</option>
-              ))}
-            </select>
-          </label>
-
-          <label className="inline">
-            Show prices in
-            <select value={currency} onChange={(e) => setCurrency(e.target.value)}>
-              {CURRENCIES.map((code) => <option key={code} value={code}>{code}</option>)}
-            </select>
-          </label>
+          <FlightFiltersBar filters={filters} onChange={setFilters} shown={shown.length} total={engine.rows.length} roundTrip={Boolean(ret)} suggestions={suggestions} connectionOptions={connectionOptions} />
+          <div className="results-view-controls">
+            <label className="inline">
+              Sort by
+              <select value={sort} onChange={(e) => setSort(e.target.value as SortKey)}
+                title={sort === "best" ? "Balances price and total travel time, including the return and layovers" : undefined}>
+                {(Object.keys(SORT_LABELS) as SortKey[]).map((key) => (
+                  <option key={key} value={key}>{SORT_LABELS[key]}</option>
+                ))}
+              </select>
+            </label>
+            <CurrencyInput />
+          </div>
         </div>
 
         <Results
           rows={shown}
+          dataset={engine.rows}
           total={engine.total}
+          limited={filtersActive(filters)}
+          loading={Boolean(request) && (!api || engine.loadingStored || engine.running)}
           openKey={openKey}
           onOpen={setOpenKey}
+          favorites={favorites}
+          onToggleFavorite={toggleFavorite}
+          ratings={ratings}
+          timelines={timelines}
+          connectionRecovery={connectionRecovery}
         />
       </main>
 
@@ -792,6 +795,9 @@ function Shell() {
 
         <Details
           row={openRow}
+          rating={openRow ? ratings.get(openRow.trip_key) : undefined}
+          favorite={Boolean(openRow && favorites.has(openRow.trip_key))}
+          onToggleFavorite={toggleFavorite}
           partyLabel={describeParty(adults, children, infants, cabin)}
         />
       </aside>

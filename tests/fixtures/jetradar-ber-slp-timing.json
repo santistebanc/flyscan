@@ -1,0 +1,70 @@
+{
+  "flight_legs": [
+    {
+      "origin": "BER",
+      "destination": "LHR",
+      "local_departure_date_time": "2026-12-10 11:05",
+      "local_arrival_date_time": "2026-12-10 12:10",
+      "departure_unix_timestamp": 1796897100,
+      "arrival_unix_timestamp": 1796904600,
+      "operating_carrier_designator": {
+        "carrier": "BA",
+        "airline_id": "BA",
+        "number": "6693"
+      }
+    },
+    {
+      "origin": "LHR",
+      "destination": "DFW",
+      "local_departure_date_time": "2026-12-10 13:50",
+      "local_arrival_date_time": "2026-12-10 18:25",
+      "departure_unix_timestamp": 1796910600,
+      "arrival_unix_timestamp": 1796948700,
+      "operating_carrier_designator": {
+        "carrier": "AA",
+        "airline_id": "AA",
+        "number": "81"
+      }
+    },
+    {
+      "origin": "DFW",
+      "destination": "SLP",
+      "local_departure_date_time": "2026-12-11 09:58",
+      "local_arrival_date_time": "2026-12-11 12:16",
+      "departure_unix_timestamp": 1797004680,
+      "arrival_unix_timestamp": 1797012960,
+      "operating_carrier_designator": {
+        "carrier": "AA",
+        "airline_id": "AA",
+        "number": "1097"
+      }
+    }
+  ],
+  "airlines": {
+    "AA": {
+      "name": {
+        "en": {
+          "default": "American Airlines"
+        }
+      }
+    }
+  },
+  "segment": {
+    "flights": [
+      0,
+      1,
+      2
+    ]
+  },
+  "proposal": {
+    "flight_terms": {
+      "0": {
+        "marketing_carrier_designator": {
+          "carrier": "AA",
+          "number": "6693"
+        }
+      }
+    }
+  },
+  "capture_note": "Minimal non-sensitive flight metadata captured from Jetradar on 2026-10-20 for BER-SLP outbound 2026-12-10 and return 2026-12-12."
+}

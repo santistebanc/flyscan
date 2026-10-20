@@ -19,6 +19,7 @@ from __future__ import annotations
 
 import time
 import uuid
+import math
 from typing import Any, Dict, List, Optional
 
 from ..models import Itinerary, Leg, Offer, SearchQuery, Segment
@@ -291,6 +292,7 @@ class Travelpayouts(Source):
                     destination=raw.get("destination", ""),
                     departure=_iso(raw.get("local_departure_date_time", "")),
                     arrival=_iso(raw.get("local_arrival_date_time", "")),
+                    duration_minutes=_elapsed_minutes(raw.get("departure_unix_timestamp"), raw.get("arrival_unix_timestamp")),
                 )
             )
 
@@ -302,11 +304,7 @@ class Travelpayouts(Source):
                 names.append(display)
 
         first, last = raw_flights[0], raw_flights[-1]
-        duration = None
-        if first.get("departure_unix_timestamp") and last.get("arrival_unix_timestamp"):
-            duration = int(
-                (last["arrival_unix_timestamp"] - first["departure_unix_timestamp"]) // 60
-            )
+        duration = _elapsed_minutes(first.get("departure_unix_timestamp"), last.get("arrival_unix_timestamp"))
 
         return Leg(
             origin_airport=first.get("origin", ""),
@@ -319,6 +317,20 @@ class Travelpayouts(Source):
             flight_numbers=", ".join(s.flight_number for s in segments if s.flight_number),
             segments=segments,
         )
+
+
+def _elapsed_minutes(departure, arrival) -> Optional[int]:
+    """Use absolute timestamps; local airport clocks have different offsets."""
+    if isinstance(departure, bool) or isinstance(arrival, bool):
+        return None
+    try:
+        start, end = float(departure), float(arrival)
+    except (TypeError, ValueError, OverflowError):
+        return None
+    if not math.isfinite(start) or not math.isfinite(end) or end <= start:
+        return None
+    minutes = int((end - start) // 60)
+    return minutes if minutes > 0 else None
 
 
 def _iso(value: str) -> str:

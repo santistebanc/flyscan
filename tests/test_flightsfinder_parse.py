@@ -5,8 +5,51 @@ the portal's own wording has caught us out.
 """
 
 import unittest
+from datetime import date
+from pathlib import Path
 
-from flight_scraper.sources.flightsfinder import _split_flight
+from flight_scraper.models import SearchQuery
+from flight_scraper.sources.flightsfinder import _CFFLiveParser, _split_flight
+from flight_scraper.capture import trim_cffi_payload
+
+
+class ModalReferences(unittest.TestCase):
+    def setUp(self):
+        self.markup = (Path(__file__).parent / "fixtures" /
+                       "ff-sky-ber-mad-modal-reference.html").read_text(encoding="utf-8")
+        self.parser = _CFFLiveParser("ff-sky", SearchQuery(
+            "BER", "MAD", date(2026, 12, 11), ret=date(2026, 12, 19)), "EUR")
+
+    def assert_correct_return(self, markup):
+        offer, = self.parser.parse(markup)
+        leg = offer.itinerary.inbound
+        self.assertEqual(offer.price, 104)
+        self.assertEqual(leg.departure, "2026-12-19T22:20")
+        self.assertEqual(leg.duration_minutes, 545)
+        self.assertEqual([s.flight_number for s in leg.segments], ["FR3009", "FR2669"])
+        self.assertEqual(leg.segments[0].departure, leg.departure)
+        self.assertEqual(leg.segments[-1].arrival, leg.arrival)
+        self.assertEqual(leg.segments[0].destination, "MXP")
+        self.assertEqual(leg.segments[1].origin, "BGY")
+
+    def test_captured_card_uses_its_modal_reference_not_its_position(self):
+        self.assert_correct_return(self.markup)
+
+    def test_missing_referenced_modal_does_not_borrow_a_neighbor(self):
+        markup = self.markup.replace('id="myModal120"', 'id="unavailable"')
+        offer, = self.parser.parse(markup)
+        self.assertEqual(offer.itinerary.inbound.segments, [])
+
+    def test_data_target_reference(self):
+        start = self.markup.index('<a onclick=')
+        end = self.markup.index('</a>', start) + len('</a>')
+        markup = self.markup[:start] + '<a data-target="#myModal120">Details</a>' + self.markup[end:]
+        self.assert_correct_return(markup)
+
+    def test_trimmed_recording_keeps_the_referenced_modal(self):
+        payload = ('Y|1|0|0|0|0|' + self.markup).encode()
+        trimmed = trim_cffi_payload(payload, keep=1).decode().split('|')[6]
+        self.assert_correct_return(trimmed)
 
 
 class SplitFlight(unittest.TestCase):

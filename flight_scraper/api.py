@@ -807,7 +807,12 @@ def stored_flights():
     """
     args = request.args
     try:
-        limit = min(int(args.get("limit") or 300), 1000)
+        # The virtualized desktop requests all matching flights for comparison.
+        # Keep bounded reads available for other callers; 0 is also unlimited.
+        requested_limit = 0 if args.get("all") == "1" else int(args.get("limit") or 300)
+        if requested_limit < 0:
+            raise ValueError("limit must be zero or positive")
+        limit = min(requested_limit, 1000) if requested_limit else None
         max_stops = int(args["max_stops"]) if args.get("max_stops") else None
         adults = max(1, int(args.get("adults") or 1))
         children = max(0, int(args.get("children") or 0))

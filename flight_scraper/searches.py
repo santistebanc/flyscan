@@ -14,7 +14,6 @@ from .places import resolve
 from .store import default_output_stem, offer_to_row, write_csv, write_json
 
 OUT_DIR = Path("out")
-ROW_LIMIT = 60
 
 
 def _offer_row(offer: Offer) -> Dict[str, Any]:
@@ -135,7 +134,7 @@ def execute_search(job: Job, params: Dict[str, Any]) -> None:
             )
         elif event == "day_partial":
             # Results as they land, not when the slowest source finishes.
-            rows = [_merged_row(m) for m in data["merged"][:ROW_LIMIT]]
+            rows = [_merged_row(m) for m in data["merged"]]
             job.record_day(f"{data['day']}/{data.get('ret') or ''}", {
                 "day": str(data["day"]),
                 "ret": str(data["ret"]) if data.get("ret") else None,
@@ -205,7 +204,7 @@ def execute_search(job: Job, params: Dict[str, Any]) -> None:
             itineraries += len(day_merged)
             job.update_results(offers=len(offers), itineraries=itineraries, errors=errors)
 
-            row_payload = [_merged_row(m) for m in day_merged[:ROW_LIMIT]]
+            row_payload = [_merged_row(m) for m in day_merged]
             trip_key = f"{day.day}/{day.query.ret or ''}"
             job.record_day(trip_key, {
                 "day": str(day.day),
@@ -226,7 +225,7 @@ def execute_search(job: Job, params: Dict[str, Any]) -> None:
                 itineraries=len(day_merged),
                 elapsed=round(day.elapsed, 1),
                 errors=day.errors,
-                shown=min(len(day_merged), ROW_LIMIT),
+                shown=len(row_payload),
                 rows=row_payload,
             )
     finally:
