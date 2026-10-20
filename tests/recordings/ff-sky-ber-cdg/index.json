@@ -1,0 +1,154 @@
+{
+  "source": "ff-sky",
+  "recorded_at": "2026-08-24T14:51:14+00:00",
+  "query": {
+    "origin": "BER",
+    "destination": "CDG",
+    "depart": "2026-09-28",
+    "ret": null,
+    "adults": 1,
+    "children": 0,
+    "infants": 0,
+    "cabin": "economy",
+    "currency": "EUR"
+  },
+  "expect": {
+    "offers": 3,
+    "digest": "sha256:99a614ffb34d6b2aed67f585d1dc3c25"
+  },
+  "exchanges": [
+    {
+      "method": "GET",
+      "url": "https://www.flightsfinder.com/portal/sky?originplace=BER&destinationplace=CDG&outbounddate=2026-09-28&inbounddate=&cabinclass=Economy&adults=1&children=0&infants=0&currency=EUR",
+      "request_headers": {},
+      "request_body": null,
+      "status": 200,
+      "response_headers": {
+        "content-type": "text/html; charset=UTF-8",
+        "content-encoding": "gzip"
+      },
+      "body": "001.body",
+      "truncated": false,
+      "bytes": 55493
+    },
+    {
+      "method": "POST",
+      "url": "https://www.flightsfinder.com/portal/sky/poll",
+      "request_headers": {
+        "X-Requested-With": "XMLHttpRequest",
+        "Referer": "https://www.flightsfinder.com/portal/sky?originplace=BER&destinationplace=CDG&outbounddate=2026-09-28&inbounddate=&cabinclass=Economy&adults=1&children=0&infants=0&currency=EUR"
+      },
+      "request_body": "{\"_token\": \"2LDjWRJC1PrLmp1ghHpaWkCNoEjA8vv3Btx0rdhN\", \"session\": \"CrABS0xVdl9TQ056UU1BMGtnZEhMRHJEQjdlZi04QVNaSXlqY2I0cVlpYWxWS0tUNkZEdHlpQ1pRRVBGQ0FOXzV0Q3A0NTdLWmEtc1YzY3Q3amIyYlctbjNHcUtrc3BBQ05pMnJWbEJLWE03WnlCa21KMmV2UEdSLVAtcTNMWnRUZFBQVGtDNHFtVVRVM0lfNy11NGJuMWVkejNaZG42SnUzYU5NbmdERkVCQ05JUUFBPT0iLQoCVVMSBWVuLUdCGgNFVVIiFwoFCgNCRVISBQoDQ0RHGgcI6g8QCRgcKAEwASokNzdkYWM4MmQtMDBiZS00YjJkLTg5NzEtZWVlOTM4ZmE1NWNl-cells1\", \"suuid\": \"1af2894c-893a-4a19-b2c2-c27c05352e0b\", \"deeplink\": \"https://www.tkqlhce.com/click-3476948-11839040-1440520708000?sid=cff&url=https://www.skyscanner.net/transport/flights/BER/CDG/260928/?adults=1&adultsv2=1&children=0&infants=0&cabinclass=Economy&rtn=1&currency=EUR\", \"s\": \"www\", \"adults\": \"1\", \"children\": \"0\", \"infants\": \"0\", \"currency\": \"EUR\"}",
+      "status": 200,
+      "response_headers": {
+        "content-type": "text/html; charset=UTF-8",
+        "content-encoding": "gzip"
+      },
+      "body": "002.body",
+      "truncated": false,
+      "bytes": 42586
+    },
+    {
+      "method": "POST",
+      "url": "https://www.flightsfinder.com/portal/sky/poll",
+      "request_headers": {
+        "X-Requested-With": "XMLHttpRequest",
+        "Referer": "https://www.flightsfinder.com/portal/sky?originplace=BER&destinationplace=CDG&outbounddate=2026-09-28&inbounddate=&cabinclass=Economy&adults=1&children=0&infants=0&currency=EUR"
+      },
+      "request_body": "{\"_token\": \"2LDjWRJC1PrLmp1ghHpaWkCNoEjA8vv3Btx0rdhN\", \"session\": \"CrABS0xVdl9TQ056UU1BMGtnZEhMRHJEQjdlZi04QVNaSXlqY2I0cVlpYWxWS0tUNkZEdHlpQ1pRRVBGQ0FOXzV0Q3A0NTdLWmEtc1YzY3Q3amIyYlctbjNHcUtrc3BBQ05pMnJWbEJLWE03WnlCa21KMmV2UEdSLVAtcTNMWnRUZFBQVGtDNHFtVVRVM0lfNy11NGJuMWVkejNaZG42SnUzYU5NbmdERkVCQ05JUUFBPT0iLQoCVVMSBWVuLUdCGgNFVVIiFwoFCgNCRVISBQoDQ0RHGgcI6g8QCRgcKAEwASokNzdkYWM4MmQtMDBiZS00YjJkLTg5NzEtZWVlOTM4ZmE1NWNl-cells1\", \"suuid\": \"1af2894c-893a-4a19-b2c2-c27c05352e0b\", \"deeplink\": \"https://www.tkqlhce.com/click-3476948-11839040-1440520708000?sid=cff&url=https://www.skyscanner.net/transport/flights/BER/CDG/260928/?adults=1&adultsv2=1&children=0&infants=0&cabinclass=Economy&rtn=1&currency=EUR\", \"s\": \"www\", \"adults\": \"1\", \"children\": \"0\", \"infants\": \"0\", \"currency\": \"EUR\"}",
+      "status": 200,
+      "response_headers": {
+        "content-type": "text/html; charset=UTF-8",
+        "content-encoding": "gzip"
+      },
+      "body": "003.body",
+      "truncated": false,
+      "bytes": 49782
+    },
+    {
+      "method": "POST",
+      "url": "https://www.flightsfinder.com/portal/sky/poll",
+      "request_headers": {
+        "X-Requested-With": "XMLHttpRequest",
+        "Referer": "https://www.flightsfinder.com/portal/sky?originplace=BER&destinationplace=CDG&outbounddate=2026-09-28&inbounddate=&cabinclass=Economy&adults=1&children=0&infants=0&currency=EUR"
+      },
+      "request_body": "{\"_token\": \"2LDjWRJC1PrLmp1ghHpaWkCNoEjA8vv3Btx0rdhN\", \"session\": \"CrABS0xVdl9TQ056UU1BMGtnZEhMRHJEQjdlZi04QVNaSXlqY2I0cVlpYWxWS0tUNkZEdHlpQ1pRRVBGQ0FOXzV0Q3A0NTdLWmEtc1YzY3Q3amIyYlctbjNHcUtrc3BBQ05pMnJWbEJLWE03WnlCa21KMmV2UEdSLVAtcTNMWnRUZFBQVGtDNHFtVVRVM0lfNy11NGJuMWVkejNaZG42SnUzYU5NbmdERkVCQ05JUUFBPT0iLQoCVVMSBWVuLUdCGgNFVVIiFwoFCgNCRVISBQoDQ0RHGgcI6g8QCRgcKAEwASokNzdkYWM4MmQtMDBiZS00YjJkLTg5NzEtZWVlOTM4ZmE1NWNl-cells1\", \"suuid\": \"1af2894c-893a-4a19-b2c2-c27c05352e0b\", \"deeplink\": \"https://www.tkqlhce.com/click-3476948-11839040-1440520708000?sid=cff&url=https://www.skyscanner.net/transport/flights/BER/CDG/260928/?adults=1&adultsv2=1&children=0&infants=0&cabinclass=Economy&rtn=1&currency=EUR\", \"s\": \"www\", \"adults\": \"1\", \"children\": \"0\", \"infants\": \"0\", \"currency\": \"EUR\"}",
+      "status": 200,
+      "response_headers": {
+        "content-type": "text/html; charset=UTF-8",
+        "content-encoding": "gzip"
+      },
+      "body": "004.body",
+      "truncated": false,
+      "bytes": 65689
+    },
+    {
+      "method": "POST",
+      "url": "https://www.flightsfinder.com/portal/sky/poll",
+      "request_headers": {
+        "X-Requested-With": "XMLHttpRequest",
+        "Referer": "https://www.flightsfinder.com/portal/sky?originplace=BER&destinationplace=CDG&outbounddate=2026-09-28&inbounddate=&cabinclass=Economy&adults=1&children=0&infants=0&currency=EUR"
+      },
+      "request_body": "{\"_token\": \"2LDjWRJC1PrLmp1ghHpaWkCNoEjA8vv3Btx0rdhN\", \"session\": \"CrABS0xVdl9TQ056UU1BMGtnZEhMRHJEQjdlZi04QVNaSXlqY2I0cVlpYWxWS0tUNkZEdHlpQ1pRRVBGQ0FOXzV0Q3A0NTdLWmEtc1YzY3Q3amIyYlctbjNHcUtrc3BBQ05pMnJWbEJLWE03WnlCa21KMmV2UEdSLVAtcTNMWnRUZFBQVGtDNHFtVVRVM0lfNy11NGJuMWVkejNaZG42SnUzYU5NbmdERkVCQ05JUUFBPT0iLQoCVVMSBWVuLUdCGgNFVVIiFwoFCgNCRVISBQoDQ0RHGgcI6g8QCRgcKAEwASokNzdkYWM4MmQtMDBiZS00YjJkLTg5NzEtZWVlOTM4ZmE1NWNl-cells1\", \"suuid\": \"1af2894c-893a-4a19-b2c2-c27c05352e0b\", \"deeplink\": \"https://www.tkqlhce.com/click-3476948-11839040-1440520708000?sid=cff&url=https://www.skyscanner.net/transport/flights/BER/CDG/260928/?adults=1&adultsv2=1&children=0&infants=0&cabinclass=Economy&rtn=1&currency=EUR\", \"s\": \"www\", \"adults\": \"1\", \"children\": \"0\", \"infants\": \"0\", \"currency\": \"EUR\"}",
+      "status": 200,
+      "response_headers": {
+        "content-type": "text/html; charset=UTF-8",
+        "content-encoding": "gzip"
+      },
+      "body": "005.body",
+      "truncated": false,
+      "bytes": 60336
+    },
+    {
+      "method": "POST",
+      "url": "https://www.flightsfinder.com/portal/sky/poll",
+      "request_headers": {
+        "X-Requested-With": "XMLHttpRequest",
+        "Referer": "https://www.flightsfinder.com/portal/sky?originplace=BER&destinationplace=CDG&outbounddate=2026-09-28&inbounddate=&cabinclass=Economy&adults=1&children=0&infants=0&currency=EUR"
+      },
+      "request_body": "{\"_token\": \"2LDjWRJC1PrLmp1ghHpaWkCNoEjA8vv3Btx0rdhN\", \"session\": \"CrABS0xVdl9TQ056UU1BMGtnZEhMRHJEQjdlZi04QVNaSXlqY2I0cVlpYWxWS0tUNkZEdHlpQ1pRRVBGQ0FOXzV0Q3A0NTdLWmEtc1YzY3Q3amIyYlctbjNHcUtrc3BBQ05pMnJWbEJLWE03WnlCa21KMmV2UEdSLVAtcTNMWnRUZFBQVGtDNHFtVVRVM0lfNy11NGJuMWVkejNaZG42SnUzYU5NbmdERkVCQ05JUUFBPT0iLQoCVVMSBWVuLUdCGgNFVVIiFwoFCgNCRVISBQoDQ0RHGgcI6g8QCRgcKAEwASokNzdkYWM4MmQtMDBiZS00YjJkLTg5NzEtZWVlOTM4ZmE1NWNl-cells1\", \"suuid\": \"1af2894c-893a-4a19-b2c2-c27c05352e0b\", \"deeplink\": \"https://www.tkqlhce.com/click-3476948-11839040-1440520708000?sid=cff&url=https://www.skyscanner.net/transport/flights/BER/CDG/260928/?adults=1&adultsv2=1&children=0&infants=0&cabinclass=Economy&rtn=1&currency=EUR\", \"s\": \"www\", \"adults\": \"1\", \"children\": \"0\", \"infants\": \"0\", \"currency\": \"EUR\"}",
+      "status": 200,
+      "response_headers": {
+        "content-type": "text/html; charset=UTF-8",
+        "content-encoding": "gzip"
+      },
+      "body": "006.body",
+      "truncated": false,
+      "bytes": 48907
+    },
+    {
+      "method": "POST",
+      "url": "https://www.flightsfinder.com/portal/sky/poll",
+      "request_headers": {
+        "X-Requested-With": "XMLHttpRequest",
+        "Referer": "https://www.flightsfinder.com/portal/sky?originplace=BER&destinationplace=CDG&outbounddate=2026-09-28&inbounddate=&cabinclass=Economy&adults=1&children=0&infants=0&currency=EUR"
+      },
+      "request_body": "{\"_token\": \"2LDjWRJC1PrLmp1ghHpaWkCNoEjA8vv3Btx0rdhN\", \"session\": \"CrABS0xVdl9TQ056UU1BMGtnZEhMRHJEQjdlZi04QVNaSXlqY2I0cVlpYWxWS0tUNkZEdHlpQ1pRRVBGQ0FOXzV0Q3A0NTdLWmEtc1YzY3Q3amIyYlctbjNHcUtrc3BBQ05pMnJWbEJLWE03WnlCa21KMmV2UEdSLVAtcTNMWnRUZFBQVGtDNHFtVVRVM0lfNy11NGJuMWVkejNaZG42SnUzYU5NbmdERkVCQ05JUUFBPT0iLQoCVVMSBWVuLUdCGgNFVVIiFwoFCgNCRVISBQoDQ0RHGgcI6g8QCRgcKAEwASokNzdkYWM4MmQtMDBiZS00YjJkLTg5NzEtZWVlOTM4ZmE1NWNl-cells1\", \"suuid\": \"1af2894c-893a-4a19-b2c2-c27c05352e0b\", \"deeplink\": \"https://www.tkqlhce.com/click-3476948-11839040-1440520708000?sid=cff&url=https://www.skyscanner.net/transport/flights/BER/CDG/260928/?adults=1&adultsv2=1&children=0&infants=0&cabinclass=Economy&rtn=1&currency=EUR\", \"s\": \"www\", \"adults\": \"1\", \"children\": \"0\", \"infants\": \"0\", \"currency\": \"EUR\"}",
+      "status": 200,
+      "response_headers": {
+        "content-type": "text/html; charset=UTF-8",
+        "content-encoding": "gzip"
+      },
+      "body": "007.body",
+      "truncated": false,
+      "bytes": 48907
+    },
+    {
+      "method": "POST",
+      "url": "https://www.flightsfinder.com/portal/sky/poll",
+      "request_headers": {
+        "X-Requested-With": "XMLHttpRequest",
+        "Referer": "https://www.flightsfinder.com/portal/sky?originplace=BER&destinationplace=CDG&outbounddate=2026-09-28&inbounddate=&cabinclass=Economy&adults=1&children=0&infants=0&currency=EUR"
+      },
+      "request_body": "{\"_token\": \"2LDjWRJC1PrLmp1ghHpaWkCNoEjA8vv3Btx0rdhN\", \"session\": \"CrABS0xVdl9TQ056UU1BMGtnZEhMRHJEQjdlZi04QVNaSXlqY2I0cVlpYWxWS0tUNkZEdHlpQ1pRRVBGQ0FOXzV0Q3A0NTdLWmEtc1YzY3Q3amIyYlctbjNHcUtrc3BBQ05pMnJWbEJLWE03WnlCa21KMmV2UEdSLVAtcTNMWnRUZFBQVGtDNHFtVVRVM0lfNy11NGJuMWVkejNaZG42SnUzYU5NbmdERkVCQ05JUUFBPT0iLQoCVVMSBWVuLUdCGgNFVVIiFwoFCgNCRVISBQoDQ0RHGgcI6g8QCRgcKAEwASokNzdkYWM4MmQtMDBiZS00YjJkLTg5NzEtZWVlOTM4ZmE1NWNl-cells1\", \"suuid\": \"1af2894c-893a-4a19-b2c2-c27c05352e0b\", \"deeplink\": \"https://www.tkqlhce.com/click-3476948-11839040-1440520708000?sid=cff&url=https://www.skyscanner.net/transport/flights/BER/CDG/260928/?adults=1&adultsv2=1&children=0&infants=0&cabinclass=Economy&rtn=1&currency=EUR\", \"s\": \"www\", \"adults\": \"1\", \"children\": \"0\", \"infants\": \"0\", \"currency\": \"EUR\"}",
+      "status": 200,
+      "response_headers": {
+        "content-type": "text/html; charset=UTF-8",
+        "content-encoding": "gzip"
+      },
+      "body": "008.body",
+      "truncated": false,
+      "bytes": 48907
+    }
+  ]
+}

@@ -1,0 +1,499 @@
+<!doctype html>
+<html class="no-js">
+<head>
+<title>Find Prices...</title>
+<meta charset="utf-8">
+<meta http-equiv="X-UA-Compatible" content="IE=edge">
+<meta name="description" content="">
+<meta name="viewport" content="width=device-width, minimum-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<link rel="stylesheet" href="/static/portal-kiwi/css/main.css?_m=1660048157">
+<link href="https://fonts.googleapis.com/css?family=Open+Sans:300,300i,400,400i,600,600i,700" rel="stylesheet">
+<link rel="icon" type="image/png" href="/static/web/images/favicon.png?_m=1655115000">
+<script src="/static/portal-kiwi/js/jquery.2.0.js?_m=1655115000"></script>
+<script src="/static/portal-kiwi/js/build.js?_m=1655115000"></script>
+<script src="/static/portal-kiwi/js/jquery.simplePagination.js?_m=1655115000"></script>
+<script src="/static/portal-kiwi/js/scripts.js?_m=1655115000"></script>
+<meta name="robots" content="noindex"><meta name="googlebot" content="noindex">
+<style>
+    ._panel_heading .img img {max-width: 35px !important;}
+    .bag-box {font-size: 16px;border:0px;}
+    .bag-update-box, .bag-update-box:hover {
+        background-color: #3ba891;
+        color: white;
+        min-width: 30px;
+        min-height: 30px;
+        line-height: 30px;
+        font-size: 14px;
+        font-weight: normal;
+        text-align: center;
+        padding: 7px;
+        margin: 0 5px 0 0;
+        border-radius: 3px;
+    }
+</style>
+</head>
+<body>
+<section class="main" id="sortable">
+    <div class="container">
+        <div class="row">
+            <div class="col-xs-12 heading">
+                <!--<div id="spinner"></div>-->
+                <h1>We are finding your flights.</h1>
+                <p>Please keep in mind this may take up to 30 seconds.</p>
+                <div class="summary">
+                    <!--<h1>Compare search engines above.</h1>-->
+                    <p>BER - CDG</p>
+                    <p>21 Sep</p>
+                    <aside>
+                    <p class="ico"><i class="fa fa-male adult" aria-hidden="true"></i>1</p>
+                    <p class="ico"><i class="fa fa-male younger" aria-hidden="true"></i>0</p>
+                    <p class="ico"><i class="fa fa-child young" aria-hidden="true"></i>0</p>
+                    <p class="ico" title="Cabin baggage"><i class="fa fa-shopping-bag" aria-hidden="true"></i><select id="bags-cabin" name="bags-cabin" class="bag-box"><option value="0">Cabin Bags</option><option value="0" selected>Cabin: 0</option><option value="1">Cabin: 1</option></select></p>
+                    <p class="ico" title="Checked baggage"><i class="fa fa-suitcase" aria-hidden="true"></i><select id="bags-checked" name="bags-checked" class="bag-box"><option value="0">Checked Bags</option><option value="0" selected>Checked: 0</option><option value="1">Checked: 1</option><option value="2">Checked: 2</option></select></p>
+                    <p class="ico"><a href="#" onclick="window.location.href='https://www.flightsfinder.com/portal/kiwi?currency=EUR&type=oneway&cabinclass=M&originplace=BER&destinationplace=CDG&outbounddate=21%2F09%2F2026&inbounddate=&adults=1&children=0&infants=0&bags-cabin=' + $('#bags-cabin').val() + '&bags-checked=' + $('#bags-checked').val();return false;" class="bag-update-box">Update</a></p>
+                    </aside>
+                </div>
+            </div>
+        </div>
+        <div class="row">
+            <div class="col-xs-12" id="LoadingLink"></div>
+        </div>
+        <div class="row filter">
+            <div class="col-xs-6">
+                <p class="found" id="found_zone">
+                    <span>Searching...</span>
+                </p>
+                <p class="hidden-filter">filter</p>
+            </div>
+            <div class="col-xs-6 sort">
+                <div class="currency"><p>Currency: </p> <div class="btn-group"> <button type="button" class="btn dropdown-toggle" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false"> EUR - € <span class="sr-only">Toggle Dropdown</span> </button> <ul class="dropdown-menu"><li><a href="https://www.flightsfinder.com/portal/kiwi?adults=1&cabinclass=M&children=0&currency=GBP&destinationplace=CDG&inbounddate=&infants=0&originplace=BER&outbounddate=21%2F09%2F2026&type=oneway">GBP - £ </a></li><li><a href="https://www.flightsfinder.com/portal/kiwi?adults=1&cabinclass=M&children=0&currency=USD&destinationplace=CDG&inbounddate=&infants=0&originplace=BER&outbounddate=21%2F09%2F2026&type=oneway">USD - $ </a></li><li><a href="https://www.flightsfinder.com/portal/kiwi?adults=1&cabinclass=M&children=0&currency=INR&destinationplace=CDG&inbounddate=&infants=0&originplace=BER&outbounddate=21%2F09%2F2026&type=oneway">INR - ₹ </a></li><li><a href="https://www.flightsfinder.com/portal/kiwi?adults=1&cabinclass=M&children=0&currency=AUD&destinationplace=CDG&inbounddate=&infants=0&originplace=BER&outbounddate=21%2F09%2F2026&type=oneway">AUD - $ </a></li><li><a href="https://www.flightsfinder.com/portal/kiwi?adults=1&cabinclass=M&children=0&currency=CAD&destinationplace=CDG&inbounddate=&infants=0&originplace=BER&outbounddate=21%2F09%2F2026&type=oneway">CAD - C$ </a></li><li><a href="https://www.flightsfinder.com/portal/kiwi?adults=1&cabinclass=M&children=0&currency=SGD&destinationplace=CDG&inbounddate=&infants=0&originplace=BER&outbounddate=21%2F09%2F2026&type=oneway">SGD - $ </a></li><li><a href="#">&nbsp;</a></li><li><a href="https://www.flightsfinder.com/portal/kiwi?adults=1&cabinclass=M&children=0&currency=AED&destinationplace=CDG&inbounddate=&infants=0&originplace=BER&outbounddate=21%2F09%2F2026&type=oneway">AED - د.إ.‏ </a></li><li><a href="https://www.flightsfinder.com/portal/kiwi?adults=1&cabinclass=M&children=0&currency=AFN&destinationplace=CDG&inbounddate=&infants=0&originplace=BER&outbounddate=21%2F09%2F2026&type=oneway">AFN - AFN </a></li><li><a href="https://www.flightsfinder.com/portal/kiwi?adults=1&cabinclass=M&children=0&currency=ALL&destinationplace=CDG&inbounddate=&infants=0&originplace=BER&outbounddate=21%2F09%2F2026&type=oneway">ALL - Lek </a></li><li><a href="https://www.flightsfinder.com/portal/kiwi?adults=1&cabinclass=M&children=0&currency=AMD&destinationplace=CDG&inbounddate=&infants=0&originplace=BER&outbounddate=21%2F09%2F2026&type=oneway">AMD - դր. </a></li><li><a href="https://www.flightsfinder.com/portal/kiwi?adults=1&cabinclass=M&children=0&currency=ANG&destinationplace=CDG&inbounddate=&infants=0&originplace=BER&outbounddate=21%2F09%2F2026&type=oneway">ANG - NAf. </a></li><li><a href="https://www.flightsfinder.com/portal/kiwi?adults=1&cabinclass=M&children=0&currency=AOA&destinationplace=CDG&inbounddate=&infants=0&originplace=BER&outbounddate=21%2F09%2F2026&type=oneway">AOA - Kz </a></li><li><a href="https://www.flightsfinder.com/portal/kiwi?adults=1&cabinclass=M&children=0&currency=ARS&destinationplace=CDG&inbounddate=&infants=0&originplace=BER&outbounddate=21%2F09%2F2026&type=oneway">ARS - $ </a></li><li><a href="https://www.flightsfinder.com/portal/kiwi?adults=1&cabinclass=M&children=0&currency=AWG&destinationplace=CDG&inbounddate=&infants=0&originplace=BER&outbounddate=21%2F09%2F2026&type=oneway">AWG - Afl. </a></li><li><a href="https://www.flightsfinder.com/portal/kiwi?adults=1&cabinclass=M&children=0&currency=AZN&destinationplace=CDG&inbounddate=&infants=0&originplace=BER&outbounddate=21%2F09%2F2026&type=oneway">AZN - ₼ </a></li><li><a href="https://www.flightsfinder.com/portal/kiwi?adults=1&cabinclass=M&children=0&currency=BAM&destinationplace=CDG&inbounddate=&infants=0&originplace=BER&outbounddate=21%2F09%2F2026&type=oneway">BAM - КМ </a></li><li><a href="https://www.flightsfinder.com/portal/kiwi?adults=1&cabinclass=M&children=0&currency=BBD&destinationplace=CDG&inbounddate=&infants=0&originplace=BER&outbounddate=21%2F09%2F2026&type=oneway">BBD - $ </a></li><li><a href="https://www.flightsfinder.com/portal/kiwi?adults=1&cabinclass=M&children=0&currency=BDT&destinationplace=CDG&inbounddate=&infants=0&originplace=BER&outbounddate=21%2F09%2F2026&type=oneway">BDT - BDT </a></li><li><a href="https://www.flightsfinder.com/portal/kiwi?adults=1&cabinclass=M&children=0&currency=BGN&destinationplace=CDG&inbounddate=&infants=0&originplace=BER&outbounddate=21%2F09%2F2026&type=oneway">BGN - лв. </a></li><li><a href="https://www.flightsfinder.com/portal/kiwi?adults=1&cabinclass=M&children=0&currency=BHD&destinationplace=CDG&inbounddate=&infants=0&originplace=BER&outbounddate=21%2F09%2F2026&type=oneway">BHD - د.ب.‏ </a></li><li><a href="https://www.flightsfinder.com/portal/kiwi?adults=1&cabinclass=M&children=0&currency=BIF&destinationplace=CDG&inbounddate=&infants=0&originplace=BER&outbounddate=21%2F09%2F2026&type=oneway">BIF - FBu </a></li><li><a href="https://www.flightsfinder.com/portal/kiwi?adults=1&cabinclass=M&children=0&currency=BMD&destinationplace=CDG&inbounddate=&infants=0&originplace=BER&outbounddate=21%2F09%2F2026&type=oneway">BMD - $ </a></li><li><a href="https://www.flightsfinder.com/portal/kiwi?adults=1&cabinclass=M&children=0&currency=BND&destinationplace=CDG&inbounddate=&infants=0&originplace=BER&outbounddate=21%2F09%2F2026&type=oneway">BND - $ </a></li><li><a href="https://www.flightsfinder.com/portal/kiwi?adults=1&cabinclass=M&children=0&currency=BOB&destinationplace=CDG&inbounddate=&infants=0&originplace=BER&outbounddate=21%2F09%2F2026&type=oneway">BOB - Bs </a></li><li><a href="https://www.flightsfinder.com/portal/kiwi?adults=1&cabinclass=M&children=0&currency=BRL&destinationplace=CDG&inbounddate=&infants=0&originplace=BER&outbounddate=21%2F09%2F2026&type=oneway">BRL - R$ </a></li><li><a href="https://www.flightsfinder.com/portal/kiwi?adults=1&cabinclass=M&children=0&currency=BSD&destinationplace=CDG&inbounddate=&infants=0&originplace=BER&outbounddate=21%2F09%2F2026&type=oneway">BSD - $ </a></li><li><a href="https://www.flightsfinder.com/portal/kiwi?adults=1&cabinclass=M&children=0&currency=BTN&destinationplace=CDG&inbounddate=&infants=0&originplace=BER&outbounddate=21%2F09%2F2026&type=oneway">BTN - Nu. </a></li><li><a href="https://www.flightsfinder.com/portal/kiwi?adults=1&cabinclass=M&children=0&currency=BWP&destinationplace=CDG&inbounddate=&infants=0&originplace=BER&outbounddate=21%2F09%2F2026&type=oneway">BWP - P </a></li><li><a href="https://www.flightsfinder.com/portal/kiwi?adults=1&cabinclass=M&children=0&currency=BYN&destinationplace=CDG&inbounddate=&infants=0&originplace=BER&outbounddate=21%2F09%2F2026&type=oneway">BYN - Br </a></li><li><a href="https://www.flightsfinder.com/portal/kiwi?adults=1&cabinclass=M&children=0&currency=BYR&destinationplace=CDG&inbounddate=&infants=0&originplace=BER&outbounddate=21%2F09%2F2026&type=oneway">BYR - р. </a></li><li><a href="https://www.flightsfinder.com/portal/kiwi?adults=1&cabinclass=M&children=0&currency=BZD&destinationplace=CDG&inbounddate=&infants=0&originplace=BER&outbounddate=21%2F09%2F2026&type=oneway">BZD - BZ$ </a></li><li><a href="https://www.flightsfinder.com/portal/kiwi?adults=1&cabinclass=M&children=0&currency=CDF&destinationplace=CDG&inbounddate=&infants=0&originplace=BER&outbounddate=21%2F09%2F2026&type=oneway">CDF - FC </a></li><li><a href="https://www.flightsfinder.com/portal/kiwi?adults=1&cabinclass=M&children=0&currency=CHF&destinationplace=CDG&inbounddate=&infants=0&originplace=BER&outbounddate=21%2F09%2F2026&type=oneway">CHF - CHF </a></li><li><a href="https://www.flightsfinder.com/portal/kiwi?adults=1&cabinclass=M&children=0&currency=CLP&destinationplace=CDG&inbounddate=&infants=0&originplace=BER&outbounddate=21%2F09%2F2026&type=oneway">CLP - $ </a></li><li><a href="https://www.flightsfinder.com/portal/kiwi?adults=1&cabinclass=M&children=0&currency=CNY&destinationplace=CDG&inbounddate=&infants=0&originplace=BER&outbounddate=21%2F09%2F2026&type=oneway">CNY - ¥ </a></li><li><a href="https://www.flightsfinder.com/portal/kiwi?adults=1&cabinclass=M&children=0&currency=COP&destinationplace=CDG&inbounddate=&infants=0&originplace=BER&outbounddate=21%2F09%2F2026&type=oneway">COP - $ </a></li><li><a href="https://www.flightsfinder.com/portal/kiwi?adults=1&cabinclass=M&children=0&currency=CRC&destinationplace=CDG&inbounddate=&infants=0&originplace=BER&outbounddate=21%2F09%2F2026&type=oneway">CRC - ₡ </a></li><li><a href="https://www.flightsfinder.com/portal/kiwi?adults=1&cabinclass=M&children=0&currency=CUC&destinationplace=CDG&inbounddate=&infants=0&originplace=BER&outbounddate=21%2F09%2F2026&type=oneway">CUC - CUC </a></li><li><a href="https://www.flightsfinder.com/portal/kiwi?adults=1&cabinclass=M&children=0&currency=CUP&destinationplace=CDG&inbounddate=&infants=0&originplace=BER&outbounddate=21%2F09%2F2026&type=oneway">CUP - $MN </a></li><li><a href="https://www.flightsfinder.com/portal/kiwi?adults=1&cabinclass=M&children=0&currency=CVE&destinationplace=CDG&inbounddate=&infants=0&originplace=BER&outbounddate=21%2F09%2F2026&type=oneway">CVE - $ </a></li><li><a href="https://www.flightsfinder.com/portal/kiwi?adults=1&cabinclass=M&children=0&currency=CZK&destinationplace=CDG&inbounddate=&infants=0&originplace=BER&outbounddate=21%2F09%2F2026&type=oneway">CZK - Kč </a></li><li><a href="https://www.flightsfinder.com/portal/kiwi?adults=1&cabinclass=M&children=0&currency=DJF&destinationplace=CDG&inbounddate=&infants=0&originplace=BER&outbounddate=21%2F09%2F2026&type=oneway">DJF - Fdj </a></li><li><a href="https://www.flightsfinder.com/portal/kiwi?adults=1&cabinclass=M&children=0&currency=DKK&destinationplace=CDG&inbounddate=&infants=0&originplace=BER&outbounddate=21%2F09%2F2026&type=oneway">DKK - kr. </a></li><li><a href="https://www.flightsfinder.com/portal/kiwi?adults=1&cabinclass=M&children=0&currency=DOP&destinationplace=CDG&inbounddate=&infants=0&originplace=BER&outbounddate=21%2F09%2F2026&type=oneway">DOP - RD$ </a></li><li><a href="https://www.flightsfinder.com/portal/kiwi?adults=1&cabinclass=M&children=0&currency=DZD&destinationplace=CDG&inbounddate=&infants=0&originplace=BER&outbounddate=21%2F09%2F2026&type=oneway">DZD - د.ج.‏ </a></li><li><a href="https://www.flightsfinder.com/portal/kiwi?adults=1&cabinclass=M&children=0&currency=EGP&destinationplace=CDG&inbounddate=&infants=0&originplace=BER&outbounddate=21%2F09%2F2026&type=oneway">EGP - ج.م.‏ </a></li><li><a href="https://www.flightsfinder.com/portal/kiwi?adults=1&cabinclass=M&children=0&currency=ERN&destinationplace=CDG&inbounddate=&infants=0&originplace=BER&outbounddate=21%2F09%2F2026&type=oneway">ERN - Nfk </a></li><li><a href="https://www.flightsfinder.com/portal/kiwi?adults=1&cabinclass=M&children=0&currency=ETB&destinationplace=CDG&inbounddate=&infants=0&originplace=BER&outbounddate=21%2F09%2F2026&type=oneway">ETB - ETB </a></li><li><a href="https://www.flightsfinder.com/portal/kiwi?adults=1&cabinclass=M&children=0&currency=FJD&destinationplace=CDG&inbounddate=&infants=0&originplace=BER&outbounddate=21%2F09%2F2026&type=oneway">FJD - $ </a></li><li><a href="https://www.flightsfinder.com/portal/kiwi?adults=1&cabinclass=M&children=0&currency=GEL&destinationplace=CDG&inbounddate=&infants=0&originplace=BER&outbounddate=21%2F09%2F2026&type=oneway">GEL - ₾ </a></li><li><a href="https://www.flightsfinder.com/portal/kiwi?adults=1&cabinclass=M&children=0&currency=GHS&destinationplace=CDG&inbounddate=&infants=0&originplace=BER&outbounddate=21%2F09%2F2026&type=oneway">GHS - GH¢ </a></li><li><a href="https://www.flightsfinder.com/portal/kiwi?adults=1&cabinclass=M&children=0&currency=GIP&destinationplace=CDG&inbounddate=&infants=0&originplace=BER&outbounddate=21%2F09%2F2026&type=oneway">GIP - £ </a></li><li><a href="https://www.flightsfinder.com/portal/kiwi?adults=1&cabinclass=M&children=0&currency=GMD&destinationplace=CDG&inbounddate=&infants=0&originplace=BER&outbounddate=21%2F09%2F2026&type=oneway">GMD - D </a></li><li><a href="https://www.flightsfinder.com/portal/kiwi?adults=1&cabinclass=M&children=0&currency=GNF&destinationplace=CDG&inbounddate=&infants=0&originplace=BER&outbounddate=21%2F09%2F2026&type=oneway">GNF - FG </a></li><li><a href="https://www.flightsfinder.com/portal/kiwi?adults=1&cabinclass=M&children=0&currency=GTQ&destinationplace=CDG&inbounddate=&infants=0&originplace=BER&outbounddate=21%2F09%2F2026&type=oneway">GTQ - Q </a></li><li><a href="https://www.flightsfinder.com/portal/kiwi?adults=1&cabinclass=M&children=0&currency=GYD&destinationplace=CDG&inbounddate=&infants=0&originplace=BER&outbounddate=21%2F09%2F2026&type=oneway">GYD - $ </a></li><li><a href="https://www.flightsfinder.com/portal/kiwi?adults=1&cabinclass=M&children=0&currency=HKD&destinationplace=CDG&inbounddate=&infants=0&originplace=BER&outbounddate=21%2F09%2F2026&type=oneway">HKD - HK$ </a></li><li><a href="https://www.flightsfinder.com/portal/kiwi?adults=1&cabinclass=M&children=0&currency=HNL&destinationplace=CDG&inbounddate=&infants=0&originplace=BER&outbounddate=21%2F09%2F2026&type=oneway">HNL - L. </a></li><li><a href="https://www.flightsfinder.com/portal/kiwi?adults=1&cabinclass=M&children=0&currency=HRK&destinationplace=CDG&inbounddate=&infants=0&originplace=BER&outbounddate=21%2F09%2F2026&type=oneway">HRK - kn </a></li><li><a href="https://www.flightsfinder.com/portal/kiwi?adults=1&cabinclass=M&children=0&currency=HTG&destinationplace=CDG&inbounddate=&infants=0&originplace=BER&outbounddate=21%2F09%2F2026&type=oneway">HTG - G </a></li><li><a href="https://www.flightsfinder.com/portal/kiwi?adults=1&cabinclass=M&children=0&currency=HUF&destinationplace=CDG&inbounddate=&infants=0&originplace=BER&outbounddate=21%2F09%2F2026&type=oneway">HUF - Ft </a></li><li><a href="https://www.flightsfinder.com/portal/kiwi?adults=1&cabinclass=M&children=0&currency=IDR&destinationplace=CDG&inbounddate=&infants=0&originplace=BER&outbounddate=21%2F09%2F2026&type=oneway">IDR - Rp </a></li><li><a href="https://www.flightsfinder.com/portal/kiwi?adults=1&cabinclass=M&children=0&currency=ILS&destinationplace=CDG&inbounddate=&infants=0&originplace=BER&outbounddate=21%2F09%2F2026&type=oneway">ILS - ₪ </a></li><li><a href="https://www.flightsfinder.com/portal/kiwi?adults=1&cabinclass=M&children=0&currency=IQD&destinationplace=CDG&inbounddate=&infants=0&originplace=BER&outbounddate=21%2F09%2F2026&type=oneway">IQD - د.ع.‏ </a></li><li><a href="https://www.flightsfinder.com/portal/kiwi?adults=1&cabinclass=M&children=0&currency=IRR&destinationplace=CDG&inbounddate=&infants=0&originplace=BER&outbounddate=21%2F09%2F2026&type=oneway">IRR - ريال </a></li><li><a href="https://www.flightsfinder.com/portal/kiwi?adults=1&cabinclass=M&children=0&currency=ISK&destinationplace=CDG&inbounddate=&infants=0&originplace=BER&outbounddate=21%2F09%2F2026&type=oneway">ISK - kr. </a></li><li><a href="https://www.flightsfinder.com/portal/kiwi?adults=1&cabinclass=M&children=0&currency=JMD&destinationplace=CDG&inbounddate=&infants=0&originplace=BER&outbounddate=21%2F09%2F2026&type=oneway">JMD - J$ </a></li><li><a href="https://www.flightsfinder.com/portal/kiwi?adults=1&cabinclass=M&children=0&currency=JOD&destinationplace=CDG&inbounddate=&infants=0&originplace=BER&outbounddate=21%2F09%2F2026&type=oneway">JOD - د.ا.‏ </a></li><li><a href="https://www.flightsfinder.com/portal/kiwi?adults=1&cabinclass=M&children=0&currency=JPY&destinationplace=CDG&inbounddate=&infants=0&originplace=BER&outbounddate=21%2F09%2F2026&type=oneway">JPY - ¥ </a></li><li><a href="https://www.flightsfinder.com/portal/kiwi?adults=1&cabinclass=M&children=0&currency=KES&destinationplace=CDG&inbounddate=&infants=0&originplace=BER&outbounddate=21%2F09%2F2026&type=oneway">KES - S </a></li><li><a href="https://www.flightsfinder.com/portal/kiwi?adults=1&cabinclass=M&children=0&currency=KGS&destinationplace=CDG&inbounddate=&infants=0&originplace=BER&outbounddate=21%2F09%2F2026&type=oneway">KGS - сом </a></li><li><a href="https://www.flightsfinder.com/portal/kiwi?adults=1&cabinclass=M&children=0&currency=KHR&destinationplace=CDG&inbounddate=&infants=0&originplace=BER&outbounddate=21%2F09%2F2026&type=oneway">KHR - KHR </a></li><li><a href="https://www.flightsfinder.com/portal/kiwi?adults=1&cabinclass=M&children=0&currency=KMF&destinationplace=CDG&inbounddate=&infants=0&originplace=BER&outbounddate=21%2F09%2F2026&type=oneway">KMF - CF </a></li><li><a href="https://www.flightsfinder.com/portal/kiwi?adults=1&cabinclass=M&children=0&currency=KPW&destinationplace=CDG&inbounddate=&infants=0&originplace=BER&outbounddate=21%2F09%2F2026&type=oneway">KPW - ₩ </a></li><li><a href="https://www.flightsfinder.com/portal/kiwi?adults=1&cabinclass=M&children=0&currency=KRW&destinationplace=CDG&inbounddate=&infants=0&originplace=BER&outbounddate=21%2F09%2F2026&type=oneway">KRW - ₩ </a></li><li><a href="https://www.flightsfinder.com/portal/kiwi?adults=1&cabinclass=M&children=0&currency=KWD&destinationplace=CDG&inbounddate=&infants=0&originplace=BER&outbounddate=21%2F09%2F2026&type=oneway">KWD - د.ك.‏ </a></li><li><a href="https://www.flightsfinder.com/portal/kiwi?adults=1&cabinclass=M&children=0&currency=KYD&destinationplace=CDG&inbounddate=&infants=0&originplace=BER&outbounddate=21%2F09%2F2026&type=oneway">KYD - $ </a></li><li><a href="https://www.flightsfinder.com/portal/kiwi?adults=1&cabinclass=M&children=0&currency=KZT&destinationplace=CDG&inbounddate=&infants=0&originplace=BER&outbounddate=21%2F09%2F2026&type=oneway">KZT - Т </a></li><li><a href="https://www.flightsfinder.com/portal/kiwi?adults=1&cabinclass=M&children=0&currency=LAK&destinationplace=CDG&inbounddate=&infants=0&originplace=BER&outbounddate=21%2F09%2F2026&type=oneway">LAK - ₭ </a></li><li><a href="https://www.flightsfinder.com/portal/kiwi?adults=1&cabinclass=M&children=0&currency=LBP&destinationplace=CDG&inbounddate=&infants=0&originplace=BER&outbounddate=21%2F09%2F2026&type=oneway">LBP - ل.ل.‏ </a></li><li><a href="https://www.flightsfinder.com/portal/kiwi?adults=1&cabinclass=M&children=0&currency=LKR&destinationplace=CDG&inbounddate=&infants=0&originplace=BER&outbounddate=21%2F09%2F2026&type=oneway">LKR - Rp </a></li><li><a href="https://www.flightsfinder.com/portal/kiwi?adults=1&cabinclass=M&children=0&currency=LRD&destinationplace=CDG&inbounddate=&infants=0&originplace=BER&outbounddate=21%2F09%2F2026&type=oneway">LRD - $ </a></li><li><a href="https://www.flightsfinder.com/portal/kiwi?adults=1&cabinclass=M&children=0&currency=LSL&destinationplace=CDG&inbounddate=&infants=0&originplace=BER&outbounddate=21%2F09%2F2026&type=oneway">LSL - M </a></li><li><a href="https://www.flightsfinder.com/portal/kiwi?adults=1&cabinclass=M&children=0&currency=LYD&destinationplace=CDG&inbounddate=&infants=0&originplace=BER&outbounddate=21%2F09%2F2026&type=oneway">LYD - د.ل.‏ </a></li><li><a href="https://www.flightsfinder.com/portal/kiwi?adults=1&cabinclass=M&children=0&currency=MAD&destinationplace=CDG&inbounddate=&infants=0&originplace=BER&outbounddate=21%2F09%2F2026&type=oneway">MAD - د.م.‏ </a></li><li><a href="https://www.flightsfinder.com/portal/kiwi?adults=1&cabinclass=M&children=0&currency=MDL&destinationplace=CDG&inbounddate=&infants=0&originplace=BER&outbounddate=21%2F09%2F2026&type=oneway">MDL - lei </a></li><li><a href="https://www.flightsfinder.com/portal/kiwi?adults=1&cabinclass=M&children=0&currency=MGA&destinationplace=CDG&inbounddate=&infants=0&originplace=BER&outbounddate=21%2F09%2F2026&type=oneway">MGA - Ar </a></li><li><a href="https://www.flightsfinder.com/portal/kiwi?adults=1&cabinclass=M&children=0&currency=MKD&destinationplace=CDG&inbounddate=&infants=0&originplace=BER&outbounddate=21%2F09%2F2026&type=oneway">MKD - ден. </a></li><li><a href="https://www.flightsfinder.com/portal/kiwi?adults=1&cabinclass=M&children=0&currency=MMK&destinationplace=CDG&inbounddate=&infants=0&originplace=BER&outbounddate=21%2F09%2F2026&type=oneway">MMK - K </a></li><li><a href="https://www.flightsfinder.com/portal/kiwi?adults=1&cabinclass=M&children=0&currency=MNT&destinationplace=CDG&inbounddate=&infants=0&originplace=BER&outbounddate=21%2F09%2F2026&type=oneway">MNT - ₮ </a></li><li><a href="https://www.flightsfinder.com/portal/kiwi?adults=1&cabinclass=M&children=0&currency=MOP&destinationplace=CDG&inbounddate=&infants=0&originplace=BER&outbounddate=21%2F09%2F2026&type=oneway">MOP - MOP$ </a></li><li><a href="https://www.flightsfinder.com/portal/kiwi?adults=1&cabinclass=M&children=0&currency=MRO&destinationplace=CDG&inbounddate=&infants=0&originplace=BER&outbounddate=21%2F09%2F2026&type=oneway">MRO - UM </a></li><li><a href="https://www.flightsfinder.com/portal/kiwi?adults=1&cabinclass=M&children=0&currency=MUR&destinationplace=CDG&inbounddate=&infants=0&originplace=BER&outbounddate=21%2F09%2F2026&type=oneway">MUR - Rs </a></li><li><a href="https://www.flightsfinder.com/portal/kiwi?adults=1&cabinclass=M&children=0&currency=MVR&destinationplace=CDG&inbounddate=&infants=0&originplace=BER&outbounddate=21%2F09%2F2026&type=oneway">MVR - MVR </a></li><li><a href="https://www.flightsfinder.com/portal/kiwi?adults=1&cabinclass=M&children=0&currency=MWK&destinationplace=CDG&inbounddate=&infants=0&originplace=BER&outbounddate=21%2F09%2F2026&type=oneway">MWK - MK </a></li><li><a href="https://www.flightsfinder.com/portal/kiwi?adults=1&cabinclass=M&children=0&currency=MXN&destinationplace=CDG&inbounddate=&infants=0&originplace=BER&outbounddate=21%2F09%2F2026&type=oneway">MXN - $ </a></li><li><a href="https://www.flightsfinder.com/portal/kiwi?adults=1&cabinclass=M&children=0&currency=MYR&destinationplace=CDG&inbounddate=&infants=0&originplace=BER&outbounddate=21%2F09%2F2026&type=oneway">MYR - RM </a></li><li><a href="https://www.flightsfinder.com/portal/kiwi?adults=1&cabinclass=M&children=0&currency=MZN&destinationplace=CDG&inbounddate=&infants=0&originplace=BER&outbounddate=21%2F09%2F2026&type=oneway">MZN - MT </a></li><li><a href="https://www.flightsfinder.com/portal/kiwi?adults=1&cabinclass=M&children=0&currency=NAD&destinationplace=CDG&inbounddate=&infants=0&originplace=BER&outbounddate=21%2F09%2F2026&type=oneway">NAD - $ </a></li><li><a href="https://www.flightsfinder.com/portal/kiwi?adults=1&cabinclass=M&children=0&currency=NGN&destinationplace=CDG&inbounddate=&infants=0&originplace=BER&outbounddate=21%2F09%2F2026&type=oneway">NGN - ₦ </a></li><li><a href="https://www.flightsfinder.com/portal/kiwi?adults=1&cabinclass=M&children=0&currency=NIO&destinationplace=CDG&inbounddate=&infants=0&originplace=BER&outbounddate=21%2F09%2F2026&type=oneway">NIO - C$ </a></li><li><a href="https://www.flightsfinder.com/portal/kiwi?adults=1&cabinclass=M&children=0&currency=NOK&destinationplace=CDG&inbounddate=&infants=0&originplace=BER&outbounddate=21%2F09%2F2026&type=oneway">NOK - kr </a></li><li><a href="https://www.flightsfinder.com/portal/kiwi?adults=1&cabinclass=M&children=0&currency=NPR&destinationplace=CDG&inbounddate=&infants=0&originplace=BER&outbounddate=21%2F09%2F2026&type=oneway">NPR - रु </a></li><li><a href="https://www.flightsfinder.com/portal/kiwi?adults=1&cabinclass=M&children=0&currency=NZD&destinationplace=CDG&inbounddate=&infants=0&originplace=BER&outbounddate=21%2F09%2F2026&type=oneway">NZD - $ </a></li><li><a href="https://www.flightsfinder.com/portal/kiwi?adults=1&cabinclass=M&children=0&currency=OMR&destinationplace=CDG&inbounddate=&infants=0&originplace=BER&outbounddate=21%2F09%2F2026&type=oneway">OMR - ر.ع.‏ </a></li><li><a href="https://www.flightsfinder.com/portal/kiwi?adults=1&cabinclass=M&children=0&currency=PAB&destinationplace=CDG&inbounddate=&infants=0&originplace=BER&outbounddate=21%2F09%2F2026&type=oneway">PAB - B/. </a></li><li><a href="https://www.flightsfinder.com/portal/kiwi?adults=1&cabinclass=M&children=0&currency=PEN&destinationplace=CDG&inbounddate=&infants=0&originplace=BER&outbounddate=21%2F09%2F2026&type=oneway">PEN - S/. </a></li><li><a href="https://www.flightsfinder.com/portal/kiwi?adults=1&cabinclass=M&children=0&currency=PGK&destinationplace=CDG&inbounddate=&infants=0&originplace=BER&outbounddate=21%2F09%2F2026&type=oneway">PGK - K </a></li><li><a href="https://www.flightsfinder.com/portal/kiwi?adults=1&cabinclass=M&children=0&currency=PHP&destinationplace=CDG&inbounddate=&infants=0&originplace=BER&outbounddate=21%2F09%2F2026&type=oneway">PHP - P </a></li><li><a href="https://www.flightsfinder.com/portal/kiwi?adults=1&cabinclass=M&children=0&currency=PKR&destinationplace=CDG&inbounddate=&infants=0&originplace=BER&outbounddate=21%2F09%2F2026&type=oneway">PKR - Rs </a></li><li><a href="https://www.flightsfinder.com/portal/kiwi?adults=1&cabinclass=M&children=0&currency=PLN&destinationplace=CDG&inbounddate=&infants=0&originplace=BER&outbounddate=21%2F09%2F2026&type=oneway">PLN - zł </a></li><li><a href="https://www.flightsfinder.com/portal/kiwi?adults=1&cabinclass=M&children=0&currency=PYG&destinationplace=CDG&inbounddate=&infants=0&originplace=BER&outbounddate=21%2F09%2F2026&type=oneway">PYG - Gs </a></li><li><a href="https://www.flightsfinder.com/portal/kiwi?adults=1&cabinclass=M&children=0&currency=QAR&destinationplace=CDG&inbounddate=&infants=0&originplace=BER&outbounddate=21%2F09%2F2026&type=oneway">QAR - ر.ق.‏ </a></li><li><a href="https://www.flightsfinder.com/portal/kiwi?adults=1&cabinclass=M&children=0&currency=RON&destinationplace=CDG&inbounddate=&infants=0&originplace=BER&outbounddate=21%2F09%2F2026&type=oneway">RON - lei </a></li><li><a href="https://www.flightsfinder.com/portal/kiwi?adults=1&cabinclass=M&children=0&currency=RSD&destinationplace=CDG&inbounddate=&infants=0&originplace=BER&outbounddate=21%2F09%2F2026&type=oneway">RSD - Дин. </a></li><li><a href="https://www.flightsfinder.com/portal/kiwi?adults=1&cabinclass=M&children=0&currency=RUB&destinationplace=CDG&inbounddate=&infants=0&originplace=BER&outbounddate=21%2F09%2F2026&type=oneway">RUB - p. </a></li><li><a href="https://www.flightsfinder.com/portal/kiwi?adults=1&cabinclass=M&children=0&currency=RWF&destinationplace=CDG&inbounddate=&infants=0&originplace=BER&outbounddate=21%2F09%2F2026&type=oneway">RWF - RWF </a></li><li><a href="https://www.flightsfinder.com/portal/kiwi?adults=1&cabinclass=M&children=0&currency=SAR&destinationplace=CDG&inbounddate=&infants=0&originplace=BER&outbounddate=21%2F09%2F2026&type=oneway">SAR - ر.س.‏ </a></li><li><a href="https://www.flightsfinder.com/portal/kiwi?adults=1&cabinclass=M&children=0&currency=SBD&destinationplace=CDG&inbounddate=&infants=0&originplace=BER&outbounddate=21%2F09%2F2026&type=oneway">SBD - $ </a></li><li><a href="https://www.flightsfinder.com/portal/kiwi?adults=1&cabinclass=M&children=0&currency=SCR&destinationplace=CDG&inbounddate=&infants=0&originplace=BER&outbounddate=21%2F09%2F2026&type=oneway">SCR - Rs </a></li><li><a href="https://www.flightsfinder.com/portal/kiwi?adults=1&cabinclass=M&children=0&currency=SDG&destinationplace=CDG&inbounddate=&infants=0&originplace=BER&outbounddate=21%2F09%2F2026&type=oneway">SDG - ج.س.‏ </a></li><li><a href="https://www.flightsfinder.com/portal/kiwi?adults=1&cabinclass=M&children=0&currency=SEK&destinationplace=CDG&inbounddate=&infants=0&originplace=BER&outbounddate=21%2F09%2F2026&type=oneway">SEK - kr </a></li><li><a href="https://www.flightsfinder.com/portal/kiwi?adults=1&cabinclass=M&children=0&currency=SHP&destinationplace=CDG&inbounddate=&infants=0&originplace=BER&outbounddate=21%2F09%2F2026&type=oneway">SHP - £ </a></li><li><a href="https://www.flightsfinder.com/portal/kiwi?adults=1&cabinclass=M&children=0&currency=SLL&destinationplace=CDG&inbounddate=&infants=0&originplace=BER&outbounddate=21%2F09%2F2026&type=oneway">SLL - Le </a></li><li><a href="https://www.flightsfinder.com/portal/kiwi?adults=1&cabinclass=M&children=0&currency=SOS&destinationplace=CDG&inbounddate=&infants=0&originplace=BER&outbounddate=21%2F09%2F2026&type=oneway">SOS - S </a></li><li><a href="https://www.flightsfinder.com/portal/kiwi?adults=1&cabinclass=M&children=0&currency=SRD&destinationplace=CDG&inbounddate=&infants=0&originplace=BER&outbounddate=21%2F09%2F2026&type=oneway">SRD - $ </a></li><li><a href="https://www.flightsfinder.com/portal/kiwi?adults=1&cabinclass=M&children=0&currency=STD&destinationplace=CDG&inbounddate=&infants=0&originplace=BER&outbounddate=21%2F09%2F2026&type=oneway">STD - Db </a></li><li><a href="https://www.flightsfinder.com/portal/kiwi?adults=1&cabinclass=M&children=0&currency=SYP&destinationplace=CDG&inbounddate=&infants=0&originplace=BER&outbounddate=21%2F09%2F2026&type=oneway">SYP - ل.س.‏ </a></li><li><a href="https://www.flightsfinder.com/portal/kiwi?adults=1&cabinclass=M&children=0&currency=SZL&destinationplace=CDG&inbounddate=&infants=0&originplace=BER&outbounddate=21%2F09%2F2026&type=oneway">SZL - E </a></li><li><a href="https://www.flightsfinder.com/portal/kiwi?adults=1&cabinclass=M&children=0&currency=THB&destinationplace=CDG&inbounddate=&infants=0&originplace=BER&outbounddate=21%2F09%2F2026&type=oneway">THB - ฿ </a></li><li><a href="https://www.flightsfinder.com/portal/kiwi?adults=1&cabinclass=M&children=0&currency=TJS&destinationplace=CDG&inbounddate=&infants=0&originplace=BER&outbounddate=21%2F09%2F2026&type=oneway">TJS - TJS </a></li><li><a href="https://www.flightsfinder.com/portal/kiwi?adults=1&cabinclass=M&children=0&currency=TMT&destinationplace=CDG&inbounddate=&infants=0&originplace=BER&outbounddate=21%2F09%2F2026&type=oneway">TMT - m </a></li><li><a href="https://www.flightsfinder.com/portal/kiwi?adults=1&cabinclass=M&children=0&currency=TND&destinationplace=CDG&inbounddate=&infants=0&originplace=BER&outbounddate=21%2F09%2F2026&type=oneway">TND - د.ت.‏ </a></li><li><a href="https://www.flightsfinder.com/portal/kiwi?adults=1&cabinclass=M&children=0&currency=TOP&destinationplace=CDG&inbounddate=&infants=0&originplace=BER&outbounddate=21%2F09%2F2026&type=oneway">TOP - T$ </a></li><li><a href="https://www.flightsfinder.com/portal/kiwi?adults=1&cabinclass=M&children=0&currency=TRY&destinationplace=CDG&inbounddate=&infants=0&originplace=BER&outbounddate=21%2F09%2F2026&type=oneway">TRY - TL </a></li><li><a href="https://www.flightsfinder.com/portal/kiwi?adults=1&cabinclass=M&children=0&currency=TTD&destinationplace=CDG&inbounddate=&infants=0&originplace=BER&outbounddate=21%2F09%2F2026&type=oneway">TTD - TT$ </a></li><li><a href="https://www.flightsfinder.com/portal/kiwi?adults=1&cabinclass=M&children=0&currency=TWD&destinationplace=CDG&inbounddate=&infants=0&originplace=BER&outbounddate=21%2F09%2F2026&type=oneway">TWD - NT$ </a></li><li><a href="https://www.flightsfinder.com/portal/kiwi?adults=1&cabinclass=M&children=0&currency=TZS&destinationplace=CDG&inbounddate=&infants=0&originplace=BER&outbounddate=21%2F09%2F2026&type=oneway">TZS - TSh </a></li><li><a href="https://www.flightsfinder.com/portal/kiwi?adults=1&cabinclass=M&children=0&currency=UAH&destinationplace=CDG&inbounddate=&infants=0&originplace=BER&outbounddate=21%2F09%2F2026&type=oneway">UAH - грн. </a></li><li><a href="https://www.flightsfinder.com/portal/kiwi?adults=1&cabinclass=M&children=0&currency=UGX&destinationplace=CDG&inbounddate=&infants=0&originplace=BER&outbounddate=21%2F09%2F2026&type=oneway">UGX - USh </a></li><li><a href="https://www.flightsfinder.com/portal/kiwi?adults=1&cabinclass=M&children=0&currency=UYU&destinationplace=CDG&inbounddate=&infants=0&originplace=BER&outbounddate=21%2F09%2F2026&type=oneway">UYU - $U </a></li><li><a href="https://www.flightsfinder.com/portal/kiwi?adults=1&cabinclass=M&children=0&currency=UZS&destinationplace=CDG&inbounddate=&infants=0&originplace=BER&outbounddate=21%2F09%2F2026&type=oneway">UZS - сўм </a></li><li><a href="https://www.flightsfinder.com/portal/kiwi?adults=1&cabinclass=M&children=0&currency=VEF&destinationplace=CDG&inbounddate=&infants=0&originplace=BER&outbounddate=21%2F09%2F2026&type=oneway">VEF - Bs. F. </a></li><li><a href="https://www.flightsfinder.com/portal/kiwi?adults=1&cabinclass=M&children=0&currency=VND&destinationplace=CDG&inbounddate=&infants=0&originplace=BER&outbounddate=21%2F09%2F2026&type=oneway">VND - ₫ </a></li><li><a href="https://www.flightsfinder.com/portal/kiwi?adults=1&cabinclass=M&children=0&currency=VUV&destinationplace=CDG&inbounddate=&infants=0&originplace=BER&outbounddate=21%2F09%2F2026&type=oneway">VUV - VT </a></li><li><a href="https://www.flightsfinder.com/portal/kiwi?adults=1&cabinclass=M&children=0&currency=WST&destinationplace=CDG&inbounddate=&infants=0&originplace=BER&outbounddate=21%2F09%2F2026&type=oneway">WST - WS$ </a></li><li><a href="https://www.flightsfinder.com/portal/kiwi?adults=1&cabinclass=M&children=0&currency=XAF&destinationplace=CDG&inbounddate=&infants=0&originplace=BER&outbounddate=21%2F09%2F2026&type=oneway">XAF - F </a></li><li><a href="https://www.flightsfinder.com/portal/kiwi?adults=1&cabinclass=M&children=0&currency=XCD&destinationplace=CDG&inbounddate=&infants=0&originplace=BER&outbounddate=21%2F09%2F2026&type=oneway">XCD - $ </a></li><li><a href="https://www.flightsfinder.com/portal/kiwi?adults=1&cabinclass=M&children=0&currency=XOF&destinationplace=CDG&inbounddate=&infants=0&originplace=BER&outbounddate=21%2F09%2F2026&type=oneway">XOF - F </a></li><li><a href="https://www.flightsfinder.com/portal/kiwi?adults=1&cabinclass=M&children=0&currency=XPF&destinationplace=CDG&inbounddate=&infants=0&originplace=BER&outbounddate=21%2F09%2F2026&type=oneway">XPF - F </a></li><li><a href="https://www.flightsfinder.com/portal/kiwi?adults=1&cabinclass=M&children=0&currency=YER&destinationplace=CDG&inbounddate=&infants=0&originplace=BER&outbounddate=21%2F09%2F2026&type=oneway">YER - ر.ي.‏ </a></li><li><a href="https://www.flightsfinder.com/portal/kiwi?adults=1&cabinclass=M&children=0&currency=ZAR&destinationplace=CDG&inbounddate=&infants=0&originplace=BER&outbounddate=21%2F09%2F2026&type=oneway">ZAR - R </a></li><li><a href="https://www.flightsfinder.com/portal/kiwi?adults=1&cabinclass=M&children=0&currency=ZMW&destinationplace=CDG&inbounddate=&infants=0&originplace=BER&outbounddate=21%2F09%2F2026&type=oneway">ZMW - ZK </a></li></ul> </div> </div>
+                <p>Sort by:</p>
+                <!-- scripts.js dropDown function  -->
+                <div class="dropdown">
+                    <button class="btn btn-default dropdown-toggle" type="button" id="dropdownMenu" data-item="Total price" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false">
+                        Total price
+                    </button>
+                    <ul class="dropdown-menu" aria-labelledby="dropdownMenu">
+                        <li><a data-option="price" data-item="Total price" href="#">Total price</a></li>
+                        <li><a data-option="duration" data-item="Journey time" href="#">Journey time</a></li>
+                        <li><a data-option="totalstops" data-item="Stops" href="#">Stops</a></li>
+                    </ul>
+                </div>
+            </div>
+            <div class="col-xs-12 _three_cols" id="three-blocks-option">
+                <div class="row">
+                    <div class="col-xs-4">
+                        <div>
+                            <div class="_to_select" data-option="best">
+                                <p>Best <strong id="tb-best-price"><i class="fa fa-spinner fa-spin"></i></strong></p>
+                                <p><strong id="tb-best-time"><i class="fa fa-spinner fa-spin"></i></strong> (average)</p>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-xs-4">
+                        <div class="_to_select active" data-option="price">
+                            <p>Cheapest <strong id="tb-cheapest-price"><i class="fa fa-spinner fa-spin"></i></strong></p>
+                            <p><strong id="tb-cheapest-time"><i class="fa fa-spinner fa-spin"></i></strong> (average)</p>
+                        </div>
+                    </div>
+                    <div class="col-xs-4">
+                        <div class="_to_select" data-option="duration">
+                            <p>Fastest <strong id="tb-fastest-price"><i class="fa fa-spinner fa-spin"></i></strong></p>
+                            <p><strong id="tb-fastest-time"><i class="fa fa-spinner fa-spin"></i></strong> (average)</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+<div class="modal" id="myModalX" tabindex="-1" role="dialog" aria-labelledby="myModalLabel">
+</div>
+    <div class="container" id="hidden-on-load">
+        <div class="row">
+            <div class="col-md-3 sidebar">
+                <div class="panel-group jplist-panel" id="accordion" role="tablist" aria-multiselectable="true">
+    <div class="panel panel-default">
+        <div class="panel-heading" role="tab" id="headingOne">
+            <h4 class="panel-title"><a role="button" data-toggle="collapse" data-target="#collapseOne" aria-expanded="true" aria-controls="collapseOne">Stops</a></h4>
+        </div>
+        <div id="collapseOne" class="panel-collapse collapse in" role="tabpanel" aria-labelledby="headingOne">
+            <div class="panel-body jplist-group" data-control-type="checkbox-group-filter" data-control-action="filter" data-control-name="stops">
+                <div class="form-item">
+                    <p>Direct</p>
+                    <fieldset>
+                        <input data-path=".Direct" id="direct" type="checkbox" class="css-checkbox" name="direct" value="direct" checked onclick="CFFLive.filterChangedStops();"/>
+                        <label for="direct" class="css-label" id="cheapest-route-direct">  </label>
+                    </fieldset>
+                </div>
+                <div class="form-item">
+                    <p>1 Stop</p>
+                    <fieldset>
+                        <input data-path=".OneStop" id="OneStop" type="checkbox" class="css-checkbox" name="OneStop" value="onestop" checked onclick="CFFLive.filterChangedStops();"/>
+                        <label for="OneStop" class="css-label" id="cheapest-route-one">  </label>
+                    </fieldset>
+                </div>
+                <div class="form-item">
+                    <p>2+ Stops</p>
+                    <fieldset>
+                        <input data-path=".twoStops" id="twoStops" type="checkbox" class="css-checkbox" name="twoStops" value="twostops" checked onclick="CFFLive.filterChangedStops();"/>
+                        <label for="twoStops" class="css-label" id="cheapest-route-two">  </label>
+                    </fieldset>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="panel panel-default slider-panel">
+        <div class="panel-heading" role="tab" id="headingTwo">
+            <h4 class="panel-title"><a class="collapsed" role="button" data-toggle="collapse" data-target="#collapseTwo" aria-expanded="true" aria-controls="collapseTwo">Departures</a></h4>
+        </div>
+        <div id="collapseTwo" class="panel-collapse collapse in" role="tabpanel" aria-labelledby="headingTwo">
+            <div class="panel-body">
+                <div class="form-item">
+                    <p>Outbound</p>
+                    <input id="outbound-input" type="text" name="outbound-input" class="amount-time" disabled value="0:00 - 23:59"/>
+                    <div id="outbound">
+                        <div class="ui-slider" data-type="ui-slider"></div>
+                    </div>
+                </div>
+                <div class="form-item" style="display:none;">
+                    <p>Return</p>
+                    <input type="text" name="outbound" class="amount-time" id="return-input" disabled value="0:00 - 23:59"/>
+                    <div id="return">
+                        <div class="ui-slider" data-type="ui-slider"></div>
+                    </div>
+                    <br>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="panel panel-default duration">
+        <div class="panel-heading" role="tab" id="headingThree">
+            <h4 class="panel-title"><a class="collapsed" role="button" data-toggle="collapse" data-target="#collapseThree" aria-expanded="true" aria-controls="collapseThree">Duration</a></h4>
+        </div>
+        <div id="collapseThree" class="panel-collapse collapse in" role="tabpanel" aria-labelledby="headingThree">
+            <div class="panel-body">
+                <div class="form-item">
+                    <p>Duration Hours</p>
+                    <input type="text" name="outbound" class="amount-time" id="duration-input" disabled value="0.5 - 100"/>
+                    <div id="duration">
+                        <div class="ui-slider" data-type="ui-slider"></div>
+                    </div>
+                    <br>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="panel panel-default">
+        <div class="panel-heading" role="tab" id="headingFour">
+            <h4 class="panel-title"><a class="collapsed" role="button" data-toggle="collapse" data-target="#collapseFour" aria-expanded="true" aria-controls="collapseFour">airlines in results</a></h4>
+        </div>
+        <div id="collapseFour" class="panel-collapse collapse in" role="tabpanel" aria-labelledby="headingFour">
+            <div class="panel-body jplist-group">
+                <div class="form-item">
+                    <p id="select-all"><a href="#" onclick="CFFLive.airportCheck('sel');return false;">Select all</a></p>
+                    <p id="clear-all"><a href="#" onclick="CFFLive.airportCheck('unsel');return false;">Clear all</a></p>
+                </div>
+                <div class="form-item airlines-list" style="display:none;">
+                    <p><a href="#" onclick="CFFLive.airportCheck('oneworld');return false;">oneworld</a></p>
+                    <p><a href="#" onclick="CFFLive.airportCheck('skyteam');return false;">SkyTeam</a></p>
+                    <p><a href="#" onclick="CFFLive.airportCheck('staralliance');return false;">Star Alliance</a></p>
+                </div>
+                <div id="airlines-zone">
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+            </div>
+            <div class="col-md-9 content">
+                <div id="sortable-container">
+<div class="list row" id="results"><p>Please wait...</p></div>
+<div class="jplist-pagination"></div>
+</div>
+            </div>
+        </div>
+    </div>
+</section>
+<footer>
+</footer>
+<script type="text/javascript">
+var CFFLive = {
+    polling: true,
+    intervalRef: null,
+    objAllResults: Object,
+    objFilteredResults: Object,
+    current_page: 1,
+    results_added: false,
+    pollSession: function () {
+        //$('#msgoverlay', parent.document).fadeOut(200);
+        $.ajax({type: 'POST', url: '/portal/kiwi/search',
+            complete: function (transport) {
+                var resp = transport.responseText;
+                var resp_array = resp.split('|');
+
+                if (resp_array[6].length > 0) {
+                    CFFLive.setTableData(resp_array);
+                }
+
+                if (resp_array[0] == 'Y') {
+                    CFFLive.endPolling();
+                    //$('.main .heading').addClass('loaded');
+                    //$('.spinner').fadeOut();
+                    $('#hidden-on-load').fadeIn(200);
+
+                    if (parseInt(resp_array[1]) == 0) {
+                        CFFLive.results_added = true;
+                        $('#tb-best-price').html('-');
+                        $('#tb-best-time').html('-');
+                        $('#tb-cheapest-price').html('-');
+                        $('#tb-cheapest-time').html('-');
+                        $('#tb-fastest-price').html('-');
+                        $('#tb-fastest-time').html('-');
+
+                        $('#found_zone').html('<span>No Results Found</span>');
+                        $('.jplist-pagination').hide();
+                        $('#results').html('<p>No results found. Please change destination or dates.</p>');
+                    }
+                } else {
+                    if (parseInt(resp_array[1]) != 0) {
+                        //$('.loading-iframe p', parent.document).html('Loading results, please wait (found ' + resp_array[1] + ')...');
+                        $('#found_zone').html('<span>Searching (found ' + resp_array[1] + ')...</span>');
+                    }
+                    //setTimeout(CFFLive.pollSession, 100);
+                }
+            },
+            data: {
+                '_token': 'RPFLrTL7DkqfUW4Ml76NSVUqzozRGoEtElmqzB8m',
+                'originplace': 'BER',
+                'destinationplace': 'CDG',
+                'outbounddate': '21/09/2026',
+                'inbounddate': '',
+                'cabinclass': 'M',
+                'adults': '1',
+                'children': '0',
+                'infants': '0',
+                'currency': 'EUR',
+                'type': 'oneway',
+                'bags-cabin': '0',
+                'bags-checked': '0',
+            }
+        });
+    },
+    endPolling: function () {
+        CFFLive.polling = false;
+        $('#LoadingLink').fadeOut();
+    },
+    setTableData: function (res) {
+        CFFLive.results_added = true;
+        $('#found_zone').html('<span>Found: </span> ' + res[1] + ' Result' + (res[1] == 1 ? '' : 's'));
+        $('#results').html(res[6]);
+
+        CFFLive.objAllResults = $('#results').find('.list-item');
+        CFFLive.objFilteredResults = $('#results').find('.list-item');
+        $('.jplist-pagination').pagination('updateItems', CFFLive.objAllResults.length);
+        CFFLive.filterPageClick(CFFLive.current_page, null);
+
+        // Cheapest routres
+        var cheapest_routes = res[2].split('#');
+        $('#cheapest-route-direct').html(' ' + cheapest_routes[0]);
+        $('#cheapest-route-one').html(' ' + cheapest_routes[1]);
+        $('#cheapest-route-two').html(' ' + cheapest_routes[2]);
+
+        // Duration
+        var durations = res[3].split('#');
+        var dur_min = parseInt(durations[0]);
+        var dur_max = parseInt(durations[1]);
+        $('#duration').slider('option', 'min', dur_min);
+        $('#duration').slider('option', 'max', dur_max);
+        $('#duration').slider('values', [dur_min,dur_max]);
+        $('#duration-input').val(dur_min + ' - ' + dur_max);
+
+        // Airlines
+        $('#airlines-zone').html(res[4]);
+
+        // NEW - set best, cheapest and fastest
+        var tblocks = res[5].split('#');
+        $('#tb-best-price').html(tblocks[0]);
+        $('#tb-best-time').html(tblocks[1]);
+        $('#tb-cheapest-price').html(tblocks[2]);
+        $('#tb-cheapest-time').html(tblocks[3]);
+        $('#tb-fastest-price').html(tblocks[4]);
+        $('#tb-fastest-time').html(tblocks[5]);
+
+        window.parent.$('#ffportalkiwi').html(tblocks[2]);//.show().addClass('blink_me');
+        window.parent.$('.ffportalkiwi-load').hide(); // Hide spinner
+        ////window.parent.$('.ffportalkiwi-img').hide(); // Hide spinner
+        //window.parent.$('.ffportalkiwi-space').show(); // Show spacer
+        CFFLive.sortResults('price');
+        CFFLive.blinky('.ffportalkiwi-img', '#ffportalkiwi');
+    },
+    blinky: function (img, txt) {
+        window.parent.$(img).delay(100).fadeOut(1000, function() {
+            window.parent.$(txt).delay(100).fadeIn(1000, function() {
+                window.parent.$(txt).delay(100).fadeOut(1000, function() {
+                    window.parent.$(img).delay(100).fadeIn(1000, function() {
+                        CFFLive.blinky(img, txt);
+                    });
+                });
+            });
+        });
+    },
+    airportCheck: function (opt) {
+        switch (opt) {
+            case 'sel':
+                $('.x-carrier').prop('checked', true);
+                break;
+            case 'unsel':
+                $('.x-carrier').prop('checked', false);
+                break;
+            case 'oneworld':
+                $('.x-carrier').prop('checked', false);
+                $('.x-all-oneworld').prop('checked', true);
+                break;
+            case 'skyteam':
+                $('.x-carrier').prop('checked', false);
+                $('.x-all-skyteam').prop('checked', true);
+                break;
+            case 'staralliance':
+                $('.x-carrier').prop('checked', false);
+                $('.x-all-staralliance').prop('checked', true);
+                break;
+        }
+
+        CFFLive.filterChangedAirlines();
+    },
+    filterChangedStops: function () {
+        CFFLive.applyFilters(true);
+    },
+    filterChangedAirlines: function () {
+        CFFLive.applyFilters(true);
+    },
+    filterChangedOutboundTime: function () {
+        CFFLive.applyFilters(true);
+    },
+    filterChangedReturnTime: function () {
+        CFFLive.applyFilters(true);
+    },
+    filterChangedDurationTime: function () {
+        CFFLive.applyFilters(true);
+    },
+    filterChangedSort: function (sortby) {
+        CFFLive.sortResults(sortby);
+    },
+    filterPageClick: function (pageNumber, event) {
+        CFFLive.current_page = pageNumber;
+
+        var to_show = CFFLive.applyFilters(false);
+        to_show.show();
+
+        if (CFFLive.objFilteredResults.length > 10) {
+            $('.jplist-pagination').show();
+        } else {
+            $('.jplist-pagination').hide();
+        }
+
+        if (to_show.length > 0) {
+            $('#results').html(to_show);
+        } else {
+            $('#results').html('<p>Sorry, there aren\'t any flights that match your filters.</p>');
+        }
+    },
+    applyFilters: function (filter_changed) {
+        // Only apply all filters if a filter was altered, else just return latest filtered posts
+        if (filter_changed) {
+            // Apply filters, save to objFilteredResults, return
+            var newResult = $();
+
+            var dur_from = parseFloat($('#duration').slider('values', 0));
+            var dur_to = parseFloat($('#duration').slider('values', 1));
+            var outb_from = parseInt($('#outbound').slider('values', 0));
+            var outb_to = parseInt($('#outbound').slider('values', 1));
+            var retu_from = parseInt($('#return').slider('values', 0));
+            var retu_to = parseInt($('#return').slider('values', 1));
+
+            var journey_array = $("#collapseOne input:checkbox:checked").map(function () {
+                return $(this).val();
+            }).get();
+            journey_array.push('faker'); // So no checks against empty array
+
+            var airlines_array = $("#collapseFour input:checkbox:checked").map(function () {
+                return $(this).val();
+            }).get();
+
+            var airlines_array_not = $("#collapseFour input:checkbox:not(:checked)").map(function () {
+                return $(this).val();
+            }).get();
+
+            //airlines_array.push('AIRL000'); // So no checks against empty array
+
+            $.each(CFFLive.objAllResults, function(key, value) {
+                var x_dur = parseFloat($(value).data('duration'));
+                var x_outbound = parseInt($(value).data('outboundmins'));
+                var x_return = parseInt($(value).data('returnmins'));
+                var x_journey = $(value).data('journey');
+                var x_airline = $(value).data('airline');
+                var x_airline2 = $(value).data('airline2');
+                var x_airline3 = $(value).data('airline3');
+                var x_airline4 = $(value).data('airline4');
+
+                if (x_dur >= dur_from && x_dur <= dur_to && x_outbound >= outb_from && x_outbound <= outb_to && x_return >= retu_from && x_return <= retu_to && $.inArray(x_journey, journey_array) !== -1 &&
+                    ($.inArray(x_airline, airlines_array) !== -1 || $.inArray(x_airline2, airlines_array) !== -1 || $.inArray(x_airline3, airlines_array) !== -1 || $.inArray(x_airline4, airlines_array) !== -1)
+                    && ($.inArray(x_airline, airlines_array_not) === -1 && $.inArray(x_airline2, airlines_array_not) === -1 && $.inArray(x_airline3, airlines_array_not) === -1 && $.inArray(x_airline4, airlines_array_not) === -1)
+                ) {
+                    newResult = newResult.add(value);
+                }
+            });
+
+            CFFLive.objFilteredResults = newResult;
+
+            $('.jplist-pagination').pagination('selectPage', 1); // Reset paginator to 1
+            $('.jplist-pagination').pagination('updateItems', CFFLive.objFilteredResults.length);
+            CFFLive.filterPageClick(1, null);
+            return;
+        }
+
+        var offsetStart = (CFFLive.current_page - 1) * 10;
+        var offsetEnd = CFFLive.current_page * 10;
+
+        return CFFLive.objFilteredResults.slice(offsetStart, offsetEnd).clone();
+    },
+    sortResults: function (sortby) {
+        var sort_attrib = sortby;
+        var newResult = $();
+        var sortable = [];
+
+        $.each(CFFLive.objFilteredResults, function(key, value) {
+            sortable.push([value, $(value).data(sort_attrib)]);
+        });
+
+        sortable.sort(function (a, b) {
+            return a[1] - b[1];
+        });
+
+        $.each(sortable, function(index, value) {
+            newResult = newResult.add(value[0]);
+        });
+
+        CFFLive.objFilteredResults = newResult;
+
+        $('.jplist-pagination').pagination('selectPage', 1); // Reset paginator to 1
+        $('.jplist-pagination').pagination('updateItems', CFFLive.objFilteredResults.length);
+        CFFLive.filterPageClick(1, null);
+    },
+    checkResults: function () {
+        setTimeout(function() {
+            if (!CFFLive.results_added) {
+                window.location.reload();
+            }
+        }, 30000);
+    }
+};
+
+$(document).ready(function() {
+    //$('.loading-iframe p', parent.document).html('Loading...');
+    CFFLive.checkResults();
+    CFFLive.pollSession();
+});
+</script>
+</body>
+</html>

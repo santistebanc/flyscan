@@ -1,0 +1,52 @@
+{
+  "source": "ff-kiwi",
+  "recorded_at": "2026-08-24T14:45:38+00:00",
+  "query": {
+    "origin": "BER",
+    "destination": "CDG",
+    "depart": "2026-09-21",
+    "ret": null,
+    "adults": 1,
+    "children": 0,
+    "infants": 0,
+    "cabin": "economy",
+    "currency": "EUR"
+  },
+  "expect": {
+    "offers": 3,
+    "digest": "sha256:80004d9e37b5424bb4ea1aceac6d3aa8"
+  },
+  "exchanges": [
+    {
+      "method": "GET",
+      "url": "https://www.flightsfinder.com/portal/kiwi?currency=EUR&type=oneway&cabinclass=M&originplace=BER&destinationplace=CDG&outbounddate=21%2F09%2F2026&inbounddate=&adults=1&children=0&infants=0",
+      "request_headers": {},
+      "request_body": null,
+      "status": 200,
+      "response_headers": {
+        "content-type": "text/html; charset=UTF-8",
+        "content-encoding": "gzip"
+      },
+      "body": "001.body",
+      "truncated": false,
+      "bytes": 57703
+    },
+    {
+      "method": "POST",
+      "url": "https://www.flightsfinder.com/portal/kiwi/search",
+      "request_headers": {
+        "X-Requested-With": "XMLHttpRequest",
+        "Referer": "https://www.flightsfinder.com/portal/kiwi?currency=EUR&type=oneway&cabinclass=M&originplace=BER&destinationplace=CDG&outbounddate=21%2F09%2F2026&inbounddate=&adults=1&children=0&infants=0"
+      },
+      "request_body": "{\"_token\": \"RPFLrTL7DkqfUW4Ml76NSVUqzozRGoEtElmqzB8m\", \"originplace\": \"BER\", \"destinationplace\": \"CDG\", \"outbounddate\": \"21/09/2026\", \"inbounddate\": \"\", \"cabinclass\": \"M\", \"adults\": \"1\", \"children\": \"0\", \"infants\": \"0\", \"currency\": \"EUR\", \"type\": \"oneway\", \"bags-cabin\": \"0\", \"bags-checked\": \"0\"}",
+      "status": 200,
+      "response_headers": {
+        "content-type": "text/html; charset=UTF-8",
+        "content-encoding": "gzip"
+      },
+      "body": "002.body",
+      "truncated": false,
+      "bytes": 33419
+    }
+  ]
+}

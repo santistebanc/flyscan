@@ -1,0 +1,584 @@
+/**
+ * One stylesheet for the whole app.
+ *
+ * The page is a frame, not a document: a header of search controls across the
+ * top, the results down the left, the sources and the picked flight down the
+ * right. Only the two inner panes scroll, so nothing you need to act on can
+ * ever be scrolled off screen.
+ *
+ * Nothing is rounded and nothing is boxed. Separation is done with a single
+ * hairline where two regions actually meet — a card around each region would
+ * draw five borders to say what one border already says.
+ *
+ * Within a row the reading order is deliberate: price first, then when, then
+ * what the trip actually is. Everything else — airlines, stop counts, every
+ * seller's quote — is in the side panel.
+ */
+
+:root {
+  --bg: #f6f7f9;
+  --panel: #fff;
+  --ink: #16191d;
+  --ink-soft: #454b54;
+  --muted: #78818d;
+  --line: #dfe3e8;
+  --line-soft: #eef0f4;
+  --accent: #0770e3;
+  --accent-soft: #e8f1fd;
+  --ok: #0b7a52;
+  --bad: #c0392b;
+  --warn: #a4630b;
+
+  --side-width: 380px;
+  /* Both are remeasured by the elements themselves — the header grows when
+     Advanced opens, and the side panel is only as tall as what it holds once
+     it stacks. These are the values the first paint uses. */
+  --header-h: 64px;
+  --side-h: 0px;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #101316;
+    --panel: #171a1e;
+    --ink: #eef2f6;
+    --ink-soft: #c3ccd6;
+    --muted: #8b97a5;
+    --line: #2b3138;
+    --line-soft: #1e2329;
+    --accent: #4a9df8;
+    --accent-soft: #16273c;
+    --ok: #3fd39a;
+    --bad: #f2705f;
+    --warn: #e0a53f;
+  }
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  /* The results are the page: they scroll the window, with no scrollbar of
+     their own. The header and the side panel are lifted out of the flow and
+     pinned, so the space they occupy has to be given back as padding. */
+  padding: var(--header-h) var(--side-width) 0 0;
+  background: var(--bg);
+  color: var(--ink);
+  font: 14px/1.55 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
+        "Helvetica Neue", Arial, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+
+/* Thin, square, and in the app's own greys — the platform default is a wide
+   rounded bar that reads as a piece of some other program. */
+* { scrollbar-width: thin; scrollbar-color: var(--line) transparent; }
+::-webkit-scrollbar { width: 8px; height: 8px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--line); border-radius: 0; }
+::-webkit-scrollbar-thumb:hover { background: var(--muted); }
+::-webkit-scrollbar-corner { background: transparent; }
+
+/* Anything numeric that sits in a column lines up down the page. */
+.price, .dur, .clock, .amount, .itin { font-variant-numeric: tabular-nums; }
+
+.muted { color: var(--muted); font-size: 12.5px; }
+.ok { color: var(--ok); } .err { color: var(--bad); } .warn { color: var(--warn); }
+
+/* -- the frame ----------------------------------------------------------- */
+
+.app { background: var(--panel); min-height: 100%; }
+
+/* -- header: every search control, full width ---------------------------- */
+
+/* Pinned across the top of the viewport, above the side panel: the search is
+   what everything else on screen is an answer to.
+
+   No title and no connection line — the window is named by its own title bar,
+   and an unreachable sidecar shows up as sources that are not there yet. */
+.topbar {
+  position: fixed; top: 0; left: 0; right: 0; z-index: 20;
+  display: flex; align-items: flex-end; flex-wrap: wrap; gap: 10px 22px;
+  padding: 10px 16px 12px;
+  border-bottom: 1px solid var(--line);
+  background: var(--panel);
+}
+
+.params { display: flex; align-items: flex-end; flex-wrap: wrap; gap: 10px 16px; }
+.topbar-actions { display: flex; align-items: center; align-self: flex-end; gap: 8px; margin-left: auto; min-width: 0; }
+.topbar-actions .range-status { margin-left: 0; }
+
+label {
+  display: flex; flex-direction: column; gap: 4px;
+  font-size: 10px; font-weight: 600; text-transform: uppercase;
+  letter-spacing: .07em; color: var(--muted);
+}
+input, select {
+  font: inherit; font-size: 13.5px; color: var(--ink); background: var(--panel);
+  border: 1px solid var(--line); border-radius: 0;
+  padding: 6px 8px; min-width: 108px;
+  transition: border-color .12s;
+}
+input:focus, select:focus { outline: none; border-color: var(--accent); }
+
+/* Every field is sized to what it holds, so the whole search fits on one line
+   on a normal window instead of wrapping into a three-row header. */
+.params input { min-width: 0; width: 74px; }          /* BER, LON */
+.params input[type="date"] { width: 134px; }
+.params input[type="number"] { width: 58px; }
+.params select { min-width: 0; width: auto; }
+
+/* Party, cabin and quote currency: the search too, folded away because most
+   searches are one adult in economy. Open, it takes its own line across the
+   header rather than pushing the dates around. */
+button.disclose {
+  display: inline-flex; align-items: center; gap: 4px;
+  background: transparent; border: 0; color: var(--muted);
+  font-size: 11px; font-weight: 600; letter-spacing: .04em;
+  padding: 6px 2px; cursor: pointer; align-self: flex-end;
+}
+button.disclose:hover { color: var(--ink); filter: none; }
+.advanced {
+  flex-basis: 100%;
+  display: flex; align-items: flex-end; flex-wrap: wrap; gap: 10px 16px;
+  padding-top: 10px; border-top: 1px solid var(--line-soft);
+}
+
+/* Where the scrape stands, and the one control that moves it. Pushed to the
+   right of the search it acts on. */
+.status {
+  margin-left: auto; align-self: flex-end;
+  display: flex; align-items: center; gap: 12px;
+}
+.status-go { min-width: 140px; }
+/* Disabled here is information, not an obstacle: everything is fresh and
+   asking again would be noise. It should read as settled, not broken. */
+.status-go:disabled {
+  opacity: 1; background: transparent;
+  color: var(--muted); border-color: var(--line);
+}
+
+/* -- the date range ------------------------------------------------------ */
+
+/* The trigger is a field, not a button: it stands in a row of inputs and has
+   to read as one of them. */
+.daterange { position: relative; }
+.cal-trigger {
+  display: flex; align-items: baseline; gap: 8px;
+  font: inherit; font-size: 13.5px; font-weight: 500;
+  color: var(--ink); background: var(--panel);
+  border: 1px solid var(--line); border-radius: 0;
+  padding: 6px 10px; min-width: 210px; text-align: left;
+}
+.cal-trigger:hover:not(:disabled) { filter: none; border-color: var(--muted); }
+.cal-trigger.open { border-color: var(--accent); }
+.cal-span {
+  margin-left: auto; color: var(--muted); font-size: 11.5px;
+  font-variant-numeric: tabular-nums; white-space: nowrap;
+}
+
+/* How many separate searches the two ranges add up to — the cost of widening
+   either one, in the one unit that matters: questions asked of every source. */
+.trip-count {
+  align-self: flex-end; padding-bottom: 8px;
+  font-variant-numeric: tabular-nums; white-space: nowrap;
+}
+
+/* Two months, hung under the field. It sits above everything, including the
+   side panel, because it is the thing being used. */
+.cal-popup {
+  position: absolute; top: calc(100% + 6px); left: 0; z-index: 60;
+  background: var(--panel); border: 1px solid var(--line);
+  padding: 10px 12px 8px;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, .18);
+}
+.cal-popup:focus { outline: none; }
+/* Hung from the right when hanging from the left would leave the window. */
+.cal-popup.flip { left: auto; right: 0; }
+/* Narrower than two months side by side: they stack instead of overflowing. */
+@media (max-width: 560px) {
+  .cal-popup { max-width: calc(100vw - 16px); }
+  .cal-months { flex-wrap: wrap; }
+}
+
+.cal-nav {
+  display: flex; align-items: center; gap: 10px;
+  padding-bottom: 8px; border-bottom: 1px solid var(--line-soft);
+}
+.cal-nav .muted { flex: 1; text-align: center; font-size: 11px; }
+.cal-nav button:hover { filter: none; background: var(--line-soft); color: var(--ink); }
+
+.cal-months { display: flex; gap: 22px; padding: 10px 0 6px; }
+.cal-month { width: 196px; }
+.cal-title {
+  font-size: 11px; font-weight: 700; text-transform: uppercase;
+  letter-spacing: .08em; color: var(--muted); padding-bottom: 7px;
+}
+.cal-week, .cal-grid { display: grid; grid-template-columns: repeat(7, 1fr); }
+.cal-week span {
+  font-size: 9.5px; font-weight: 700; letter-spacing: .06em;
+  color: var(--muted); text-align: center; padding-bottom: 4px;
+}
+
+/* A day is a square of the grid with no border of its own: the range is drawn
+   by filling cells, and any gap between them would break the band in two. */
+.cal-day {
+  font: inherit; font-size: 12.5px; font-variant-numeric: tabular-nums;
+  height: 27px; padding: 0; border: 0; border-radius: 0;
+  background: transparent; color: var(--ink-soft); cursor: pointer;
+}
+.cal-day.blank { visibility: hidden; }
+.cal-day:hover:not(:disabled) { filter: none; background: var(--line-soft); color: var(--ink); }
+.cal-day.past { color: var(--muted); opacity: .35; cursor: default; }
+.cal-day.today { font-weight: 700; color: var(--ink); box-shadow: inset 0 -2px 0 var(--line); }
+.cal-day.inside { background: var(--accent-soft); color: var(--ink); }
+.cal-day.edge, .cal-day.edge:hover:not(:disabled) {
+  background: var(--accent); color: #fff; font-weight: 700;
+}
+/* The keyboard's position, which is not the same thing as a chosen day. */
+.cal-day.cursor { box-shadow: inset 0 0 0 1px var(--accent); }
+
+.cal-foot {
+  display: flex; align-items: center; gap: 12px;
+  padding-top: 8px; border-top: 1px solid var(--line-soft);
+}
+.cal-foot .muted { margin-left: auto; font-size: 11.5px; }
+.cal-plain {
+  background: transparent; color: var(--ink-soft); border: 1px solid var(--line);
+  font-size: 12px; font-weight: 600; padding: 4px 12px;
+}
+.cal-plain:hover { filter: none; background: var(--line-soft); color: var(--ink); }
+
+button {
+  font: inherit; font-size: 13px; font-weight: 600;
+  padding: 7px 16px; border-radius: 0;
+  border: 1px solid transparent; background: var(--accent); color: #fff;
+  cursor: pointer; transition: filter .12s, opacity .12s;
+}
+button:hover:not(:disabled) { filter: brightness(1.07); }
+button:disabled { opacity: .45; cursor: not-allowed; }
+#stop { background: transparent; color: var(--ink-soft); border-color: var(--line); }
+
+/* A control that reads as a caption: "Sort by [ Cheapest ]". */
+label.inline {
+  flex-direction: row; align-items: center; gap: 7px;
+  font-size: 10px; white-space: nowrap;
+}
+label.inline select {
+  font-size: 12.5px; text-transform: none; letter-spacing: 0;
+  padding: 3px 6px; min-width: 0;
+}
+
+/* -- results pane -------------------------------------------------------- */
+
+/* Ordinary page content — no height of its own, no scrollbar of its own. */
+.results-pane { min-width: 0; }
+
+/* The two knobs that only change how the list reads. Sticky under the pinned
+   header, so the sort you chose stays visible while you scroll past it.
+
+   It parks one pixel high, tucked behind the header rather than flush with it.
+   Flush is a sub-pixel coin toss between the two, and the losing side is a slit
+   with the list scrolling past inside it. */
+.results-bar {
+  position: sticky; top: calc(var(--header-h) - 1px); z-index: 5;
+  display: flex; align-items: center; flex-wrap: wrap; gap: 8px 20px;
+  padding: 7px 16px;
+  background: var(--panel);
+  border-bottom: 1px solid var(--line);
+}
+
+.empty-results { padding: 18px 16px; }
+
+/* A list, not a table. Four self-evident fields need no headers; the grid is
+   only here so they still line up down the page.
+
+   Only the visible rows exist: the container is given the height the whole
+   list *would* have and each row is placed into it, so there is no stacking
+   context to lay out and the scrollbar still means what it says. */
+.results { position: relative; }
+.results .flight {
+  display: grid;
+  grid-template-columns: minmax(78px, auto) minmax(58px, auto) 1fr auto;
+  align-items: baseline; gap: 20px;
+  padding: 10px 16px;
+  border-bottom: 1px solid var(--line-soft);
+  cursor: pointer;
+  /* Arrow keys scroll a row to the top of the window, where the header and the
+     sort bar would otherwise be sitting on top of it. */
+  scroll-margin-top: calc(var(--header-h) + 44px);
+  transition: background .1s;
+}
+/* Grid items refuse to shrink past their content unless told to. Without this
+   a four-airport itinerary widens its track and pushes the duration out of the
+   column — and, on a narrow window, under the side panel. */
+.results .flight > * { min-width: 0; }
+.results .flight:hover { background: var(--line-soft); }
+.results .flight.picked {
+  background: var(--accent-soft); box-shadow: inset 2px 0 0 var(--accent);
+}
+
+.results .price {
+  font-size: 15.5px; font-weight: 700; letter-spacing: -.02em; color: var(--ink);
+}
+.results .day {
+  font-size: 12.5px; font-weight: 500; color: var(--muted); white-space: nowrap;
+}
+.results .dur {
+  font-size: 12.5px; color: var(--muted); white-space: nowrap; text-align: right;
+}
+
+/* `21:15 BER → STN → CDG 12:20`
+
+   Wrapping is by flex box, not by text: there is no whitespace between an
+   airport code and the arrow after it, so the only break points that exist
+   are the ones these two rules create. Codes and clocks themselves stay
+   whole. A path long enough to need it takes a second line instead of
+   widening the row past the column. */
+.itin {
+  display: inline-flex; align-items: baseline; flex-wrap: wrap; gap: 4px 10px;
+  white-space: nowrap; font-size: 13.5px; min-width: 0;
+}
+.itin .clock { font-weight: 600; color: var(--ink); }
+.itin .path {
+  display: inline-flex; align-items: baseline; flex-wrap: wrap;
+  color: var(--ink-soft); letter-spacing: .015em; min-width: 0;
+}
+/* The arrow is joinery, not content — present, but quieter than the codes. */
+.itin .arrow { color: var(--muted); opacity: .65; margin: 0 6px; }
+/* An overnight must say so, or 21:15 → 12:20 reads as fifteen hours the wrong way. */
+.itin .nextday {
+  color: var(--warn); font-size: 10px; font-weight: 700;
+  vertical-align: super; margin-left: -6px;
+}
+/* The return leg, subordinate to the outbound it belongs with — and the same
+   for the return date and the time it takes, so all three columns of a round
+   trip read down the same two lines. */
+.back { margin-top: 3px; }
+.results .day .back, .results .dur .back { font-size: 11.5px; opacity: .75; }
+.back .itin { font-size: 12.5px; }
+.back .itin .clock { font-weight: 500; color: var(--ink-soft); }
+.back .itin .path { color: var(--muted); }
+/* A round trip whose seller never described the return. */
+.back.no-detail { color: var(--muted); font-size: 11.5px; font-style: italic; }
+
+/* -- side panel ---------------------------------------------------------- */
+
+/* One full-height view: either the queue or the selected flight. */
+.side {
+  position: fixed; top: var(--header-h); right: 0; bottom: 0;
+  width: var(--side-width); z-index: 10;
+  background: var(--panel);
+  border-left: 1px solid var(--line);
+  display: flex; flex-direction: column; overflow: hidden;
+}
+.side-section { display: flex; flex-direction: column; min-height: 0; }
+.queue-view { display: flex; flex-direction: column; flex: 1; min-height: 0; }
+.queue-view[hidden] { display: none; }
+.side-section.detail {
+  flex: 1 1 auto; min-height: 150px; overflow-y: auto; padding-bottom: 26px;
+}
+
+/* The heading of a section, which for the sources is also the fold. */
+/* A section's own row: its fold, and any action that reaches the whole of it.
+   The action sits outside the fold button, because a button inside a button is
+   not a thing. */
+.section-row { display: flex; align-items: baseline; }
+.section-do { padding-right: 16px; }
+/* Sized like the × on a source and the × on a job, because it is the same
+   gesture one level up. */
+.section-do button {
+  background: transparent; border: 1px solid transparent; color: var(--muted);
+  font-size: 11px; font-weight: 700; line-height: 1;
+  padding: 3px 5px; min-width: 0;
+}
+/* The one that reaches furthest is the one that warns on hover. */
+.section-do button:hover:not(:disabled) {
+  filter: none; color: var(--bad);
+  border-color: var(--line); background: var(--line-soft);
+}
+
+.section-head {
+  display: flex; align-items: baseline; gap: 8px; width: 100%;
+  padding: 9px 16px; text-align: left;
+  background: transparent; border: 0; color: var(--ink);
+  cursor: pointer;
+}
+.section-head.static { cursor: default; }
+.section-head:hover:not(.static) { background: var(--line-soft); filter: none; }
+.section-title {
+  font-size: 10px; font-weight: 700; text-transform: uppercase;
+  letter-spacing: .09em; color: var(--muted);
+}
+.caret { color: var(--muted); }
+.section-head.static .caret { display: none; }
+.section-gist { margin-left: auto; }
+
+.section-body { overflow-y: auto; padding: 0 16px 12px; }
+
+/* -- the queue ----------------------------------------------------------- */
+
+/* Preserve expanded groups while the flight view is showing. */
+.side-section.queue { flex: 1; min-height: 0; }
+.side-section.queue .section-body { overflow-y: auto; padding-inline: 0; }
+.queue .section-body > p { margin-inline: 12px; }
+.queue .section-head { align-items: center; }
+.queue .section-gist { font-size: 12px; color: var(--ink-soft); }
+.queue-inactive { border-top: 1px solid var(--line); margin-top: 4px; background: var(--bg); }
+.queue-inactive .query-group-head, .queue-inactive .query-source-name { color: var(--ink-soft); }
+.queue-inactive-toggle {
+  display: flex; align-items: center; gap: 8px; width: 100%; min-height: 32px;
+  padding: 8px 12px; border: 0; background: transparent; color: var(--ink-soft);
+  font-size: 12px; line-height: 16px; text-align: left;
+}
+.queue-inactive-toggle:hover { filter: none; color: var(--ink); }
+.queue-inactive-toggle:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.queue-notice { font-size: 12px; line-height: 16px; color: var(--bad); overflow-wrap: anywhere; }
+/* One shared gutter. Groups are divided by rules, with no inset cards. */
+.query-group { border: 0; border-left: 4px solid transparent; border-bottom: 1px solid var(--line-soft); margin: 0; padding: 4px 12px 4px 8px; }
+.query-group:hover { background: color-mix(in srgb, var(--accent) 6%, transparent); }
+.query-group:last-of-type { border-bottom: 0; }
+.query-group-row { display: flex; align-items: center; gap: 4px; }
+.query-group.selected { border-left-color: color-mix(in srgb, var(--accent) 60%, transparent); }
+.query-group-head {
+  display: flex; align-items: center; gap: 8px; flex: 1; min-width: 0; min-height: 32px;
+  padding: 4px 0; border: 0; background: transparent; text-align: left; color: var(--ink);
+}
+.query-group-head:hover { filter: none; }
+.query-group-title { min-width: 0; flex: 1; }
+.query-heading { display: flex; align-items: baseline; min-width: 0; gap: 8px; }
+.query-route { flex: none; font-size: 12px; line-height: 16px; font-weight: 600; white-space: nowrap; color: var(--accent); }
+.query-dates { flex: 0 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; font-size: 12px; line-height: 16px; color: var(--ink-soft); font-weight: 400; white-space: nowrap; }
+.queue-progress { display: inline-flex; align-items: center; gap: 4px; flex: none; font-size: 12px; line-height: 16px; font-variant-numeric: tabular-nums; color: var(--ink-soft); }
+.query-group-progress { display: inline-flex; align-items: center; justify-content: flex-end; flex: none; gap: 8px; margin-left: auto; }
+.queue-status-count { gap: 2px; }
+.queue-progress.done { color: var(--ok); }
+.queue-progress.failed { color: var(--bad); }
+.queue-progress.input { color: var(--warn); }
+.queue-progress.running { color: var(--accent); }
+.query-options { flex: 0 2 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--ink-soft); font-size: 12px; line-height: 16px; font-weight: 400; }
+.query-option { display: inline-flex; align-items: center; gap: 4px; vertical-align: bottom; }
+.query-option + .query-option { margin-left: 8px; }
+.query-group-actions, .query-source-actions { display: inline-flex; flex: none; gap: 4px; }
+.queue-icon-button {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 28px; height: 28px; min-width: 28px; padding: 4px;
+  color: var(--ink-soft); border: 0; background: transparent;
+}
+.queue-icon-button:hover:not(:disabled) { filter: none; background: var(--line-soft); color: var(--ink); }
+.sidebar-toggle[aria-pressed="true"] { background: var(--accent-soft); color: var(--accent); }
+.sidebar-toggle:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.query-group button:disabled { opacity: .5; cursor: wait; }
+.query-group button:focus-visible, .queue-more:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.query-sources { list-style: none; margin: 0 0 4px; padding: 0; }
+.query-source { border: 0; padding: 2px 0; }
+.query-source-line { display: flex; align-items: center; gap: 8px; min-height: 28px; }
+.query-source-name { font-size: 12px; line-height: 16px; font-weight: 500; min-width: 72px; }
+.query-source-status { display: inline-flex; align-items: center; gap: 4px; font-size: 12px; line-height: 16px; color: var(--ink-soft); }
+.query-source-metric { margin-left: auto; font-size: 12px; color: var(--ink-soft); white-space: nowrap; font-variant-numeric: tabular-nums; }
+.query-source-hint { font-size: 12px; line-height: 16px; color: var(--warn); }
+.query-source.running .query-source-status { color: var(--accent); }
+.query-source.completed .query-source-status, .query-source.cached .query-source-status { color: var(--ok); }
+.query-source.failed .query-source-status, .query-source.timed_out .query-source-status { color: var(--bad); }
+.query-source.waiting_input .query-source-status, .query-source.retrying .query-source-status, .query-source.rate_limited .query-source-status { color: var(--warn); }
+.queue-more { padding: 4px 12px; font-size: 12px; color: var(--accent); border: 0; background: transparent; }
+@media (pointer: coarse) {
+  .queue-icon-button { width: 44px; height: 44px; min-width: 44px; }
+  .query-group-head, .queue-inactive-toggle { min-height: 44px; }
+  .query-source-line { flex-wrap: wrap; gap: 4px; }
+}
+@media (prefers-reduced-motion: reduce) { .spinner { animation: none !important; } }
+
+/* Status, action and loading glyphs use the same 16px outline. */
+.icon { display: inline-block; width: 16px; height: 16px; flex: none; vertical-align: middle; }
+.spinner { animation: spin .7s linear infinite; transform-origin: center; }
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* A source that has asked for a human — with the sources, since that is what
+   it blocks. */
+.challenges { margin-bottom: 10px; border-left: 2px solid var(--warn); }
+.challenge {
+  padding: 6px 0 6px 10px; font-size: 12.5px;
+}
+.challenge-row { display: flex; align-items: center; gap: 8px; }
+.challenge-source { flex: 1; min-width: 0; }
+.challenge button { display: inline-flex; align-items: center; gap: 4px; padding: 4px 8px; font-size: 12px; }
+.challenge-error { color: var(--bad); font-size: 12px; line-height: 16px; overflow-wrap: anywhere; margin-top: 4px; }
+
+/* -- the picked flight --------------------------------------------------- */
+
+.detail h2 {
+  font-size: 22px; font-weight: 700; letter-spacing: -.025em;
+  margin: 0 16px 2px;
+}
+.detail .sub { color: var(--muted); font-size: 12.5px; margin: 0 16px 4px; }
+.detail .spread { margin-top: 12px; }
+.detail h3 {
+  font-size: 10px; font-weight: 700; text-transform: uppercase;
+  letter-spacing: .08em; color: var(--muted); margin: 18px 16px 8px;
+}
+.detail.empty p { padding: 2px 16px 0; max-width: 34ch; }
+.detail a { color: var(--accent); }
+
+.leg { border-left: 2px solid var(--line); padding-left: 12px; margin: 0 16px; }
+.seg {
+  display: flex; gap: 12px; padding: 7px 0;
+  border-bottom: 1px dashed var(--line);
+}
+.seg:last-child { border-bottom: 0; }
+.seg .times {
+  font-variant-numeric: tabular-nums; white-space: nowrap;
+  font-weight: 600; font-size: 12.5px; color: var(--ink);
+}
+.seg .who { color: var(--muted); font-size: 11.5px; margin-top: 1px; }
+.layover {
+  color: var(--warn); font-size: 11.5px; font-weight: 500;
+  padding: 4px 0 4px 12px;
+}
+
+.book {
+  display: flex; align-items: baseline; gap: 10px;
+  margin: 0 16px; padding: 8px 0;
+  border-bottom: 1px solid var(--line-soft);
+}
+.book:last-of-type { border-bottom: 0; }
+.book .amount {
+  font-weight: 700; font-size: 13.5px; min-width: 80px; color: var(--ink);
+}
+.book.cheapest .amount { color: var(--ok); }
+.book .who { flex: 1; font-size: 12.5px; }
+.native { color: var(--muted); font-weight: 400; font-size: 11.5px; }
+.book-link {
+  color: var(--accent); cursor: pointer; font-size: 12.5px; font-weight: 600;
+  white-space: nowrap; text-decoration: none;
+}
+.book-link:hover { text-decoration: underline; }
+
+/* -- narrow windows ------------------------------------------------------ */
+
+/* Below this the side panel would squeeze the itineraries into wrapping, so
+   it goes under the results instead and the whole frame scrolls as one. */
+@media (max-width: 900px) {
+  /* The panel turns the corner: still pinned, but stacked under the header and
+     across the full width, with the results scrolling beneath it. It is capped
+     at a share of the viewport — pinned and uncapped, a long itinerary would
+     take the whole screen and leave nothing to pin it above. */
+  .side {
+    top: var(--header-h); left: 0; right: 0; bottom: auto;
+    width: auto; max-height: 46vh;
+    border-left: 0; border-bottom: 1px solid var(--line);
+  }
+  body { padding-right: 0; padding-top: calc(var(--header-h) + var(--side-h)); }
+  .results-bar { top: calc(var(--header-h) + var(--side-h) - 1px); }
+  .results .flight {
+    scroll-margin-top: calc(var(--header-h) + var(--side-h) + 44px);
+  }
+}
+
+/* The header is scoped to the selected filters; the sidebar remains global. */
+.range-status { display: flex; align-items: center; flex-wrap: wrap; gap: 8px 12px; margin-left: auto; min-width: 0; }
+.range-status-info { min-width: 0; max-width: 400px; }
+.range-status-actions { display: flex; align-items: center; gap: 4px; }
+.range-status .status-go { display: inline-flex; align-items: center; justify-content: center; gap: 8px; min-width: 88px; }
+.range-status-error { color: var(--bad); font-size: 12px; line-height: 16px; overflow-wrap: anywhere; }
+.range-status button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }

@@ -1,0 +1,144 @@
+# Desktop shell
+
+TypeScript UI, Python scrapers, Tauri in between.
+
+The scraping stays in Python for one concrete reason: `curl_cffi`'s TLS
+impersonation is what makes the sources answer a plain HTTP request at all — a
+real browser gets a captcha where it gets a 200. Node has no equally good
+equivalent, so the shell spawns the packaged Python binary and talks to its
+`/v1` API on localhost. Nothing about the scrapers changes.
+
+## Why a desktop app, and not a web page
+
+A source's security check grants **cookies**, and those cookies are what unblock
+the scraper — verified: a session without them is still 403 even right after
+someone solved the challenge. A user clearing it in their own browser keeps the
+cookies there, where a server cannot reach them.
+
+Here the challenge opens in a window this app owns:
+
+```
+challenge_required  →  open_challenge(url)      Rust: a WebviewWindow
+                    →  you solve it in the app
+                    →  window.cookies()         Rust: reads the jar
+                    →  POST /v1/challenges/{source}/cookies
+```
+
+The captcha is never solved, answered or worked around by this code. It is put
+in front of the person sitting at the machine, and it waits.
+
+That also lets the sidecar drop Playwright — about 150 MB and a separate
+`playwright install` step — because the webview already here does the job.
+
+## Layout
+
+```
+src/api.ts        typed client for /v1  ← survives any UI rewrite
+src/platform.ts   the three calls that need the shell, and their browser fallbacks
+src/currency.tsx  display currency + formatting (React context)
+src/useFlights.ts the engine: loadStored reads the DB, runSearch is the only scrape
+src/App.tsx       header of search controls, source panel, results list
+src/Details.tsx   itinerary detail and every seller, in the side panel
+src-tauri/        spawns the sidecar on a free port; open_challenge, open_external
+```
+
+React + TypeScript, built with Vite. This is the **only** frontend: the same
+bundle is loaded by the desktop shell, served by `flight-scraper serve`, and run
+with live reload during development. There used to be a second, server-rendered
+UI in the Python package; keeping two in step failed often enough that deleting
+one was the fix.
+
+The window is a frame, not a page: every search control across a fixed header,
+the results down the left, and a fixed side panel on the right holding the
+sources (collapsible) above the flight you have picked. The results *are* the
+page and scroll the window; the header and the panel are pinned out of that
+flow, which is why the header remeasures itself into `--header-h` whenever
+Advanced opens. Rows carry only what you scan by — price, day, itinerary,
+duration — and the panel carries the full itinerary, layovers and every
+seller's price for whichever row is selected, by click or with ↑ and ↓.
+Nothing is rounded and nothing is boxed: one hairline where two regions meet.
+
+All money crossing `/v1` is EUR — numbers, never formatted strings, and the
+database stores EUR only — so the "show prices in" selector is a re-render rather
+than another scrape. It is
+persisted in `localStorage` and never reaches the database.
+
+Party, cabin and quote currency sit under **Advanced** in the search form,
+folded away by default and opened automatically when the remembered form holds
+anything non-default. Changing any search parameter re-reads the database for
+exactly that party — never a scrape. Quote currency is the one exception to the
+re-read: it changes what the sources are asked to quote, but stored prices are
+EUR only, so re-querying on it could not return anything different.
+
+The search form is remembered under `flight-scraper:form`, so a reload lands back
+where you left off. A departure date that has already passed is
+**pushed forward** rather than restored or discarded — coming back next week
+should not re-run a search for last Tuesday, which can only come back empty, but
+the trip is still the trip. The length is preserved, so a saved seven-night trip
+returns as a seven-night trip from the default date, and a one-way stays one-way.
+
+## Running it
+
+Build the sidecar first (see `../packaging/README.md`), then:
+
+```bash
+cd desktop
+npm install
+cp ../packaging/dist/flight-scraper-sidecar.exe \
+   src-tauri/binaries/flight-scraper-sidecar-$(rustc -vV | sed -n 's/host: //p').exe
+npm run tauri dev
+```
+
+The suffix is not optional: Tauri resolves `externalBin` by target triple and
+the build fails without an exact match. `FLIGHT_SCRAPER_SIDECAR` overrides the
+path if you would rather point at a binary somewhere else.
+
+## Running the same UI in a browser
+
+While the UI is changing quickly, the desktop shell is the slow way to see a
+change. A Rust edit costs a full stop-rebuild-restart, because the running app
+holds `target/debug/flight-scraper-sidecar.exe` and the build script has to
+delete that file before it can copy a new one — so `tauri dev` cannot rebuild
+itself while it is up.
+
+The same frontend runs as an ordinary web page, with live reload:
+
+```bash
+flight-scraper serve --port 5111    # or the packaged sidecar
+npm run dev --prefix desktop        # http://localhost:1420
+```
+
+`src/platform.ts` is what makes this work. It resolves the three shell-only
+calls at runtime:
+
+| | desktop | browser |
+|---|---|---|
+| `apiBase` | the port the shell reserved | `?api=…`, else `VITE_API_BASE`, else `:5111` in dev, the page's own origin when built |
+| `openExternal` | `open_external` command | `window.open` |
+| `openChallenge` | webview + cookie read-back | refuses, and says why |
+
+Point it at another port with `http://localhost:1420/?api=http://127.0.0.1:5200`.
+
+**Clearing a security check is the one thing that cannot work here**, and the
+challenge banner says so rather than offering a button that does nothing. A
+browser cannot read cookies from another origin, so a challenge solved in a tab
+leaves the scraper just as blocked — which is the whole reason the desktop shell
+exists. Use the desktop app when a source actually asks for a human.
+
+## Notes
+
+- `open_challenge` is an **async** command on purpose. Reading webview cookies
+  deadlocks on Windows from a synchronous command or an event handler.
+- The shell reserves a free port and passes it to the sidecar, then the frontend
+  asks for it via `api_base()` rather than assuming one.
+- The sidecar is watched from **both ends**, because one is not enough. The
+  shell kills it when the main window is destroyed — but Ctrl+C in a `tauri dev`
+  terminal, a crash, or a rebuild kills the shell with no window event at all,
+  and the sidecar is left holding its port, the database, and its own binary.
+  That last one is nasty: the next `cargo` build panics with a bare
+  `PermissionDenied` while trying to delete the locked exe, a long way from its
+  cause. So the shell also passes `--exit-with-parent <pid>`, and the sidecar
+  waits on that handle and exits when it goes.
+- This machine is **aarch64-pc-windows-msvc**. Shipping to x64 needs a sidecar
+  built on (or cross-compiled for) that target — PyInstaller does not
+  cross-compile.

@@ -1,0 +1,23 @@
+.venv/
+__pycache__/
+*.pyc
+out/
+*.db
+*.db-wal
+*.db-shm
+.places_cache.json
+.fx_cache.json
+debug_dumps/
+.source_cache.db
+.challenges/
+packaging/build/
+packaging/dist/
+packaging/*.spec
+desktop/node_modules/
+desktop/dist/
+desktop/src-tauri/target/
+desktop/src-tauri/gen/
+desktop/src-tauri/binaries/
+
+# Error log: local to a run, and can hold URLs from real searches.
+.errors/
