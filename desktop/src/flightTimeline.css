@@ -29,9 +29,12 @@
 .timeline-meta b { font-weight: 550; }
 .timeline-meta strong { color: var(--accent); font: 600 12px/16px Geist, sans-serif; }
 .timeline-meta sup { color: var(--warn); font-size: 10px; line-height: 1; margin-left: 2px; }
-.timeline-plot { --timeline-date-height: 18px; --timeline-track-height: 24px; --timeline-axis-top: 11px; position: relative; display: block; width: 100%; height: calc(var(--timeline-date-height) + var(--timeline-track-height)); margin-top: 4px; }
+.timeline-plot { --timeline-date-height: 18px; --timeline-track-height: 24px; --timeline-axis-top: 11px; --timeline-hour-height: 18px; position: relative; display: block; width: 100%; height: calc(var(--timeline-date-height) + var(--timeline-track-height) + var(--timeline-hour-height)); margin-top: 4px; }
 .timeline-plot::before { content: ""; position: absolute; inset: calc(var(--timeline-date-height) + var(--timeline-axis-top)) 0 auto; border-top: 1px solid var(--line); }
-.timeline-guide { position: absolute; top: var(--timeline-date-height); bottom: 0; width: 1px; background: var(--line-soft); pointer-events: none; }
+.timeline-guide { position: absolute; top: var(--timeline-date-height); height: var(--timeline-track-height); width: 1px; background: var(--line-soft); pointer-events: none; }
+.timeline-hours { position: absolute; inset: 0; color: var(--muted); font: 10px/14px "Geist Mono", monospace; pointer-events: none; }
+.timeline-hour-guide { position: absolute; top: var(--timeline-date-height); height: var(--timeline-track-height); width: 1px; background: var(--line-soft); opacity: .65; }
+.timeline-hour-label { position: absolute; top: calc(var(--timeline-date-height) + var(--timeline-track-height)); width: 5ch; text-align: center; white-space: nowrap; opacity: .75; }
 .timeline-hotspot { display: flex; justify-content: center; align-items: center; background: transparent; border: 0; padding: 0; min-width: 0; color: var(--ink-soft); font: inherit; cursor: help; }
 .timeline-part { position: absolute; top: var(--timeline-date-height); height: var(--timeline-track-height); }
 .timeline-ink { position: absolute; top: 9px; left: 0; right: 0; height: 5px; background: var(--airline); pointer-events: none; }

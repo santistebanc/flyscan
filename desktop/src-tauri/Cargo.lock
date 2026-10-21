@@ -1024,7 +1024,7 @@ dependencies = [
 
 [[package]]
 name = "flight-scraper-desktop"
-version = "0.3.5"
+version = "0.3.6"
 dependencies = [
  "base64 0.22.1",
  "minisign-verify",

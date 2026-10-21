@@ -4,6 +4,7 @@ import type { Rating } from "./flightRatings";
 import { Icon } from "./Icon";
 import { TimelineHotspot } from "./TimelineTooltip";
 import { TimelineDates } from "./TimelineDates";
+import { TimelineHours } from "./TimelineHours";
 import { airlineColor, clock, dayOffset, elapsed, isOvernight, localMidnights, percent, timingNote, timelineScaleFor, timelineScaleLabel,
   type JourneyTiming, type TimelineMode, type TimelineScale } from "./flightTimeline";
 
@@ -22,6 +23,7 @@ export function FlightTimeline({ leg, scale: sharedScale, timing, mode = "shared
       <span><strong>{leg.destination_airport}</strong><b>{clock(leg.arrival)}{shift > 0 && <sup>+{shift}</sup>}</b></span>
     </span>
     {timing && scale ? <span className="timeline-plot" aria-label={`${scaleLabel} timeline`}>
+      <TimelineHours scale={scale} />
       {midnights.map(({ at }) => <span key={at} className="timeline-guide" aria-hidden="true" style={{ left: `${percent(at, scale)}%` }} />)}
       {timing.parts.filter((p) => p.end > p.start).map(({ part, start, end }, i) => <TimelineHotspot key={i} part={part}
         note={note}
@@ -37,8 +39,8 @@ export function FlightTimeline({ leg, scale: sharedScale, timing, mode = "shared
         : waits.length ? waits.map(({ part }, i) => part.kind === "layover" && <span key={i}>{part.before.destination}{part.transfer && <> → {part.after.origin}</>}<span>{elapsed(part.minutes)}</span>{isOvernight(part) && <span className="layover-night" title="Overnight layover"><Icon name="moon" /></span>}</span>)
         : leg.stops === 0 ? "Nonstop" : leg.stops ? `${leg.stops} stops` : ""}</span>
       {scale && <span className="timeline-scale" title={mode === "days"
-        ? "Whole-day range starting at 03:00 at the departure airport (the previous day for departures before 03:00). Positions advance by elapsed travel time. Compare bar lengths within the same day range."
-        : "All filtered flights in this direction share the same scale."}>{scaleLabel}</span>}
+        ? "Whole-day range starting at 03:00 at the departure airport (the previous day for departures before 03:00). Positions and hour dividers advance by elapsed travel time on this reference clock. Compare bar lengths within the same day range."
+        : "All filtered flights in this direction share the same scale. Hour dividers use departure-airport reference time; flight details retain each airport's local times."}>{scaleLabel}</span>}
     </span>
   </span>;
 }

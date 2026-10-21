@@ -154,6 +154,9 @@ exists. Use the desktop app when a source actually asks for a human.
   Midnight date indicators have a reserved row above the flight bars. Their
   measured widths keep them inside the plot; collisions add date rows, and the
   plot grows to preserve spacing from flight times and connection labels.
+  Rounded-hour dividers use the departure-clock reference, with labels below
+  the bars. Their intervals adapt to the plot's measured width and time span:
+  wider plots show more hours; narrow or multi-day plots use fewer markers.
 - Timeline bounds and per-leg positions are memoized on the results dataset,
   including offscreen rows. Bounds follow the filtered results; segment timings
   are reused from the full dataset. Sorting and favorites do not rescan it.

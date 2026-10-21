@@ -1,7 +1,8 @@
-Fixed timeline dates overlapping airport codes and flight times.
+Flight timelines now include adaptive hour dividers and clock labels.
 
-- Date indicators have a dedicated row above the flight bars, with spacing from departure and arrival labels.
-- Crowded dates use additional rows and stay inside the timeline at narrow window sizes.
-- Date spacing adjusts when the window resizes or the timeline mode changes, including return journeys.
+- Rounded-hour markers automatically use wider intervals when the plot is narrow or spans more days.
+- Small clock labels have their own row below the flight bars, separate from date and connection labels.
+- Markers adapt when resizing or switching between Day ranges and Shared scale, including return journeys.
+- Hour labels use the departure-airport reference clock; flight and connection details retain airport-local times.
 
 Saved searches and preferences are preserved. Install through App updates.
