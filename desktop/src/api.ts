@@ -291,12 +291,16 @@ export interface PendingChallenge {
 }
 
 export class FlightScraperApi {
-  constructor(private readonly base: string) {}
+  constructor(private readonly base: string, private readonly apiKey?: string) {}
 
   private async json<T>(path: string, init?: RequestInit): Promise<T> {
     const response = await fetch(`${this.base}/v1${path}`, {
-      headers: { "Content-Type": "application/json" },
       ...init,
+      headers: {
+        "Content-Type": "application/json",
+        ...(this.apiKey ? { Authorization: `Bearer ${this.apiKey}` } : {}),
+        ...init?.headers,
+      },
     });
     if (!response.ok) {
       const detail = await response.json().catch(() => ({ error: response.statusText }));
@@ -517,7 +521,8 @@ export class FlightScraperApi {
     onEvent: (event: SearchEvent) => void,
     onError?: (error: Event) => void,
   ): EventSource {
-    const stream = new EventSource(`${this.base}/v1/searches/${id}/events`);
+    const auth = this.apiKey ? `?api_key=${encodeURIComponent(this.apiKey)}` : "";
+    const stream = new EventSource(`${this.base}/v1/searches/${id}/events${auth}`);
     stream.onmessage = (message) => onEvent(JSON.parse(message.data) as SearchEvent);
     if (onError) stream.onerror = onError;
     return stream;

@@ -13,6 +13,9 @@ debug_dumps/
 packaging/build/
 packaging/dist/
 packaging/*.spec
+!packaging/flight-scraper-sidecar.spec
+packaging/.venv-*/
+release/
 desktop/node_modules/
 desktop/dist/
 desktop/prototypes/

@@ -1,6 +1,6 @@
 [project]
 name = "flight-scraper"
-version = "0.2.0"
+version = "0.3.2"
 description = "Scrape flight prices from six metasearch sources in parallel and compare them in one currency."
 requires-python = ">=3.10"
 dependencies = [
@@ -8,6 +8,7 @@ dependencies = [
     "lxml>=5.0",
     "cssselect>=1.2",
     "flask>=3.0",
+    "waitress>=3.0.2,<4",
 ]
 
 [project.scripts]

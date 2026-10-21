@@ -84,6 +84,15 @@ returns as a seven-night trip from the default date, and a one-way stays one-way
 
 ## Running it
 
+For an installable Windows release, run `./packaging/build-windows.ps1` from
+the repository root. It produces a per-user NSIS installer with the frontend
+and Python service included. See [`../packaging/README.md`](../packaging/README.md)
+for prerequisites, signing and data storage. The installed app waits for its
+authenticated service before showing the main window and keeps writable data
+under local app data instead of the installation directory.
+
+For development:
+
 Build the sidecar first (see `../packaging/README.md`), then:
 
 ```bash

@@ -9,6 +9,12 @@ subcommand stays reachable — which keeps the binary useful on its own.
 
 import sys
 
+# Frozen Python does not honor PYTHONUNBUFFERED. Keep startup diagnostics
+# available immediately in the desktop shell's redirected log.
+for stream in (sys.stdout, sys.stderr):
+    if stream is not None and hasattr(stream, "reconfigure"):
+        stream.reconfigure(line_buffering=True, write_through=True)
+
 from flight_scraper.cli import build_parser, main
 
 

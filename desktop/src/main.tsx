@@ -12,7 +12,7 @@ import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import App from "./App";
 import { FlightScraperApi } from "./api";
-import { apiBase } from "./platform";
+import { apiConnection } from "./platform";
 import "./styles.css";
 import "./theme.css";
 import "./flightTimeline.css";
@@ -26,9 +26,9 @@ const surroundings = () => ({
   agent: navigator.userAgent,
 });
 
-apiBase()
-  .then((base) => {
-    const api = new FlightScraperApi(base);
+apiConnection()
+  .then(({ base, apiKey }) => {
+    const api = new FlightScraperApi(base, apiKey);
 
     window.addEventListener("error", (event) => {
       void api.report("window", event.message || String(event.error), {

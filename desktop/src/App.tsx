@@ -21,7 +21,7 @@ import {
   type SearchRequest,
   type SourceName,
 } from "./api";
-import { apiBase } from "./platform";
+import { apiConnection } from "./platform";
 import { CURRENCIES, CurrencyProvider, useCurrency } from "./currency";
 import { RangePicker, daysBetween, todayISO } from "./RangePicker";
 import { Details } from "./Details";
@@ -29,6 +29,7 @@ import { ChallengeBanner } from "./ChallengeBanner";
 import { Queue } from "./Queue";
 import { useFlights } from "./useFlights";
 import { useQueue } from "./useQueue";
+import { UpdateControls } from "./UpdateControls";
 import { RangeStatus } from "./RangeStatus";
 import { rangeStats } from "./queueModel";
 import { Icon, Spinner } from "./Icon";
@@ -485,7 +486,8 @@ function Shell() {
   useEffect(() => {
     let live = true;
     (async () => {
-      const client = new FlightScraperApi(await apiBase());
+      const { base, apiKey } = await apiConnection();
+      const client = new FlightScraperApi(base, apiKey);
       for (let attempt = 0; attempt < 40 && live; attempt++) {
         try {
           await client.health();
@@ -737,6 +739,8 @@ function Shell() {
 
         {/* Pushed to the right of the search it acts on. */}
         <div className="topbar-actions">
+          <UpdateControls busy={engine.running || Boolean(queue.busy) || queue.offline || !queue.state
+            || Boolean(queue.state.scheduler.running || queue.state.scheduler.queued)} />
           <RangeStatus queue={queue} trips={trips} canSearch={Boolean(api && request)}
             fetching={engine.running} onFetch={fetchRange} />
           <button type="button" className="queue-icon-button sidebar-toggle"
@@ -810,7 +814,7 @@ export default function App() {
   // The provider needs a client to fetch rates; the shell builds its own once
   // the sidecar answers. Resolving the base once here keeps them in step.
   useEffect(() => {
-    apiBase().then((base) => setApi(new FlightScraperApi(base))).catch(() => {});
+    apiConnection().then(({ base, apiKey }) => setApi(new FlightScraperApi(base, apiKey))).catch(() => {});
   }, []);
   return (
     <CurrencyProvider api={api}>

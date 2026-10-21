@@ -44,6 +44,12 @@ export async function apiBase(): Promise<string> {
   );
 }
 
+/** The session secret is available only through the main desktop window's IPC. */
+export async function apiConnection(): Promise<{ base: string; apiKey?: string }> {
+  const base = await apiBase();
+  return { base, apiKey: isDesktop ? await invoke<string>("api_key") : undefined };
+}
+
 /**
  * Send a booking link to the user's real browser.
  *

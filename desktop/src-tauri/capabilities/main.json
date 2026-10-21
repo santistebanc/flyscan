@@ -1,0 +1,7 @@
+{
+  "$schema": "../gen/schemas/desktop-schema.json",
+  "identifier": "main",
+  "description": "Local app controls; external verification windows cannot access updates.",
+  "windows": ["main"],
+  "permissions": ["core:default", "updater:allow-check", "updater:allow-download", "updater:allow-install"]
+}

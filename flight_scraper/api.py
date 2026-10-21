@@ -21,6 +21,7 @@ the one still in flight.
 from __future__ import annotations
 
 import hashlib
+import hmac
 import json
 import os
 import re
@@ -108,7 +109,6 @@ def sse_response(job: Job, after: int = 0) -> Response:
         mimetype="text/event-stream",
         headers={
             "Cache-Control": "no-cache",
-            "Connection": "keep-alive",
             "X-Accel-Buffering": "no",
         },
     )
@@ -116,12 +116,18 @@ def sse_response(job: Job, after: int = 0) -> Response:
 
 @api.before_request
 def _authenticate():
+    if request.method == "OPTIONS":
+        return None
     key = os.environ.get(API_KEY_ENV)
     if not key:
         return None
     header = request.headers.get("Authorization", "")
     supplied = header[7:] if header.startswith("Bearer ") else request.headers.get("X-API-Key", "")
-    if supplied != key:
+    # Native EventSource cannot set headers. Only the read-only event stream
+    # accepts the session key in its URL; ordinary endpoints require a header.
+    if not supplied and request.method == "GET" and re.fullmatch(r"/v1/searches/[^/]+/events", request.path):
+        supplied = request.args.get("api_key", "")
+    if not hmac.compare_digest(supplied.encode(), key.encode()):
         return jsonify({"error": "unauthorized"}), 401
     return None
 

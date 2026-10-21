@@ -208,4 +208,10 @@ def run_server(host: str = "127.0.0.1", port: int = 5000, debug: bool = False,
     app = create_app()
     print(f"\n  Flight scraper UI -> http://{host}:{port}\n")
     # threaded=True so an in-flight SSE stream does not block new requests.
-    app.run(host=host, port=port, debug=debug, threaded=True)
+    if getattr(sys, "frozen", False):
+        from waitress import serve
+        # SSE holds a worker for each active stream; leave capacity for API
+        # requests and cache reads while searches run. Bind only to loopback.
+        serve(app, host="127.0.0.1", port=port, threads=16, channel_timeout=120)
+    else:
+        app.run(host=host, port=port, debug=debug, threaded=True)
