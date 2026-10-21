@@ -60,5 +60,5 @@ test("the existing explicit sorting options keep their behavior", () => {
   assert.deepEqual(keys(rows, "price"), ["cheap", "early", "short"]);
   assert.deepEqual(keys(rows, "depart"), ["early", "short", "cheap"]);
   assert.deepEqual(keys(rows, "duration"), ["short", "early", "cheap"]);
-  assert.deepEqual(keys(rows, "stops"), ["early", "short", "cheap"]);
+  assert.equal(SORT_LABELS.stops, undefined, "stop count remains a filter, not a sort option");
 });

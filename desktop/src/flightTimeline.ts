@@ -63,11 +63,10 @@ export interface JourneyTiming {
 export interface TimelineScale { min: number; max: number; airports: string[] }
 export type TimelineMode = "days" | "shared";
 export const TIMELINE_MODE_KEY = "flight-scraper.timeline-mode";
-export const TIMELINE_DAY_START = 3 * 60;
 export function normalizeTimelineMode(value: unknown): TimelineMode {
   return value === "shared" ? "shared" : "days";
 }
-/** Whole elapsed days anchored at 03:00 in the departure airport's clock.
+/** Midnight-based ranges: at least 24 hours, then extend in three-hour steps.
  * A row's range depends only on its own timing, so streaming, sorting and
  * filtering other flights cannot change its scale. Keep detailed arrivals
  * in range even when the source's reported total is shorter.
@@ -76,15 +75,13 @@ export function timelineScaleFor(timing: JourneyTiming | null | undefined, share
   mode: TimelineMode): TimelineScale | null {
   if (!timing) return null;
   if (mode === "shared") return shared;
-  const min = Math.floor((timing.start - TIMELINE_DAY_START) / 1440) * 1440 + TIMELINE_DAY_START;
   const end = Math.max(timing.end, timing.parts[timing.parts.length - 1]?.end ?? timing.end);
-  const days = Math.max(1, Math.ceil((end - min) / 1440));
-  return { min, max: min + days * 1440, airports: shared?.airports ?? [] };
+  return { min: 0, max: Math.max(1440, Math.ceil(end / 180) * 180), airports: shared?.airports ?? [] };
 }
 export function timelineScaleLabel(scale: TimelineScale, mode: TimelineMode): string {
   if (mode === "shared") return "Shared scale";
-  const days = (scale.max - scale.min) / 1440;
-  return `${days} day${days === 1 ? "" : "s"} · 03:00`;
+  const hours = (scale.max - scale.min) / 60;
+  return `${hours}h · ${String((scale.max / 60) % 24).padStart(2, "0")}:00 +${Math.floor(scale.max / 1440)}`;
 }
 export interface FlightTimelines {
   outbound: TimelineScale | null;

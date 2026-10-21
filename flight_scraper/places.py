@@ -33,6 +33,7 @@ class Place:
     country: str = ""
     kind: str = ""          # "city" or "airport"
     detail: str = ""
+    city: str = ""
 
     def __str__(self) -> str:
         code = self.code.upper()
@@ -106,6 +107,7 @@ def search_places(query: str, limit: int = 8, timeout: int = 25) -> List[Place]:
                 country=entry.get("country_name") or "",
                 kind=kind,
                 detail=entry.get("main_airport_name") or entry.get("city_name") or "",
+                city=entry.get("city_name") or (entry.get("name") if kind == "city" else "") or "",
             )
         )
         if len(places) >= limit:

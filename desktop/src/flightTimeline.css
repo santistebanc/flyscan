@@ -2,7 +2,7 @@
    all remaining width. */
 .results-loading { display: flex; align-items: center; justify-content: center; gap: 8px; min-height: 160px; padding: 24px 16px; color: var(--muted); font-size: 14px; line-height: 20px; }
 :root { --flight-columns: 136px minmax(0, 1fr); --flight-gap: 12px; }
-:root .results .flight { grid-template-columns: var(--flight-columns); gap: var(--flight-gap); align-items: center; padding: 12px 16px; scroll-margin-top: calc(var(--header-h) + 128px); }
+:root .results .flight { grid-template-columns: var(--flight-columns); gap: var(--flight-gap); align-items: center; padding: 12px 16px 12px 8px; scroll-margin-top: calc(var(--header-h) + 128px); }
 :root .results .fare-cell { --fare-star-size: 32px; grid-column: 1; grid-row: 1; display: flex; flex-direction: column; justify-content: center; gap: 12px; }
 .fare-header { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
 .fare-header .favorite-button { flex-shrink: 0; width: var(--fare-star-size); min-width: var(--fare-star-size); height: var(--fare-star-size); }
@@ -26,14 +26,22 @@
 .flight-timeline { display: block; min-width: 0; }
 .timeline-meta { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; font: 14px/20px "Geist Mono", monospace; }
 .timeline-meta > span { display: inline-flex; align-items: baseline; gap: 8px; white-space: nowrap; }
+.timeline-meta > span { min-width: 0; max-width: 100%; }
+.timeline-meta b { flex-shrink: 0; }
+.airport-label { display: inline-flex; align-items: baseline; gap: 4px; min-width: 0; vertical-align: baseline; }
+.airport-label > strong { flex: none; color: inherit; }
+.airport-city { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--muted); font: 12px/16px Geist, sans-serif; }
+.timeline-meta .airport-city { max-width: 160px; }
 .timeline-meta b { font-weight: 550; }
 .timeline-meta strong { color: var(--accent); font: 600 12px/16px Geist, sans-serif; }
 .timeline-meta sup { color: var(--warn); font-size: 10px; line-height: 1; margin-left: 2px; }
-.timeline-plot { --timeline-date-height: 18px; --timeline-track-height: 24px; --timeline-axis-top: 11px; --timeline-hour-height: 18px; position: relative; display: block; width: 100%; height: calc(var(--timeline-date-height) + var(--timeline-track-height) + var(--timeline-hour-height)); margin-top: 4px; }
+.timeline-plot { --timeline-divider: #3a4960; --timeline-date-height: 18px; --timeline-track-height: 24px; --timeline-axis-top: 11px; --timeline-hour-height: 18px; position: relative; display: block; width: 100%; height: calc(var(--timeline-date-height) + var(--timeline-track-height) + var(--timeline-hour-height)); margin-top: 4px; }
 .timeline-plot::before { content: ""; position: absolute; inset: calc(var(--timeline-date-height) + var(--timeline-axis-top)) 0 auto; border-top: 1px solid var(--line); }
-.timeline-guide { position: absolute; top: var(--timeline-date-height); height: var(--timeline-track-height); width: 1px; background: var(--line-soft); pointer-events: none; }
+.timeline-guide { position: absolute; top: var(--timeline-date-height); height: var(--timeline-track-height); width: 1px; background: var(--timeline-divider); pointer-events: none; }
 .timeline-hours { position: absolute; inset: 0; color: var(--muted); font: 10px/14px "Geist Mono", monospace; pointer-events: none; }
-.timeline-hour-guide { position: absolute; top: var(--timeline-date-height); height: var(--timeline-track-height); width: 1px; background: var(--line-soft); opacity: .65; }
+.timeline-hour-guide { position: absolute; top: var(--timeline-date-height); height: var(--timeline-track-height); width: 1px; background: var(--timeline-divider); }
+.flight.picked .timeline-plot, .flight:hover .timeline-plot { --timeline-divider: #657b9b; }
+.flight.picked .timeline-hour-label, .flight.picked .timeline-midnight { opacity: 1; }
 .timeline-hour-label { position: absolute; top: calc(var(--timeline-date-height) + var(--timeline-track-height)); width: 5ch; text-align: center; white-space: nowrap; opacity: .75; }
 .timeline-hotspot { display: flex; justify-content: center; align-items: center; background: transparent; border: 0; padding: 0; min-width: 0; color: var(--ink-soft); font: inherit; cursor: help; }
 .timeline-part { position: absolute; top: var(--timeline-date-height); height: var(--timeline-track-height); }
@@ -49,6 +57,10 @@
 .timeline-stops { display: flex; flex-wrap: wrap; gap: 4px 12px; min-width: 0; color: var(--accent); }
 .timeline-stops > span { white-space: nowrap; }
 .timeline-stops > span > span { color: var(--muted); margin-left: 4px; }
+.timeline-connection { display: inline-flex; align-items: baseline; gap: 4px; max-width: 100%; }
+.timeline-stops .airport-label { color: inherit; margin-left: 0; }
+.timeline-stops .timeline-connection-duration { flex: none; margin-left: 0; }
+.timeline-connection[data-rating] .airport-city { color: inherit; }
 .layover-night { display: inline-flex; vertical-align: -3px; margin-left: 4px; color: var(--muted); opacity: .7; }
 .layover-night .icon { fill: currentColor; }
 .timeline-summary-hint { display: inline-flex; align-items: center; gap: 4px; color: var(--muted); }
@@ -69,11 +81,11 @@
 @media (max-width: 600px) {
   :root { --flight-columns: 112px minmax(0, 1fr); --flight-gap: 8px; }
   .fare-journey-label { flex-direction: column; }
-  :root .results .flight { padding: 12px 16px; }
+  :root .results .flight { padding: 12px 16px 12px 8px; }
   .timeline-meta { flex-wrap: wrap; font-size: 12px; line-height: 16px; gap: 0 8px; }
   .timeline-meta > span { gap: 4px; }
   .timeline-meta > span:last-child { margin-left: auto; }
-  .timeline-stops > span > span:not(.layover-night) { display: none; }
+  .timeline-stops .timeline-connection-duration { display: none; }
 }
 @media (pointer: coarse) {
   :root .results .fare-cell { --fare-star-size: 44px; }

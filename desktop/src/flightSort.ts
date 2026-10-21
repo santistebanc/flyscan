@@ -1,14 +1,13 @@
 import type { FlightRow } from "./api";
 import { durationMinutes } from "./flightRatings";
 
-export type SortKey = "best" | "price" | "depart" | "duration" | "stops";
+export type SortKey = "best" | "price" | "depart" | "duration";
 export const DEFAULT_SORT: SortKey = "best";
 export const SORT_LABELS: Record<SortKey, string> = {
   best: "Best",
   price: "Cheapest",
   depart: "Departure",
   duration: "Shortest",
-  stops: "Fewest stops",
 };
 
 const priceOf = (row: FlightRow) => row.best?.price_base ?? Infinity;
@@ -46,8 +45,6 @@ export function sortFlightRows(rows: FlightRow[], key: SortKey): FlightRow[] {
       return by((row) => Date.parse(row.departure) || Date.parse(`${row.depart_date}T00:00`));
     case "duration":
       return by((row) => durationMinutes(row.duration || "") ?? Infinity);
-    case "stops":
-      return by((row) => row.outbound?.stops ?? row.stops ?? 9);
     default:
       return by(priceOf);
   }

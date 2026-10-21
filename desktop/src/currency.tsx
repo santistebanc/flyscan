@@ -40,6 +40,7 @@ interface CurrencyValue {
   roundedIn: (eur: number | null | undefined) => number;
   /** A display-currency amount back into the stored EUR price. */
   toEur: (amount: number) => number;
+  amountIn: (eur: number) => number;
 }
 
 const Ctx = createContext<CurrencyValue | null>(null);
@@ -114,6 +115,7 @@ export function CurrencyProvider(
       roundedIn: (eur) =>
         eur === null || eur === undefined ? 0 : Math.round(eur * rate),
       toEur: (amount) => amount / rate,
+      amountIn: (eur) => eur * rate,
     };
   }, [currency, rates, setCurrency, currencies, loadingRates, rateProvider, ratesUpdatedAt]);
 

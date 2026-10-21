@@ -144,7 +144,7 @@ label.inline select { font-size: 12px; min-height: 28px; border-color: transpare
 :root input, :root select, :root .cal-trigger, :root button { border-radius: 0; }
 :root .results-bar { background: #111926; min-height: 40px; padding-block: 4px; }
 :root .results .flight { padding: 8px 16px; gap: 12px; }
-:root .results .flight:nth-child(even) { background-color: color-mix(in srgb, var(--line-soft) 38%, transparent); }
+:root .results .flight[data-stripe="alternate"] { background-color: color-mix(in srgb, var(--line-soft) 38%, transparent); }
 @media (hover: hover) and (pointer: fine) {
   :root .results .flight:hover:not(.picked) { background: color-mix(in srgb, var(--accent) 8%, var(--panel)); }
 }

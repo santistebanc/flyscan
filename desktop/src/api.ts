@@ -21,6 +21,7 @@ export interface PlaceSuggestion {
   name: string;
   country: string;
   kind: string;
+  city?: string;
 }
 
 /** One question for one source, as the queue describes it. */
@@ -133,6 +134,8 @@ export interface Offer {
   currency: string;
   price_base: number | null;
   deeplink: string;
+  manual_price?: boolean;
+  original_price_base?: number | null;
 }
 
 export interface Segment {

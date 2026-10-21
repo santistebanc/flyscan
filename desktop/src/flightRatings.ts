@@ -1,17 +1,18 @@
 import type { FlightRow } from "./api";
 
 export type Rating = { level: number; description: string };
-type Metric = "price" | "duration";
+type Metric = "price" | "duration" | "layover";
 const labels = ["Excellent", "Good", "Average", "Below average", "Poor"];
 const descriptions = {
   price: ["Lowest prices", "Lower prices", "Mid-range prices", "Higher prices", "Highest prices"],
   duration: ["Shortest journeys", "Shorter journeys", "Mid-range duration", "Longer journeys", "Longest journeys"],
+  layover: ["Shortest connections", "Shorter connections", "Mid-range connections", "Longer connections", "Longest connections"],
 };
 
 /** Five equal bands across the full list's minimum and maximum; lower is better. */
-function rateValues(values: (number | null | undefined)[], metric: Metric) {
+export function rateValues(values: (number | null | undefined)[], metric: Metric) {
   const valid = new Set(values.filter((value): value is number =>
-    typeof value === "number" && Number.isFinite(value) && value > 0));
+    typeof value === "number" && Number.isFinite(value) && (value > 0 || (metric === "layover" && value === 0))));
   let min = Infinity, max = -Infinity;
   for (const value of valid) { min = Math.min(min, value); max = Math.max(max, value); }
   return new Map([...valid].map((value) => {

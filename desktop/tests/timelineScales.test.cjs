@@ -12,46 +12,46 @@ const leg = (clock, duration, extra = {}) => ({ departure: `2026-11-01T${clock}`
   arrival: "2026-11-02T01:30", origin_airport: "BER", destination_airport: "LHR", segments: [], ...extra });
 const range = (flight) => timelineScaleFor(journeyTiming(flight), null, "days");
 
-test("late flights arriving before or exactly at the 03:00 cutoff fit one day", () => {
-  for (const duration of ["2h", "3h 30m"]) {
+test("midnight ranges begin at 24 hours and extend only in three-hour steps", () => {
+  for (const [duration, max] of [["30m", 1440], ["31m", 1620], ["3h 30m", 1620], ["3h 31m", 1800]]) {
     const scale = range(leg("23:30", duration));
-    assert.equal(scale.min, 180);
-    assert.equal(scale.max, 1620);
-    assert.equal(timelineScaleLabel(scale, "days"), "1 day · 03:00");
+    assert.equal(scale.min, 0);
+    assert.equal(scale.max, max);
   }
-  assert.equal(range(leg("23:30", "3h 31m")).max, 3060);
+  assert.equal(timelineScaleLabel(range(leg("23:30", "2h")), "days"), "27h · 03:00 +1");
 });
 
-test("departures before 03:00 belong to the previous day's range", () => {
+test("early departures belong to their own midnight-based day", () => {
   const flight = leg("01:00", "1h", { arrival: "2026-11-01T02:00" });
   const scale = range(flight);
-  assert.equal(scale.min, -1260);
-  assert.equal(scale.max, 180);
+  assert.equal(scale.min, 0);
+  assert.equal(scale.max, 1440);
   const marks = localMidnights(journeyTiming(flight), scale);
   assert.equal(marks.length, 1);
-  assert.equal(marks[0].at, 0);
-  assert.equal(marks[0].label, "Nov 1");
-  assert.equal(range(leg("03:00", "1h")).min, 180);
-  assert.equal(range(leg("02:59", "2m")).max, 1620);
+  assert.equal(marks[0].at, 1440);
+  assert.equal(marks[0].label, "Nov 2");
+  assert.equal(range(leg("03:00", "1h")).min, 0);
+  assert.equal(range(leg("02:59", "2m")).max, 1440);
 });
 
-test("ranges use whole days without clipping long journeys", () => {
-  for (const days of [1, 2, 3, 4, 5, 8]) {
-    const scale = range(leg("03:00", `${days * 24}h`));
-    assert.equal(scale.max - scale.min, days * 1440);
-    assert.equal(timelineScaleLabel(scale, "days"), `${days} day${days === 1 ? "" : "s"} · 03:00`);
+test("24, 27, 30, 33 hour and longer intervals include their exact endpoints", () => {
+  for (const hours of [24, 27, 30, 33, 48, 51, 96, 120, 192]) {
+    const scale = range(leg("00:00", `${hours}h`));
+    assert.equal(scale.max, hours * 60);
+    assert.equal(scale.min, 0);
+    assert.equal(timelineScaleLabel(scale, "days"), `${hours}h · ${String(hours % 24).padStart(2, "0")}:00 +${Math.floor(hours / 24)}`);
   }
 });
 
 test("day ranges use elapsed duration across timezone and DST changes", () => {
   const scale = range(leg("23:00-04:00", "3h", { arrival: "2026-11-02T09:00+01:00" }));
-  assert.equal(scale.max - scale.min, 1440);
+  assert.equal(scale.max - scale.min, 1620);
 });
 
 test("a shorter reported total cannot clip a known detailed arrival", () => {
   const flight = leg("23:00", "1h", { segments: [{ origin: "BER", destination: "LHR",
     departure: "2026-11-01T23:00", arrival: "2026-11-02T04:00", duration: "5h", carrier: "BA" }] });
-  assert.equal(range(flight).max, 3060);
+  assert.equal(range(flight).max, 1800);
 });
 
 test("streaming outliers, sorting and filtering cannot stretch an existing day range", () => {
@@ -69,8 +69,8 @@ test("streaming outliers, sorting and filtering cannot stretch an existing day r
 test("round trips choose independent outbound and return ranges", () => {
   const outbound = leg("08:00", "2h"), inbound = leg("20:00", "40h");
   const all = flightTimelines([{ outbound, inbound }]);
-  assert.equal(timelineScaleFor(all.journeys.get(outbound), all.outbound, "days").max, 1620);
-  assert.equal(timelineScaleFor(all.journeys.get(inbound), all.inbound, "days").max, 4500);
+  assert.equal(timelineScaleFor(all.journeys.get(outbound), all.outbound, "days").max, 1440);
+  assert.equal(timelineScaleFor(all.journeys.get(inbound), all.inbound, "days").max, 3600);
 });
 
 test("shared mode retains filtered bounds and invalid schedules have no scale", () => {

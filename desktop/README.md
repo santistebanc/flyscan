@@ -141,9 +141,9 @@ exists. Use the desktop app when a source actually asks for a human.
 
 ## Notes
 
-- Flight rows default to fixed whole-day ranges anchored at 03:00 at the
-  departure airport. Departures before 03:00 start in the previous day's range.
-  Each direction uses the smallest fitting 1-day, 2-day, 3-day (or longer) range,
+- Flight rows default to fixed ranges anchored at midnight at the departure
+  airport. Each direction uses the smallest fitting 24-hour, 27-hour, 30-hour
+  (or longer, in three-hour increments) range,
   advancing by elapsed travel time. The row displays its range; compare bar
   lengths within the same range. Other results cannot stretch that row's scale.
   Timeline > Shared scale instead aligns all filtered results per direction,
@@ -157,6 +157,18 @@ exists. Use the desktop app when a source actually asks for a human.
   Rounded-hour dividers use the departure-clock reference, with labels below
   the bars. Their intervals adapt to the plot's measured width and time span:
   wider plots show more hours; narrow or multi-day plots use fewer markers.
+- Airport codes show resolved city names beside them in the timeline and details.
+  Names are cached locally; unresolved names leave the airport code visible.
+  Departure and return calendars mark the other calendar's range with a warm
+  underline and keep the current calendar's selection blue. Advanced search
+  fields expand below the result filters within the results pane, keeping the
+  sidebar in place. Endpoint dates share the airport row in the details panel.
+- Booking options offer a price correction button. Enter the corrected total
+  in the current display currency; it updates the cheapest offer, sorting,
+  filters and colors. Corrections are saved in this app for the exact journey,
+  source, seller, passenger counts and cabin, and survive source refreshes.
+  The original source quote remains visible. Restore source price removes the
+  correction and uses the latest source quote again.
 - Timeline bounds and per-leg positions are memoized on the results dataset,
   including offscreen rows. Bounds follow the filtered results; segment timings
   are reused from the full dataset. Sorting and favorites do not rescan it.
@@ -184,9 +196,10 @@ exists. Use the desktop app when a source actually asks for a human.
   Default connection preferences use neutral toolbar styling. Only changes from
   the defaults highlight a filter and reveal Reset, including choosing No limit
   or allowing routes that revisit an airport.
-  Price and journey duration colors compare the minimum and maximum of the
+  Price, layover and journey duration colors compare the minimum and maximum of the
   matching results, including offscreen rows, independently for price, outbound
-  duration and return duration. Sorting and scrolling do not change the colors.
+  duration and return duration, plus connections across both directions.
+  Sorting and scrolling do not change the colors.
 
 - A visible selected flight keeps its screen position when results are added,
   removed, reordered or remeasured. Normal scrolling moves the anchor, and an
@@ -196,6 +209,9 @@ exists. Use the desktop app when a source actually asks for a human.
   Initial loads, sorting, filtering and virtual remounts do not replay that fade;
   reduced-motion preferences skip it. Hover uses a light tint, while selection
   has a stronger fill and a persistent accent edge.
+  Alternating backgrounds use the full results index, so virtual scrolling
+  cannot change a flight's stripe. Timeline dividers gain contrast on hovered
+  and selected rows. Sorting offers Best, Cheapest, Departure and Shortest.
 
 - `open_challenge` is an **async** command on purpose. Reading webview cookies
   deadlocks on Windows from a synchronous command or an event handler.

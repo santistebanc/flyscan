@@ -5,11 +5,12 @@ import { Icon } from "./Icon";
 import { TimelineHotspot } from "./TimelineTooltip";
 import { TimelineDates } from "./TimelineDates";
 import { TimelineHours } from "./TimelineHours";
+import { AirportLabel } from "./AirportLabel";
 import { airlineColor, clock, dayOffset, elapsed, isOvernight, localMidnights, percent, timingNote, timelineScaleFor, timelineScaleLabel,
   type JourneyTiming, type TimelineMode, type TimelineScale } from "./flightTimeline";
 
-export function FlightTimeline({ leg, scale: sharedScale, timing, mode = "shared" }: { leg: Leg | null; scale: TimelineScale | null;
-  timing: JourneyTiming | null | undefined; mode?: TimelineMode }) {
+export function FlightTimeline({ leg, scale: sharedScale, timing, mode = "shared", layoverRatings }: { leg: Leg | null; scale: TimelineScale | null;
+  timing: JourneyTiming | null | undefined; mode?: TimelineMode; layoverRatings?: ReadonlyMap<number, Rating> }) {
   if (!leg) return null;
   const scale = timelineScaleFor(timing, sharedScale, mode);
   const scaleLabel = scale ? timelineScaleLabel(scale, mode) : "";
@@ -19,8 +20,8 @@ export function FlightTimeline({ leg, scale: sharedScale, timing, mode = "shared
   const waits = timing?.detailed ? timing.parts.filter(({ part }) => part.kind === "layover") : [];
   return <span className="flight-timeline" aria-label={`${leg.origin_airport} to ${leg.destination_airport}, ${leg.duration}`}>
     <span className="timeline-meta">
-      <span><b>{clock(leg.departure)}</b><strong>{leg.origin_airport}</strong></span>
-      <span><strong>{leg.destination_airport}</strong><b>{clock(leg.arrival)}{shift > 0 && <sup>+{shift}</sup>}</b></span>
+      <span><b>{clock(leg.departure)}</b><AirportLabel code={leg.origin_airport} /></span>
+      <span><AirportLabel code={leg.destination_airport} /><b>{clock(leg.arrival)}{shift > 0 && <sup>+{shift}</sup>}</b></span>
     </span>
     {timing && scale ? <span className="timeline-plot" aria-label={`${scaleLabel} timeline`}>
       <TimelineHours scale={scale} />
@@ -36,10 +37,15 @@ export function FlightTimeline({ leg, scale: sharedScale, timing, mode = "shared
     </span> : <span className="timeline-unavailable">Schedule unavailable</span>}
     <span className="timeline-footer">
       <span className="timeline-stops">{timing && !timing.detailed ? <span className="timeline-summary-hint" title="Segment times unavailable. The total journey is placed on the timeline; open flight details for the itinerary.">{leg.stops === 0 ? "Nonstop" : leg.stops ? `${leg.stops} stop${leg.stops === 1 ? "" : "s"}` : ""}<Icon name="input" /></span>
-        : waits.length ? waits.map(({ part }, i) => part.kind === "layover" && <span key={i}>{part.before.destination}{part.transfer && <> → {part.after.origin}</>}<span>{elapsed(part.minutes)}</span>{isOvernight(part) && <span className="layover-night" title="Overnight layover"><Icon name="moon" /></span>}</span>)
+        : waits.length ? waits.map(({ part }, i) => part.kind === "layover" && <span key={i} className="timeline-connection"
+          data-rating={part.minutes === null ? undefined : layoverRatings?.get(part.minutes)?.level}
+          title={part.minutes === null ? undefined : layoverRatings?.get(part.minutes)?.description}>
+          <AirportLabel code={part.before.destination} />{part.transfer && <> → <AirportLabel code={part.after.origin} /></>}
+          <span className="timeline-connection-duration" data-rating={part.minutes === null ? undefined : layoverRatings?.get(part.minutes)?.level}>{elapsed(part.minutes)}</span>
+          {isOvernight(part) && <span className="layover-night" title="Overnight layover"><Icon name="moon" /></span>}</span>)
         : leg.stops === 0 ? "Nonstop" : leg.stops ? `${leg.stops} stops` : ""}</span>
       {scale && <span className="timeline-scale" title={mode === "days"
-        ? "Whole-day range starting at 03:00 at the departure airport (the previous day for departures before 03:00). Positions and hour dividers advance by elapsed travel time on this reference clock. Compare bar lengths within the same day range."
+        ? "Range starts at midnight at the departure airport: 24 hours minimum, then 27, 30, 33 hours and so on. Positions and hour dividers advance by elapsed travel time on this reference clock. Compare bar lengths within the same range."
         : "All filtered flights in this direction share the same scale. Hour dividers use departure-airport reference time; flight details retain each airport's local times."}>{scaleLabel}</span>}
     </span>
   </span>;

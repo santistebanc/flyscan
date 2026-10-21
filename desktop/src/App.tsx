@@ -47,6 +47,9 @@ import { PlaceInput } from "./PlaceInput";
 import { CurrencyInput } from "./CurrencyInput";
 import { rememberPlace } from "./recentPlaces";
 import { useFlightArrivals, useSelectedFlightAnchor } from "./useFlightListEffects";
+import { AirportNamesProvider } from "./AirportLabel";
+import { useOfferPrices } from "./useOfferPrices";
+import { connectionRatings } from "./connectionRatings";
 
 /** Default to a couple of weeks out: today's flights are mostly gone. */
 function defaultDate(): string {
@@ -156,7 +159,7 @@ function readableDay(iso: string): string {
  * seller's price live in the side panel, which is what keeps a row scannable.
  */
 function Results(
-  { rows, dataset, total, limited, loading, openKey, onOpen, favorites, onToggleFavorite, ratings, timelines, timelineMode, connectionRecovery }:
+  { rows, dataset, total, limited, loading, openKey, onOpen, favorites, onToggleFavorite, ratings, timelines, timelineMode, layoverRatings, connectionRecovery }:
   {
     rows: FlightRow[]; dataset: FlightRow[]; total: number; limited: boolean; loading: boolean; openKey: string | null;
     onOpen: (key: string) => void;
@@ -164,6 +167,7 @@ function Results(
     ratings: ReturnType<typeof flightRatings>;
     timelines: FlightTimelines;
     timelineMode: TimelineMode;
+    layoverRatings: ReturnType<typeof connectionRatings>;
     connectionRecovery: { label: string; onClick: () => void } | null;
   },
 ) {
@@ -269,6 +273,7 @@ function Results(
           <div
             key={item.key}
             data-index={item.index}
+            data-stripe={item.index % 2 ? "alternate" : "base"}
             data-flight-key={row.trip_key}
             ref={virtual.measureElement}
             role="row"
@@ -307,11 +312,11 @@ function Results(
               </span>
             </span>
             <span className="trip" role="gridcell">
-              <FlightTimeline leg={row.outbound} scale={timelines.outbound} timing={timelines.journeys.get(row.outbound)} mode={timelineMode} />
+              <FlightTimeline leg={row.outbound} scale={timelines.outbound} timing={timelines.journeys.get(row.outbound)} mode={timelineMode} layoverRatings={layoverRatings} />
               {/* A round trip is half-described by its outbound alone. */}
               {row.inbound ? (
                 <div className="back">
-                  <FlightTimeline leg={row.inbound} scale={timelines.inbound} timing={timelines.journeys.get(row.inbound)} mode={timelineMode} />
+                  <FlightTimeline leg={row.inbound} scale={timelines.inbound} timing={timelines.journeys.get(row.inbound)} mode={timelineMode} layoverRatings={layoverRatings} />
                 </div>
               ) : row.return_date && (
                 // The seller priced the round trip without saying which flight
@@ -409,6 +414,7 @@ function Shell() {
     void refreshChallenges().catch(() => {});
   }, [refreshChallenges]);
   const engine = useFlights(api, refreshChallengesInBackground);
+  const { rows: priceRows, correctPrice } = useOfferPrices(engine.rows, JSON.stringify([adults, children, infants, cabin]));
   const { roundedIn } = useCurrency();
 
   const limits = useMemo(() => ({
@@ -420,21 +426,22 @@ function Shell() {
     outbound: filters.outbound,
     inbound: filters.inbound,
   }), [filters, roundedIn]);
-  const filtered = useMemo(() => engine.rows.filter((row) => matchesFlight(
+  const filtered = useMemo(() => priceRows.filter((row) => matchesFlight(
     row, limits, row.best?.price_base == null ? null : roundedIn(row.best.price_base),
-  )), [engine.rows, limits, roundedIn]);
+  )), [priceRows, limits, roundedIn]);
   const shown = useMemo(() => sortFlightRows(filtered, sort), [filtered, sort]);
   // Ratings and bounds include every matching row, even offscreen. Sorting
   // and favorites reuse them; suggestions still cover all loaded results.
   const ratings = useMemo(() => flightRatings(filtered), [filtered]);
-  const allTimelines = useMemo(() => flightTimelines(engine.rows), [engine.rows]);
+  const allTimelines = useMemo(() => flightTimelines(priceRows), [priceRows]);
   const timelines = useMemo(() => flightTimelines(filtered, allTimelines.journeys), [filtered, allTimelines]);
-  const suggestions = useMemo(() => filterRanges(engine.rows, allTimelines.journeys), [engine.rows, allTimelines]);
-  const connectionOptions = useMemo(() => connectionFilterOptions(engine.rows, limits,
-    (row) => row.best?.price_base == null ? null : roundedIn(row.best.price_base)), [engine.rows, limits, roundedIn]);
+  const layoverRatings = useMemo(() => connectionRatings(timelines), [timelines]);
+  const suggestions = useMemo(() => filterRanges(priceRows, allTimelines.journeys), [priceRows, allTimelines]);
+  const connectionOptions = useMemo(() => connectionFilterOptions(priceRows, limits,
+    (row) => row.best?.price_base == null ? null : roundedIn(row.best.price_base)), [priceRows, limits, roundedIn]);
   const connectionRecovery = useMemo(() => {
-    if (filtered.length || !engine.rows.length) return null;
-    const canShow = (next: typeof limits) => engine.rows.some((row) => matchesFlight(
+    if (filtered.length || !priceRows.length) return null;
+    const canShow = (next: typeof limits) => priceRows.some((row) => matchesFlight(
       row, next, row.best?.price_base == null ? null : roundedIn(row.best.price_base),
     ));
     if (limits.maxLayoverMinutes !== null && canShow({ ...limits, maxLayoverMinutes: null })) {
@@ -444,7 +451,7 @@ function Shell() {
       return { label: "Show all connections", onClick: () => setFilters((old) => ({ ...old, maxLayoverMinutes: null, excludeRepeatedAirports: false })) };
     }
     return null;
-  }, [filtered, engine.rows, limits, roundedIn]);
+  }, [filtered, priceRows, limits, roundedIn]);
 
   // What a scrape will actually ask for. Every departure day against every
   // return day that is not before it — five trips out of three departures and
@@ -674,10 +681,11 @@ function Shell() {
   }, [openKey]);
 
   return (
-    <div className="app">
+    <AirportNamesProvider api={api}><div className="app">
       <header className="topbar" ref={header}>
         <form
           className="params"
+          id="flight-search"
           onSubmit={(e) => {
             e.preventDefault();
             const selected = rangeStats(queue.selected);
@@ -693,6 +701,7 @@ function Shell() {
             to={end || start}
             min={todayISO()}
             hint={`${departDays} departure${departDays > 1 ? "s" : ""}`}
+            relatedRange={{ from: ret, to: retEnd || ret, label: "Return" }}
             onChange={(from, to) => { setStart(from); setEnd(to); }}
           />
           <RangePicker
@@ -703,6 +712,7 @@ function Shell() {
             optional
             empty="One way"
             hint={ret ? `${returnDays} return${returnDays > 1 ? "s" : ""}` : ""}
+            relatedRange={{ from: start, to: end || start, label: "Depart" }}
             onChange={(from, to) => { setRet(from); setRetEnd(to); }}
           />
 
@@ -713,37 +723,12 @@ function Shell() {
             type="button"
             className="disclose"
             aria-expanded={advanced}
+            aria-controls="advanced-search-options"
             onClick={() => setAdvanced((open) => !open)}
           >
             <Icon name={advanced ? "chevron-down" : "chevron-right"} /> Advanced
           </button>
 
-          {advanced && (
-            <div className="advanced">
-              <label>Adults
-                <input type="number" min={1} max={9} value={adults}
-                  onChange={(e) => setAdults(Math.max(1, +e.target.value))} />
-              </label>
-              <label>Children
-                <input type="number" min={0} max={8} value={children}
-                  onChange={(e) => setChildren(Math.max(0, +e.target.value))} />
-              </label>
-              <label>Infants
-                <input type="number" min={0} max={8} value={infants}
-                  onChange={(e) => setInfants(Math.max(0, +e.target.value))} />
-              </label>
-              <label>Cabin
-                <select value={cabin} onChange={(e) => setCabin(e.target.value as Cabin)}>
-                  {CABINS.map((c) => <option key={c} value={c}>{CABIN_LABELS[c]}</option>)}
-                </select>
-              </label>
-              <label>Quote in
-                <select value={askCurrency} onChange={(e) => setAskCurrency(e.target.value)}>
-                  {CURRENCIES.map((code) => <option key={code} value={code}>{code}</option>)}
-                </select>
-              </label>
-            </div>
-          )}
         </form>
 
         {/* Pushed to the right of the search it acts on. */}
@@ -768,8 +753,8 @@ function Shell() {
             <label className="inline">
               Timeline
               <select value={timelineMode} onChange={(e) => setTimelineMode(normalizeTimelineMode(e.target.value))}
-                title="Day ranges start at 03:00 at the departure airport. Shared scale aligns all filtered flights.">
-                <option value="days">Day ranges</option>
+                title="Midnight-based ranges start at 24 hours and extend in three-hour steps. Shared scale aligns all filtered flights.">
+                <option value="days">Fixed ranges</option>
                 <option value="shared">Shared scale</option>
               </select>
             </label>
@@ -784,11 +769,37 @@ function Shell() {
             </label>
             <CurrencyInput />
           </div>
+          {advanced && (
+            <div className="advanced" id="advanced-search-options">
+              <label>Adults
+                <input form="flight-search" type="number" min={1} max={9} value={adults}
+                  onChange={(e) => setAdults(Math.max(1, +e.target.value))} />
+              </label>
+              <label>Children
+                <input form="flight-search" type="number" min={0} max={8} value={children}
+                  onChange={(e) => setChildren(Math.max(0, +e.target.value))} />
+              </label>
+              <label>Infants
+                <input form="flight-search" type="number" min={0} max={8} value={infants}
+                  onChange={(e) => setInfants(Math.max(0, +e.target.value))} />
+              </label>
+              <label>Cabin
+                <select form="flight-search" value={cabin} onChange={(e) => setCabin(e.target.value as Cabin)}>
+                  {CABINS.map((c) => <option key={c} value={c}>{CABIN_LABELS[c]}</option>)}
+                </select>
+              </label>
+              <label>Quote in
+                <select form="flight-search" value={askCurrency} onChange={(e) => setAskCurrency(e.target.value)}>
+                  {CURRENCIES.map((code) => <option key={code} value={code}>{code}</option>)}
+                </select>
+              </label>
+            </div>
+          )}
         </div>
 
         <Results
           rows={shown}
-          dataset={engine.rows}
+          dataset={priceRows}
           total={engine.total}
           limited={filtersActive(filters)}
           loading={Boolean(request) && (!api || engine.loadingStored || engine.running)}
@@ -799,6 +810,7 @@ function Shell() {
           ratings={ratings}
           timelines={timelines}
           timelineMode={timelineMode}
+          layoverRatings={layoverRatings}
           connectionRecovery={connectionRecovery}
         />
       </main>
@@ -817,12 +829,14 @@ function Shell() {
         <Details
           row={openRow}
           rating={openRow ? ratings.get(openRow.trip_key) : undefined}
+          layoverRatings={layoverRatings}
+          onCorrectPrice={correctPrice}
           favorite={Boolean(openRow && favorites.has(openRow.trip_key))}
           onToggleFavorite={toggleFavorite}
           partyLabel={describeParty(adults, children, infants, cabin)}
         />
       </aside>
-    </div>
+    </div></AirportNamesProvider>
   );
 }
 

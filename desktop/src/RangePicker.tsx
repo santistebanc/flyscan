@@ -18,6 +18,7 @@ import { useEffect, useRef, useState } from "react";
 import { Icon } from "./Icon";
 
 const WEEKDAYS = ["Mo", "Tu", "We", "Th", "Fr", "Sa", "Su"];
+type RelatedRange = { from: string; to: string; label: string };
 
 /** A day as the rest of the app spells it, from a Date. Never via UTC. */
 function key(day: Date): string {
@@ -74,12 +75,13 @@ function monthCells(year: number, month: number): (string | null)[] {
 }
 
 function Month(
-  { year, month, from, to, hover, drawing, cursor, min, onPick, onHover }:
+  { year, month, from, to, hover, drawing, cursor, min, relatedRange, onPick, onHover }:
   {
     year: number; month: number;
     from: string; to: string;
     /** The day under the pointer, which previews the range being drawn. */
     hover: string; drawing: boolean; cursor: string; min: string;
+    relatedRange?: RelatedRange;
     onPick: (day: string) => void;
     onHover: (day: string) => void;
   },
@@ -107,6 +109,7 @@ function Month(
           const isFrom = Boolean(from) && day === from;
           const isTo = Boolean(end) && day === end;
           const inside = Boolean(from && end) && day > from && day < end;
+          const related = Boolean(relatedRange?.from && day >= relatedRange.from && day <= (relatedRange.to || relatedRange.from));
 
           const classes = ["cal-day"];
           if (past) classes.push("past");
@@ -114,6 +117,8 @@ function Month(
           if (inside) classes.push("inside");
           if (day === now) classes.push("today");
           if (day === cursor) classes.push("cursor");
+          if (related) classes.push("related");
+          if (related && (day === relatedRange?.from || day === relatedRange?.to)) classes.push("related-edge");
 
           return (
             <button
@@ -123,6 +128,8 @@ function Month(
               disabled={past}
               tabIndex={-1}
               aria-pressed={isFrom || isTo}
+              aria-label={`${readable(day)}${related ? `, ${relatedRange!.label} range` : ""}`}
+              data-date={day}
               onClick={() => onPick(day)}
               onMouseEnter={() => onHover(day)}
             >
@@ -136,7 +143,7 @@ function Month(
 }
 
 export function RangePicker(
-  { label, from, to, min, optional, empty, hint, onChange }:
+  { label, from, to, min, optional, empty, hint, relatedRange, onChange }:
   {
     label: string;
     from: string;
@@ -150,6 +157,7 @@ export function RangePicker(
     empty?: string;
     /** A word on what this range costs, shown in the footer. */
     hint?: string;
+    relatedRange?: RelatedRange;
     onChange: (from: string, to: string) => void;
   },
 ) {
@@ -295,18 +303,20 @@ export function RangePicker(
 
           <div className="cal-months" onMouseLeave={() => setHover("")}>
             <Month
-              {...{ from, to, min, drawing, cursor, hover }}
+              {...{ from, to, min, drawing, cursor, hover, relatedRange }}
               year={month.year} month={month.month}
               onPick={pick} onHover={setHover}
             />
             <Month
-              {...{ from, to, min, drawing, cursor, hover }}
+              {...{ from, to, min, drawing, cursor, hover, relatedRange }}
               year={next.year} month={next.month}
               onPick={pick} onHover={setHover}
             />
           </div>
 
           <div className="cal-foot">
+            {relatedRange?.from && <span className="cal-related-legend"><i aria-hidden="true" />
+              {relatedRange.label}: {readableRange(relatedRange.from, relatedRange.to)}</span>}
             {optional && (
               <button
                 type="button"

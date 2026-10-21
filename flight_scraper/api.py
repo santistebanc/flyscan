@@ -697,7 +697,7 @@ def places():
     except PlaceLookupError as exc:
         return jsonify({"error": str(exc)}), 502
     return jsonify([
-        {"code": p.code, "name": p.name, "country": p.country, "kind": p.kind}
+        {"code": p.code, "name": p.name, "country": p.country, "kind": p.kind, "city": p.city}
         for p in matches
     ])
 
