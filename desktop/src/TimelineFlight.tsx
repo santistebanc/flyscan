@@ -3,6 +3,7 @@ import type { Leg } from "./api";
 import type { Rating } from "./flightRatings";
 import { Icon } from "./Icon";
 import { TimelineHotspot } from "./TimelineTooltip";
+import { TimelineDates } from "./TimelineDates";
 import { airlineColor, clock, dayOffset, elapsed, isOvernight, localMidnights, percent, timingNote, timelineScaleFor, timelineScaleLabel,
   type JourneyTiming, type TimelineMode, type TimelineScale } from "./flightTimeline";
 
@@ -29,9 +30,7 @@ export function FlightTimeline({ leg, scale: sharedScale, timing, mode = "shared
           "--airline": part.kind === "flight" ? airlineColor(part.segment.carrier) : undefined } as CSSProperties}>
         <span className="timeline-ink" aria-hidden="true" />
       </TimelineHotspot>)}
-      {midnights.map(({ at, label }) => <span key={at} className="timeline-midnight" aria-hidden="true"
-        data-edge={percent(at, scale) > 90 || undefined}
-        style={{ left: `${percent(at, scale)}%` }}>{label}</span>)}
+      <TimelineDates dates={midnights} scale={scale} />
     </span> : <span className="timeline-unavailable">Schedule unavailable</span>}
     <span className="timeline-footer">
       <span className="timeline-stops">{timing && !timing.detailed ? <span className="timeline-summary-hint" title="Segment times unavailable. The total journey is placed on the timeline; open flight details for the itinerary.">{leg.stops === 0 ? "Nonstop" : leg.stops ? `${leg.stops} stop${leg.stops === 1 ? "" : "s"}` : ""}<Icon name="input" /></span>

@@ -151,6 +151,9 @@ exists. Use the desktop app when a source actually asks for a human.
   choice is remembered separately from result filters. Departure dates align
   on day zero; endpoint labels, midnight dates and tooltips retain airport-local
   clocks, including timezone changes.
+  Midnight date indicators have a reserved row above the flight bars. Their
+  measured widths keep them inside the plot; collisions add date rows, and the
+  plot grows to preserve spacing from flight times and connection labels.
 - Timeline bounds and per-leg positions are memoized on the results dataset,
   including offscreen rows. Bounds follow the filtered results; segment timings
   are reused from the full dataset. Sorting and favorites do not rescan it.

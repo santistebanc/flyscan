@@ -1,5 +1,7 @@
-Fixed the Update ready button overlapping search progress in the header.
+Fixed timeline dates overlapping airport codes and flight times.
 
-The button now fits its label and stays separate from the search status and Fetch/Refresh controls, including in narrow windows and with touch-sized controls.
+- Date indicators have a dedicated row above the flight bars, with spacing from departure and arrival labels.
+- Crowded dates use additional rows and stay inside the timeline at narrow window sizes.
+- Date spacing adjusts when the window resizes or the timeline mode changes, including return journeys.
 
 Saved searches and preferences are preserved. Install through App updates.
