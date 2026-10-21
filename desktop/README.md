@@ -141,11 +141,16 @@ exists. Use the desktop app when a source actually asks for a human.
 
 ## Notes
 
-- Flight rows use the chosen Timeline design. All filtered results share one
-  time-of-day scale per direction, from the earliest departure to the latest
-  elapsed-time arrival. Departure dates align on day zero; later days continue
-  as +1, +2, and so on. Rulers use the departure airport's clock as a reference;
-  endpoint labels and tooltips use each airport's local clock.
+- Flight rows default to fixed whole-day ranges anchored at 03:00 at the
+  departure airport. Departures before 03:00 start in the previous day's range.
+  Each direction uses the smallest fitting 1-day, 2-day, 3-day (or longer) range,
+  advancing by elapsed travel time. The row displays its range; compare bar
+  lengths within the same range. Other results cannot stretch that row's scale.
+  Timeline > Shared scale instead aligns all filtered results per direction,
+  from the earliest departure to the latest elapsed-time arrival. The display
+  choice is remembered separately from result filters. Departure dates align
+  on day zero; endpoint labels, midnight dates and tooltips retain airport-local
+  clocks, including timezone changes.
 - Timeline bounds and per-leg positions are memoized on the results dataset,
   including offscreen rows. Bounds follow the filtered results; segment timings
   are reused from the full dataset. Sorting and favorites do not rescan it.
@@ -154,7 +159,7 @@ exists. Use the desktop app when a source actually asks for a human.
 - Colored segments use reported flight durations and same-airport connection
   times. Missing segment timing produces a neutral summary interval. Complete
   details stay visible when their sum disagrees with the reported total; a
-  warning explains the difference, and shared bounds include both arrivals.
+  warning explains the difference, and both scale modes include both arrivals.
   The scale never treats naive local timestamps at different airports as
   elapsed time.
 
