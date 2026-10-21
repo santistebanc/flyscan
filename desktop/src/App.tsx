@@ -39,7 +39,7 @@ import { useFavorites } from "./useFavorites";
 import { FavoriteButton } from "./FavoriteButton";
 import { FlightTimeline, LegDuration } from "./TimelineFlight";
 import { TimelineTooltipProvider } from "./TimelineTooltip";
-import { flightTimelines, type FlightTimelines } from "./flightTimeline";
+import { flightTimelines, normalizeTimelineMode, TIMELINE_MODE_KEY, type FlightTimelines, type TimelineMode } from "./flightTimeline";
 import { FILTERS_KEY, FlightFiltersBar } from "./FilterBar";
 import { FILTERS_VERSION, filtersActive, matchesFlight, sanitizeFilters, type ListFilters } from "./flightFilters";
 import { connectionFilterOptions, filterRanges } from "./filterSuggestions";
@@ -156,13 +156,14 @@ function readableDay(iso: string): string {
  * seller's price live in the side panel, which is what keeps a row scannable.
  */
 function Results(
-  { rows, dataset, total, limited, loading, openKey, onOpen, favorites, onToggleFavorite, ratings, timelines, connectionRecovery }:
+  { rows, dataset, total, limited, loading, openKey, onOpen, favorites, onToggleFavorite, ratings, timelines, timelineMode, connectionRecovery }:
   {
     rows: FlightRow[]; dataset: FlightRow[]; total: number; limited: boolean; loading: boolean; openKey: string | null;
     onOpen: (key: string) => void;
     favorites: ReadonlySet<string>; onToggleFavorite: (key: string) => void;
     ratings: ReturnType<typeof flightRatings>;
     timelines: FlightTimelines;
+    timelineMode: TimelineMode;
     connectionRecovery: { label: string; onClick: () => void } | null;
   },
 ) {
@@ -306,11 +307,11 @@ function Results(
               </span>
             </span>
             <span className="trip" role="gridcell">
-              <FlightTimeline leg={row.outbound} scale={timelines.outbound} timing={timelines.journeys.get(row.outbound)} />
+              <FlightTimeline leg={row.outbound} scale={timelines.outbound} timing={timelines.journeys.get(row.outbound)} mode={timelineMode} />
               {/* A round trip is half-described by its outbound alone. */}
               {row.inbound ? (
                 <div className="back">
-                  <FlightTimeline leg={row.inbound} scale={timelines.inbound} timing={timelines.journeys.get(row.inbound)} />
+                  <FlightTimeline leg={row.inbound} scale={timelines.inbound} timing={timelines.journeys.get(row.inbound)} mode={timelineMode} />
                 </div>
               ) : row.return_date && (
                 // The seller priced the round trip without saying which flight
@@ -355,6 +356,14 @@ function Shell() {
   const [openKey, setOpenKey] = useState<string | null>(null);
   const { favorites, toggleFavorite } = useFavorites();
   const [sort, setSort] = useState<SortKey>(DEFAULT_SORT);
+  const [timelineMode, setTimelineMode] = useState<TimelineMode>(() => {
+    try { return normalizeTimelineMode(localStorage.getItem(TIMELINE_MODE_KEY)); }
+    catch { return "days"; }
+  });
+  useEffect(() => {
+    try { localStorage.setItem(TIMELINE_MODE_KEY, timelineMode); }
+    catch { /* The view still works when preference storage is unavailable. */ }
+  }, [timelineMode]);
   const [filters, setFilters] = useState<ListFilters>(() => {
     try { return sanitizeFilters(JSON.parse(localStorage.getItem(FILTERS_KEY) || "null")); }
     catch { return sanitizeFilters(null); }
@@ -752,11 +761,18 @@ function Shell() {
       </header>
 
       <main className="results-pane">
-        {/* What is on screen, and the two knobs that only change how it reads:
-            neither sorting nor the display currency asks a source anything. */}
+        {/* These display controls do not request new results from a source. */}
         <div className="results-bar">
           <FlightFiltersBar filters={filters} onChange={setFilters} shown={shown.length} total={engine.rows.length} roundTrip={Boolean(ret)} suggestions={suggestions} connectionOptions={connectionOptions} />
           <div className="results-view-controls">
+            <label className="inline">
+              Timeline
+              <select value={timelineMode} onChange={(e) => setTimelineMode(normalizeTimelineMode(e.target.value))}
+                title="Day ranges start at 03:00 at the departure airport. Shared scale aligns all filtered flights.">
+                <option value="days">Day ranges</option>
+                <option value="shared">Shared scale</option>
+              </select>
+            </label>
             <label className="inline">
               Sort by
               <select value={sort} onChange={(e) => setSort(e.target.value as SortKey)}
@@ -782,6 +798,7 @@ function Shell() {
           onToggleFavorite={toggleFavorite}
           ratings={ratings}
           timelines={timelines}
+          timelineMode={timelineMode}
           connectionRecovery={connectionRecovery}
         />
       </main>

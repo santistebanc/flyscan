@@ -1,8 +1,9 @@
-Flight Scraper can now check for updates automatically and download them in the background.
+Flight timelines now use fixed whole-day ranges starting at 03:00.
 
-- Open App updates in the toolbar to check now, change preferences, or restart to install an update.
-- Automatic installation at startup is optional. Searches and verification windows must finish before updating.
-- Update downloads are cryptographically verified before installation.
-- Momondo verification now waits for the check to load and complete before closing its window.
+- Each journey uses the smallest fitting 1-day, 2-day, 3-day (or longer) range. Late flights arriving before 03:00 can stay on a one-day range.
+- New results no longer stretch existing day-range timelines. Sorting and filtering keep each journey's range stable.
+- Each row displays its scale. Use Timeline > Shared scale to compare all filtered flights on one axis; your choice is remembered.
+- Ranges use the departure airport's 03:00 boundary and elapsed travel time, preserving timezone-aware segment details.
+- Display controls wrap to fit narrow windows.
 
-Install this version once to enable future updates through the app. Saved searches and preferences are preserved.
+Saved searches and preferences are preserved. Existing installations can update through App updates.

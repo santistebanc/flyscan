@@ -1,6 +1,6 @@
 [project]
 name = "flight-scraper"
-version = "0.3.2"
+version = "0.3.3"
 description = "Scrape flight prices from six metasearch sources in parallel and compare them in one currency."
 requires-python = ">=3.10"
 dependencies = [
