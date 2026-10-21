@@ -24,7 +24,7 @@
   --side-width: 368px;
 }
 body { font-family: Geist, sans-serif; line-height: 1.5; padding-bottom: 0; }
-.update-trigger { display: inline-flex; align-items: center; gap: 8px; }
+.queue-icon-button.update-trigger { display: inline-flex; align-items: center; gap: 8px; width: auto; flex-shrink: 0; }
 .update-trigger span { font-size: 12px; color: var(--accent); white-space: nowrap; }
 .update-panel { position: fixed; inset: 0; margin: auto; width: min(448px, calc(100vw - 32px)); max-height: calc(100vh - 32px); overflow: auto; padding: 24px; border: 1px solid var(--line); border-radius: 8px; background: var(--panel); color: var(--ink); box-shadow: 0 16px 48px #00000040; }
 .update-panel::backdrop { background: #00000080; }
