@@ -7,7 +7,7 @@ const { buildSync } = require("esbuild");
 const React = require("react");
 const { renderToStaticMarkup } = require("react-dom/server");
 const bundle = buildSync({ entryPoints: [path.join(__dirname, "../src/ChallengeBanner.tsx")],
-  bundle: true, external: ["react", "./platform"], write: false, format: "cjs", platform: "node", jsx: "automatic" }).outputFiles[0].text;
+  bundle: true, external: ["react", "react-dom", "./platform"], write: false, format: "cjs", platform: "node", jsx: "automatic" }).outputFiles[0].text;
 const requests = [{ source: "ff-kayak", url: "https://example.test/one" },
   { source: "ff-sky", url: "https://example.test/two" }];
 function deferred() { let resolve; const promise = new Promise((yes) => { resolve = yes; }); return { resolve, promise }; }
