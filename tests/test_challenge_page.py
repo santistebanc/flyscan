@@ -65,3 +65,32 @@ def test_script_accepts_consent_and_hides_all_but_the_captcha():
         assert abs((box["y"] + box["height"] / 2) - size["height"] / 2) < 2
         browser.close()
     assert [k for k, v in visible.items() if v] == ["check", "captcha", "robot", "go"]
+
+
+LATE = """<!doctype html><body><header>site</header>
+<main><section id="check"><h1>Security Check:</h1><p id="intro">Please confirm you are a human.</p>
+<label><input type="checkbox" id="robot"> I'm not a robot</label></section></main><footer>foot</footer>
+<script>setTimeout(() => {
+  const go = document.createElement("a"); go.id = "go"; go.textContent = "Continue";
+  go.href = "#"; document.getElementById("check").append(go);
+}, 400);</script></body>"""
+
+
+def test_nothing_is_hidden_until_the_continue_button_has_rendered(tmp_path):
+    sync_api = pytest.importorskip("playwright.sync_api")
+    with sync_api.sync_playwright() as driver:
+        try:
+            browser = driver.chromium.launch(headless=True)
+        except Exception as exc:  # no browser installed
+            pytest.skip(str(exc))
+        page = browser.new_page()
+        page.add_init_script(check_page_script("momondo"))
+        (tmp_path / "late.html").write_text(LATE)
+        page.goto((tmp_path / "late.html").as_uri())
+        page.wait_for_timeout(200)
+        early = page.is_visible("#intro"), page.is_visible("footer")
+        page.wait_for_timeout(1800)
+        late = {n: page.is_visible(n) for n in ("#intro", "#robot", "#go", "footer", "header")}
+        browser.close()
+    assert early == (True, True)
+    assert late == {"#intro": True, "#robot": True, "#go": True, "footer": False, "header": False}

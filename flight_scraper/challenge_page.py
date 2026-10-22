@@ -77,13 +77,16 @@ _SCRIPT = r"""
   };
 
   // The captcha together with the check's own button: the smallest ancestor holding both.
+  // Until the button has rendered there is no telling what belongs to the check, so nothing is
+  // hidden yet (null); the next pass tries again.
+  const CLICKABLE = 'button, a, [role="button"], input[type="submit"], input[type="button"]';
   const findKeeper = (captcha) => {
     for (let el = captcha; el && el !== document.body; el = el.parentElement) {
-      for (const button of el.querySelectorAll('button, [role="button"], input[type="submit"]')) {
+      for (const button of el.querySelectorAll(CLICKABLE)) {
         if (cont.test(text(button))) return el;
       }
     }
-    return captcha;
+    return null;
   };
 
   // A challenge the captcha opens (image grid) lives in its own frame; never hide that.
@@ -94,6 +97,7 @@ _SCRIPT = r"""
     const captcha = findCaptcha();
     if (!captcha) return;
     const keeper = findKeeper(captcha);
+    if (!keeper) return;
     for (let el = keeper; el && el !== document.documentElement; el = el.parentElement) {
       const parent = el.parentElement;
       if (!parent) break;
@@ -110,8 +114,8 @@ _SCRIPT = r"""
   // What is left is small: centre it on a plain page, enlarged, rather than leave it in the corner
   // of the site's own layout (a purple page with a white content block).
   const fill = (keeper) => {
-    if (keeper.hasAttribute(FILLED)) return;
-    keeper.setAttribute(FILLED, "");
+    if (document.documentElement.hasAttribute(FILLED)) return; // once, never nested
+    document.documentElement.setAttribute(FILLED, "");
     for (const el of [document.documentElement, document.body]) {
       el.style.setProperty("background", "#fff", "important");
       el.style.setProperty("margin", "0", "important");
