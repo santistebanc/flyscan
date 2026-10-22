@@ -1,0 +1,130 @@
+"""Per-source tidying of the check page a person is about to clear.
+
+Some sources wrap their check in a cookie-consent popup and a full site chrome. For those
+the person sees only what is needed: the consent is accepted for them and everything that is
+not the captcha is hidden. Hiding is cosmetic — the captcha and its Continue button are left
+untouched and the person still clears it. A source without an entry is shown as it is, and
+when the page is not recognised nothing is hidden.
+"""
+
+from __future__ import annotations
+
+import json
+from dataclasses import dataclass
+from typing import Dict, Optional, Tuple
+
+
+@dataclass(frozen=True)
+class CheckPageTweak:
+    #: Button labels (case-insensitive, whole text) that accept the cookie consent.
+    consent_buttons: Tuple[str, ...] = ()
+    #: CSS selectors that find the captcha; the first present one anchors the page.
+    captcha_selectors: Tuple[str, ...] = ()
+    #: Label of the button that submits the check, kept visible with the captcha.
+    continue_button: str = "continue"
+
+
+CHECK_PAGE_TWEAKS: Dict[str, CheckPageTweak] = {
+    "momondo": CheckPageTweak(
+        consent_buttons=("accept all",),
+        captcha_selectors=(
+            'iframe[src*="recaptcha"]',
+            ".g-recaptcha",
+            '[class*="captcha" i]',
+            'input[type="checkbox"]',
+        ),
+    ),
+}
+
+_SCRIPT = r"""
+(() => {
+  const cfg = __CONFIG__;
+  const HIDDEN = "data-fs-hidden";
+  const consent = new RegExp("^\\s*(" + cfg.consent_buttons.join("|") + ")\\s*$", "i");
+  const cont = new RegExp("^\\s*" + cfg.continue_button + "\\s*$", "i");
+  const clicked = new WeakSet();
+  const SKIP = new Set(["SCRIPT", "STYLE", "LINK", "META", "TEMPLATE", "NOSCRIPT"]);
+
+  // Every element, descending through open shadow roots.
+  const all = (root) => {
+    const out = [];
+    for (const el of root.querySelectorAll("*")) {
+      out.push(el);
+      if (el.shadowRoot) out.push(...all(el.shadowRoot));
+    }
+    return out;
+  };
+  const text = (el) => (el.innerText || el.textContent || el.value || "").trim();
+
+  const acceptConsent = () => {
+    if (!cfg.consent_buttons.length) return;
+    for (const el of all(document)) {
+      if (el.matches && el.matches('button, [role="button"], input[type="button"]')
+          && !clicked.has(el) && consent.test(text(el))) {
+        clicked.add(el);
+        el.click();
+      }
+    }
+  };
+
+  const findCaptcha = () => {
+    for (const selector of cfg.captcha_selectors) {
+      const el = document.querySelector(selector);
+      if (el) return el;
+    }
+    return null;
+  };
+
+  // The captcha together with the check's own button: the smallest ancestor holding both.
+  const findKeeper = (captcha) => {
+    for (let el = captcha; el && el !== document.body; el = el.parentElement) {
+      for (const button of el.querySelectorAll('button, [role="button"], input[type="submit"]')) {
+        if (cont.test(text(button))) return el;
+      }
+    }
+    return captcha;
+  };
+
+  // A challenge the captcha opens (image grid) lives in its own frame; never hide that.
+  const holdsCaptchaFrame = (el) =>
+    el.matches('iframe[src*="captcha"]') || Boolean(el.querySelector('iframe[src*="captcha"]'));
+
+  const tidy = () => {
+    const captcha = findCaptcha();
+    if (!captcha) return;
+    const keeper = findKeeper(captcha);
+    for (let el = keeper; el && el !== document.documentElement; el = el.parentElement) {
+      const parent = el.parentElement;
+      if (!parent) break;
+      for (const sibling of parent.children) {
+        if (sibling === el || SKIP.has(sibling.tagName) || sibling.hasAttribute(HIDDEN)) continue;
+        if (holdsCaptchaFrame(sibling)) continue;
+        sibling.setAttribute(HIDDEN, "");
+        sibling.style.setProperty("display", "none", "important");
+      }
+    }
+  };
+
+  const run = () => { try { acceptConsent(); tidy(); } catch (_) {} };
+  const start = () => {
+    run();
+    new MutationObserver(run).observe(document.documentElement, { childList: true, subtree: true });
+    setInterval(run, 1000);
+  };
+  if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", start);
+  else start();
+})();
+"""
+
+
+def check_page_script(source: str) -> Optional[str]:
+    """JavaScript to run on every page of ``source``'s check, or None if it is shown as is."""
+    tweak = CHECK_PAGE_TWEAKS.get(source)
+    if tweak is None:
+        return None
+    config = {
+        "consent_buttons": list(tweak.consent_buttons),
+        "captcha_selectors": list(tweak.captcha_selectors),
+        "continue_button": tweak.continue_button,
+    }
+    return _SCRIPT.replace("__CONFIG__", json.dumps(config))

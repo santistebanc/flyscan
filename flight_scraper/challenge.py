@@ -27,6 +27,8 @@ from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 
+from .challenge_page import check_page_script
+
 DEFAULT_DIR = Path(".challenges")
 
 #: How long a cleared challenge is assumed to hold before it is worth redoing.
@@ -461,6 +463,9 @@ def solve(
         try:
             if was_cancelled():
                 return report
+            tidy = check_page_script(source)
+            if tidy:
+                context.add_init_script(tidy)
             page = context.pages[0] if context.pages else context.new_page()
             page.goto(url, wait_until="domcontentloaded", timeout=60_000)
 

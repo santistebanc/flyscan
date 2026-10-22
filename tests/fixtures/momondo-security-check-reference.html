@@ -1,0 +1,16 @@
+<!doctype html>
+<!-- Hand-built stand-in for the Momondo check page: site chrome, a cookie popup, and the check. Not a recording. -->
+<html><body>
+<header id="chrome">momondo <button>Sign in</button></header>
+<nav id="side">Flights Hotels Cars</nav>
+<main>
+  <div id="consent" role="dialog"><h2>We value your privacy</h2>
+    <button id="accept">Accept all</button><button>Reject all</button></div>
+  <section id="check"><h1>Security Check:</h1><p>Please confirm you are a human.</p>
+    <div id="captcha"><label><input type="checkbox" id="robot"> I'm not a robot</label></div>
+    <button id="go">Continue</button></section>
+  <aside id="promo">Download the momondo app</aside>
+</main>
+<footer id="foot">Company About Careers</footer>
+<script>window.accepted = 0; document.getElementById("accept").onclick = () => { window.accepted++; document.getElementById("consent").remove(); };</script>
+</body></html>
