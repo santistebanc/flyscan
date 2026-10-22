@@ -73,8 +73,10 @@ export function ChallengeBanner({ api, pending, canSolveHere, viewerUrl, onClear
             {working ? "Verifying" : "Verify"}
           </button>
         </div>
-        {viewing && <div className="challenge-viewer">
+        {viewing && <div className={expanded ? "challenge-viewer open" : "challenge-viewer"}
+          role="dialog" aria-modal={expanded} aria-label={`${name} verification`}>
           <div className="challenge-viewer-bar">
+            <span className="challenge-viewer-title">{name} security check</span>
             <button type="button" aria-expanded={expanded} aria-label={`${expanded ? "Collapse" : "Expand"} ${name} verification view`}
               onClick={() => toggleViewer(challenge.source)}>{expanded ? "Hide view" : "Show view"}</button>
             <a href={viewerUrl!} target="_blank" rel="noopener noreferrer">Open in a new tab</a>
