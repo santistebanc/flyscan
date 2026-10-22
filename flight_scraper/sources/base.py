@@ -46,9 +46,7 @@ class ChallengeRequired(SourceError):
     """
 
     def __init__(self, url: str, source: str = ""):
-        super().__init__(
-            f"{source or 'source'} needs a human to clear a challenge: {url}"
-        )
+        super().__init__(f"{source or 'source'} needs a human to clear a challenge: {url}")
         self.url = url
         self.source = source
 
@@ -148,7 +146,7 @@ class Source:
                 last_error = ""
                 break
             except ChallengeRequired:
-                raise           # the caller decides; retrying only digs the hole
+                raise  # the caller decides; retrying only digs the hole
             except (PermanentError, RateLimited) as exc:
                 last_error = f"{type(exc).__name__}: {exc}"
                 break
@@ -173,13 +171,19 @@ class Source:
             # means different things on different routes, dates and parties,
             # and by the time anyone reads this the query is long gone.
             errorlog.record(
-                f"source.{self.name}", last_error,
+                f"source.{self.name}",
+                last_error,
                 route=f"{query.origin}-{query.destination}",
-                depart=query.depart, ret=query.ret,
-                adults=query.adults, children=query.children,
-                infants=query.infants, cabin=query.cabin,
-                currency=query.currency, attempts=self.retries,
-                url=result.url, replay=(
+                depart=query.depart,
+                ret=query.ret,
+                adults=query.adults,
+                children=query.children,
+                infants=query.infants,
+                cabin=query.cabin,
+                currency=query.currency,
+                attempts=self.retries,
+                url=result.url,
+                replay=(
                     f"flight-scraper capture {self.name} {query.origin} "
                     f"{query.destination} {query.depart}"
                     + (f" --ret {query.ret}" if query.ret else "")
@@ -198,8 +202,9 @@ class Source:
             offers = self.search(query)
         except (requests.exceptions.Timeout, requests.exceptions.ConnectionError) as exc:
             raise RetryableError(str(exc)) from exc
-        return SourceResult(source=self.name, url=url, offers=offers,
-                            elapsed=time.monotonic() - started)
+        return SourceResult(
+            source=self.name, url=url, offers=offers, elapsed=time.monotonic() - started
+        )
 
     def request(self, session, method: str, url: str, **kwargs):
         """Apply the attempt's remaining budget and classify HTTP failures once."""

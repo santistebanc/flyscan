@@ -19,13 +19,16 @@ def blob(*segments):
 
 
 SEGMENT = {
-    "carrier": "", "carrier_name": "easyJet EZY5063", "flight_number": "",
-    "origin": "BER", "destination": "CDG",
-    "departure": "2026-09-21T07:00", "arrival": "2026-09-21T09:05",
+    "carrier": "",
+    "carrier_name": "easyJet EZY5063",
+    "flight_number": "",
+    "origin": "BER",
+    "destination": "CDG",
+    "departure": "2026-09-21T07:00",
+    "arrival": "2026-09-21T09:05",
     "duration_minutes": 125,
 }
-FIXED = {**SEGMENT, "carrier": "EZY", "carrier_name": "easyJet",
-         "flight_number": "EZY5063"}
+FIXED = {**SEGMENT, "carrier": "EZY", "carrier_name": "easyJet", "flight_number": "EZY5063"}
 
 
 class MergeSegments(unittest.TestCase):

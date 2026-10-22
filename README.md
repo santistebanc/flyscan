@@ -576,8 +576,8 @@ Kayak engine came to answer with a bot block. Each source declares what it
 tolerates:
 
 ```python
-max_concurrency = 2     # searches of this source in flight at once
-min_interval    = 0.5   # seconds between starting them
+max_concurrency = 2  # searches of this source in flight at once
+min_interval = 0.5  # seconds between starting them
 ```
 
 The Kayak engine sets `1` and `2.5`, because it is the strictest: one search
@@ -747,15 +747,22 @@ from flight_scraper.task_queue import ResourceLimit, RetryPolicy
 
 queue = default_scheduler().queue
 
+
 def calculate_route(payload, context):
     context.check()
     # Replace with the route algorithm; check context inside long loops.
     return {"airports": payload["airports"], "legs": len(payload["airports"]) - 1}
 
+
 queue.register("route", calculate_route)  # once, during application setup
 queue.limit("route-cpu", ResourceLimit(concurrency=2))
-job = queue.submit("route", {"airports": ["BER", "CDG", "MAD"]},
-                   resource="route-cpu", timeout=30, retry=RetryPolicy(max_attempts=1))
+job = queue.submit(
+    "route",
+    {"airports": ["BER", "CDG", "MAD"]},
+    resource="route-cpu",
+    timeout=30,
+    retry=RetryPolicy(max_attempts=1),
+)
 answer = job.future.result()
 ```
 

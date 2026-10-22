@@ -68,8 +68,9 @@ class ChallengeStore:
         with self._lock:
             temporary = None
             try:
-                with tempfile.NamedTemporaryFile(mode="w", encoding="utf-8", dir=self.path,
-                                                 suffix=".tmp", delete=False) as stream:
+                with tempfile.NamedTemporaryFile(
+                    mode="w", encoding="utf-8", dir=self.path, suffix=".tmp", delete=False
+                ) as stream:
                     temporary = stream.name
                     json.dump(record, stream, indent=1)
                 os.replace(temporary, self._file(source))
@@ -108,13 +109,15 @@ class ChallengeStore:
             except (OSError, json.JSONDecodeError):
                 continue
             age = self._age(record.get("solved_at", ""))
-            out.append({
-                "source": record.get("source", file.stem),
-                "solved_at": record.get("solved_at", ""),
-                "cookies": len(record.get("cookies") or {}),
-                "fresh": age <= self.ttl,
-                "age_hours": round(age.total_seconds() / 3600, 1),
-            })
+            out.append(
+                {
+                    "source": record.get("source", file.stem),
+                    "solved_at": record.get("solved_at", ""),
+                    "cookies": len(record.get("cookies") or {}),
+                    "fresh": age <= self.ttl,
+                    "age_hours": round(age.total_seconds() / 3600, 1),
+                }
+            )
         return out
 
     @staticmethod
@@ -140,8 +143,16 @@ class ChallengeCoordinator:
     Explicit holds without a fetch remain process-local.
     """
 
-    def __init__(self, ledger=None, queue=None, *, ledger_lock=None, cookies=None,
-                 reconcile_interval=0.2, owns_ledger=False):
+    def __init__(
+        self,
+        ledger=None,
+        queue=None,
+        *,
+        ledger_lock=None,
+        cookies=None,
+        reconcile_interval=0.2,
+        owns_ledger=False,
+    ):
         self._ledger, self._queue = ledger, queue
         self._ledger_lock = ledger_lock or threading.RLock()
         self.cookies = cookies or STORE
@@ -159,13 +170,18 @@ class ChallengeCoordinator:
         self.reconcile()
         self._monitor = None
         if ledger is not None and queue is not None:
-            self._monitor = threading.Thread(target=self._watch, args=(reconcile_interval,),
-                                             name="challenge-reconcile", daemon=True)
+            self._monitor = threading.Thread(
+                target=self._watch,
+                args=(reconcile_interval,),
+                name="challenge-reconcile",
+                daemon=True,
+            )
             self._monitor.start()
 
     @classmethod
     def for_database(cls, path, **kwargs):
         from .store import FlightStore
+
         return cls(FlightStore(path) if path else None, owns_ledger=True, **kwargs)
 
     def _watch(self, interval):
@@ -177,6 +193,7 @@ class ChallengeCoordinator:
 
     def reconcile(self):
         from .task_queue import ActionRequired
+
         with self._lock:
             if self._closed:
                 return dict(self._pending)
@@ -189,7 +206,9 @@ class ChallengeCoordinator:
                     self._queue.resolve_action(source)
                 for source, url in pending.items():
                     if self._pending.get(source) != url:
-                        self._queue.pause(source, ActionRequired("captcha", "source needs a human", url))
+                        self._queue.pause(
+                            source, ActionRequired("captcha", "source needs a human", url)
+                        )
             self._pending = pending
             return dict(pending)
 
@@ -198,6 +217,7 @@ class ChallengeCoordinator:
 
     def record(self, source, url, fetch_id=None):
         from .task_queue import ActionRequired
+
         with self._lock:
             if self._closed:
                 raise RuntimeError("challenge coordinator is closed")
@@ -261,12 +281,17 @@ class ChallengeCoordinator:
             if outcome == "error":
                 url = self.pending().get(source)
         if not url:
-            return {"source": source, "solved": False, "cookies": 0,
-                    "error": "could not obtain a challenge URL"}
+            return {
+                "source": source,
+                "solved": False,
+                "cookies": 0,
+                "error": "could not obtain a challenge URL",
+            }
         if self._stopped.is_set():
             return self._cancelled(source)
-        report = solve(source, url, store=self.cookies, wait_seconds=wait_seconds,
-                       cancelled=self._stopped)
+        report = solve(
+            source, url, store=self.cookies, wait_seconds=wait_seconds, cancelled=self._stopped
+        )
         if self._stopped.is_set():
             return self._cancelled(source)
         if report.get("solved"):
@@ -291,12 +316,15 @@ class ChallengeCoordinator:
             url = self.reconcile().get(source)
             self._recovery_errors.pop(source, None)
             self._solving.add(source)
+
         def run():
             try:
                 report = self.recover(source, url=url)
                 if not report.get("solved") and not report.get("cancelled"):
                     with self._lock:
-                        self._recovery_errors[source] = report.get("error") or "Verification wasn’t completed. Try again."
+                        self._recovery_errors[source] = (
+                            report.get("error") or "Verification wasn’t completed. Try again."
+                        )
             except Exception as exc:
                 with self._lock:
                     self._recovery_errors[source] = str(exc)
@@ -305,6 +333,7 @@ class ChallengeCoordinator:
                 with self._drained:
                     self._solving.discard(source)
                     self._drained.notify_all()
+
         with self._lock:
             if self._closed:
                 self._solving.discard(source)
@@ -319,7 +348,12 @@ class ChallengeCoordinator:
         return True
 
     def _close_owned_ledger(self):
-        if self._closed and not self._active_recoveries and self._owns_ledger and self._ledger is not None:
+        if (
+            self._closed
+            and not self._active_recoveries
+            and self._owns_ledger
+            and self._ledger is not None
+        ):
             with self._ledger_lock:
                 self._ledger.close()
                 self._ledger = None
@@ -366,9 +400,7 @@ def probe_challenge(source_name: str) -> Tuple[Optional[str], str]:
     from .sources import ChallengeRequired, build
 
     source = build([source_name])[0]
-    query = SearchQuery(
-        origin="BER", destination="LON", depart=date.today() + _td(days=30)
-    )
+    query = SearchQuery(origin="BER", destination="LON", depart=date.today() + _td(days=30))
     try:
         source.search(query)
     except ChallengeRequired as challenge:
@@ -400,11 +432,13 @@ def solve(
     """
     store = store or STORE
     report: Dict[str, Any] = {"source": source, "url": url, "solved": False, "cookies": 0}
+
     def was_cancelled():
         if cancelled is not None and cancelled.is_set():
             report.update(solved=False, cancelled=True)
             return True
         return False
+
     if was_cancelled():
         return report
     try:

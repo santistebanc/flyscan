@@ -40,6 +40,12 @@ def build(names=None, **kwargs) -> List[Source]:
 
 
 __all__ = [
-    "Source", "SourceError", "SourceResult", "ChallengeRequired", "REGISTRY", "SOURCE_CLASSES",
-    "DEFAULT_SOURCES", "build",
+    "Source",
+    "SourceError",
+    "SourceResult",
+    "ChallengeRequired",
+    "REGISTRY",
+    "SOURCE_CLASSES",
+    "DEFAULT_SOURCES",
+    "build",
 ]

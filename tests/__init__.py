@@ -16,8 +16,7 @@ def quiet_errorlog(case) -> Path:
     ones is worse than no log at all.
     """
     directory = Path(tempfile.mkdtemp())
-    for attribute, value in (("LOG_DIR", directory),
-                             ("LOG_FILE", directory / "errors.jsonl")):
+    for attribute, value in (("LOG_DIR", directory), ("LOG_FILE", directory / "errors.jsonl")):
         patch = mock.patch.object(errorlog, attribute, value)
         patch.start()
         case.addCleanup(patch.stop)

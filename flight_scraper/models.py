@@ -47,7 +47,7 @@ class SearchQuery:
     ret: Optional[date] = None
     adults: int = 1
     children: int = 0
-    infants: int = 0           # infants on a lap, under 2
+    infants: int = 0  # infants on a lap, under 2
     cabin: str = "economy"
     currency: str = "EUR"
 
@@ -56,9 +56,7 @@ class SearchQuery:
         self.destination = self.destination.strip().upper()
         self.currency = self.currency.strip().upper()
         if self.cabin not in CABIN_CLASSES:
-            raise ValueError(
-                f"cabin must be one of {', '.join(CABIN_CLASSES)}, got {self.cabin!r}"
-            )
+            raise ValueError(f"cabin must be one of {', '.join(CABIN_CLASSES)}, got {self.cabin!r}")
         if self.adults < 1:
             raise ValueError("at least one adult is required")
         if self.ret and self.ret < self.depart:
@@ -100,12 +98,12 @@ class SearchQuery:
 class Segment:
     """A single flight number within a leg."""
 
-    carrier: str = ""            # IATA airline code, e.g. "FR"
-    carrier_name: str = ""       # e.g. "Ryanair"
-    flight_number: str = ""      # e.g. "FR146"
+    carrier: str = ""  # IATA airline code, e.g. "FR"
+    carrier_name: str = ""  # e.g. "Ryanair"
+    flight_number: str = ""  # e.g. "FR146"
     origin: str = ""
     destination: str = ""
-    departure: str = ""          # local ISO, "2026-08-22T16:40"
+    departure: str = ""  # local ISO, "2026-08-22T16:40"
     arrival: str = ""
     duration_minutes: Optional[int] = None
 
@@ -115,8 +113,12 @@ class Segment:
     @classmethod
     def from_dict(cls, data: Dict[str, Any]) -> "Segment":
         fields = {f: data.get(f) for f in cls.__dataclass_fields__}
-        return cls(**{k: (v if v is not None else "") if k != "duration_minutes" else v
-                      for k, v in fields.items()})
+        return cls(
+            **{
+                k: (v if v is not None else "") if k != "duration_minutes" else v
+                for k, v in fields.items()
+            }
+        )
 
 
 @dataclass
@@ -129,8 +131,8 @@ class Leg:
     arrival: str = ""
     duration_minutes: Optional[int] = None
     stops: Optional[int] = None
-    airlines: str = ""           # comma-separated display names
-    flight_numbers: str = ""     # comma-separated, e.g. "FR146"
+    airlines: str = ""  # comma-separated display names
+    flight_numbers: str = ""  # comma-separated, e.g. "FR146"
     segments: List[Segment] = field(default_factory=list)
 
     def to_dict(self) -> Dict[str, Any]:
@@ -205,8 +207,14 @@ class Itinerary:
             if leg and len(leg.segments) > 1:
                 parts.append(direction)
                 for segment in leg.segments:
-                    parts.extend((segment.origin, segment.destination,
-                                  _minute(segment.departure), _minute(segment.arrival)))
+                    parts.extend(
+                        (
+                            segment.origin,
+                            segment.destination,
+                            _minute(segment.departure),
+                            _minute(segment.arrival),
+                        )
+                    )
         return hashlib.sha1("|".join(parts).encode()).hexdigest()
 
     def to_row(self) -> Dict[str, Any]:
@@ -248,9 +256,9 @@ class Offer:
     source: str
     price: float
     currency: str
-    agent: str = ""              # booking provider, when the source names one
+    agent: str = ""  # booking provider, when the source names one
     deeplink: str = ""
-    source_id: str = ""          # the source's own id, kept for debugging
+    source_id: str = ""  # the source's own id, kept for debugging
     price_eur: Optional[float] = None
 
     @property

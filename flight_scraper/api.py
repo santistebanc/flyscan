@@ -74,8 +74,21 @@ def search_fingerprint(params: Dict[str, Any]) -> str:
     material = {
         k: str(params.get(k))
         for k in (
-            "origin", "destination", "start", "end", "ret", "ret_end", "adults",
-            "children", "infants", "cabin", "currency", "prefer", "db", "cache_hours", "refresh",
+            "origin",
+            "destination",
+            "start",
+            "end",
+            "ret",
+            "ret_end",
+            "adults",
+            "children",
+            "infants",
+            "cabin",
+            "currency",
+            "prefer",
+            "db",
+            "cache_hours",
+            "refresh",
         )
     }
     material["sources"] = ",".join(sorted(params.get("sources") or []))
@@ -95,6 +108,7 @@ def last_event_id(req) -> int:
 
 def sse_response(job: Job, after: int = 0) -> Response:
     """Stream a job's event log as Server-Sent Events, resumable from ``after``."""
+
     def generate():
         for event in job.log.subscribe(after=after):
             if event.get("event") == "keepalive":
@@ -125,7 +139,11 @@ def _authenticate():
     supplied = header[7:] if header.startswith("Bearer ") else request.headers.get("X-API-Key", "")
     # Native EventSource cannot set headers. Only the read-only event stream
     # accepts the session key in its URL; ordinary endpoints require a header.
-    if not supplied and request.method == "GET" and re.fullmatch(r"/v1/searches/[^/]+/events", request.path):
+    if (
+        not supplied
+        and request.method == "GET"
+        and re.fullmatch(r"/v1/searches/[^/]+/events", request.path)
+    ):
         supplied = request.args.get("api_key", "")
     if not hmac.compare_digest(supplied.encode(), key.encode()):
         return jsonify({"error": "unauthorized"}), 401
@@ -148,11 +166,13 @@ def _cors(response: Response) -> Response:
 
 @api.get("/health")
 def health():
-    return jsonify({
-        "status": "ok",
-        "sources": list(REGISTRY),
-        "scheduler": default_scheduler().snapshot(),
-    })
+    return jsonify(
+        {
+            "status": "ok",
+            "sources": list(REGISTRY),
+            "scheduler": default_scheduler().snapshot(),
+        }
+    )
 
 
 @api.post("/errors")
@@ -175,7 +195,9 @@ def report_error():
     fields.setdefault("stack", payload.get("stack"))
 
     entry = errorlog.record(
-        where if where.startswith("ui") else f"ui.{where}", message, **fields,
+        where if where.startswith("ui") else f"ui.{where}",
+        message,
+        **fields,
     )
     return jsonify({"id": entry}), 202
 
@@ -192,10 +214,12 @@ def read_errors():
         limit = min(int(request.args.get("limit") or 20), 200)
     except ValueError:
         limit = 20
-    return jsonify({
-        "errors": errorlog.recent(limit, where=request.args.get("where")),
-        "summary": errorlog.summary(),
-    })
+    return jsonify(
+        {
+            "errors": errorlog.recent(limit, where=request.args.get("where")),
+            "summary": errorlog.summary(),
+        }
+    )
 
 
 @api.delete("/errors")
@@ -234,18 +258,29 @@ def _queue_selection(payload):
         query = SearchQuery(
             resolve(params["origin"], prefer=params["prefer"]).code,
             resolve(params["destination"], prefer=params["prefer"]).code,
-            params["start"], params["ret"], params["adults"], params["children"],
-            params["infants"], params["cabin"], params["currency"],
+            params["start"],
+            params["ret"],
+            params["adults"],
+            params["children"],
+            params["infants"],
+            params["cabin"],
+            params["currency"],
         )
     except (ValueError, RuntimeError) as exc:
         raise ValueError(str(exc)) from exc
-    selection = {"origin": query.origin, "destination": query.destination,
-                 "start": params["start"].isoformat(),
-                 "end": (params["end"] or params["start"]).isoformat(),
-                 "ret": params["ret"].isoformat() if params["ret"] else "",
-                 "ret_end": (params["ret_end"] or params["ret"]).isoformat() if params["ret"] else "",
-                 "adults": query.adults, "children": query.children, "infants": query.infants,
-                 "cabin": query.cabin, "currency": query.currency}
+    selection = {
+        "origin": query.origin,
+        "destination": query.destination,
+        "start": params["start"].isoformat(),
+        "end": (params["end"] or params["start"]).isoformat(),
+        "ret": params["ret"].isoformat() if params["ret"] else "",
+        "ret_end": (params["ret_end"] or params["ret"]).isoformat() if params["ret"] else "",
+        "adults": query.adults,
+        "children": query.children,
+        "infants": query.infants,
+        "cabin": query.cabin,
+        "currency": query.currency,
+    }
     return selection
 
 
@@ -253,7 +288,9 @@ def _queue_selection(payload):
 def select_queue_query():
     """Set foreground filters without submitting, cancelling or hiding work."""
     payload = request.get_json(silent=True)
-    if not request.is_json or (payload is None and request.get_data(as_text=True).strip() != "null"):
+    if not request.is_json or (
+        payload is None and request.get_data(as_text=True).strip() != "null"
+    ):
         return jsonify({"error": "a search object or JSON null is required"}), 400
     if payload is None:
         default_scheduler().select_query(None)
@@ -305,14 +342,20 @@ def enqueue_job():
         if not isinstance(source, str) or source not in REGISTRY:
             raise ValueError("unknown source")
         query = SearchQuery(
-            origin=payload["origin"], destination=payload["destination"],
+            origin=payload["origin"],
+            destination=payload["destination"],
             depart=date.fromisoformat(payload["depart"]),
             ret=date.fromisoformat(payload["ret"]) if payload.get("ret") else None,
-            adults=int(payload.get("adults", 1)), children=int(payload.get("children", 0)),
-            infants=int(payload.get("infants", 0)), cabin=payload.get("cabin", "economy"),
+            adults=int(payload.get("adults", 1)),
+            children=int(payload.get("children", 0)),
+            infants=int(payload.get("infants", 0)),
+            cabin=payload.get("cabin", "economy"),
             currency=payload.get("currency", "EUR"),
         )
-        if not all(re.fullmatch(r"[A-Z]{3}", code) for code in (query.origin, query.destination, query.currency)):
+        if not all(
+            re.fullmatch(r"[A-Z]{3}", code)
+            for code in (query.origin, query.destination, query.currency)
+        ):
             raise ValueError("origin, destination and currency must be three-letter codes")
         if query.children < 0 or query.infants < 0:
             raise ValueError("passenger counts cannot be negative")
@@ -332,11 +375,23 @@ def enqueue_job():
     # submit may complete directly from the ledger or join another caller's work.
     if future.job_id is None:
         result = future.result()
-        return jsonify({"id": None, "state": "done" if result.ok else "failed",
-                        "count": result.count, "error": result.error, "cached": result.ok}), 200
+        return jsonify(
+            {
+                "id": None,
+                "state": "done" if result.ok else "failed",
+                "count": result.count,
+                "error": result.error,
+                "cached": result.ok,
+            }
+        ), 200
     job = scheduler.find_job(future.job_id)
-    return jsonify({"id": future.job_id, "state": job.state if job else "done",
-                    "url": f"/v1/jobs/{future.job_id}"}), 202
+    return jsonify(
+        {
+            "id": future.job_id,
+            "state": job.state if job else "done",
+            "url": f"/v1/jobs/{future.job_id}",
+        }
+    ), 202
 
 
 @api.get("/jobs/<int:job_id>")
@@ -404,16 +459,18 @@ def cancel_queue():
 
 @api.get("/sources")
 def sources():
-    return jsonify([
-        {
-            "name": name,
-            "label": cls.label,
-            "currency": cls.fixed_currency,
-            "max_concurrency": cls.max_concurrency,
-            "min_interval": cls.min_interval,
-        }
-        for name, cls in REGISTRY.items()
-    ])
+    return jsonify(
+        [
+            {
+                "name": name,
+                "label": cls.label,
+                "currency": cls.fixed_currency,
+                "max_concurrency": cls.max_concurrency,
+                "min_interval": cls.min_interval,
+            }
+            for name, cls in REGISTRY.items()
+        ]
+    )
 
 
 @api.post("/searches")
@@ -460,31 +517,28 @@ def search_results(search_id: str):
 
     try:
         limit = min(int(request.args.get("limit") or 200), 1000)
-        max_stops = (
-            int(request.args["max_stops"]) if request.args.get("max_stops") else None
-        )
+        max_stops = int(request.args["max_stops"]) if request.args.get("max_stops") else None
     except ValueError as exc:
         return jsonify({"error": f"bad filter: {exc}"}), 400
     day_filter = request.args.get("day")
 
     days = job.days
     rows = [
-        row
-        for day in days
-        if day_filter is None or day["day"] == day_filter
-        for row in day["rows"]
+        row for day in days if day_filter is None or day["day"] == day_filter for row in day["rows"]
     ]
     if max_stops is not None:
         rows = [r for r in rows if r.get("stops") is not None and r["stops"] <= max_stops]
     rows.sort(key=lambda r: (r["best"]["price_base"] is None, r["best"]["price_base"] or 0))
 
-    return jsonify({
-        "search_id": job.id,
-        "status": job.status,
-        "days_done": len(days),
-        "count": len(rows),
-        "results": rows[:limit],
-    })
+    return jsonify(
+        {
+            "search_id": job.id,
+            "status": job.status,
+            "days_done": len(days),
+            "count": len(rows),
+            "results": rows[:limit],
+        }
+    )
 
 
 @api.delete("/searches/<search_id>")
@@ -515,53 +569,63 @@ def freshness():
 
     sources = params["sources"]
     per_day = []
-    for day, back in trip_pairs(
-        params["start"], params["end"], params["ret"], params["ret_end"]
-    ):
+    for day, back in trip_pairs(params["start"], params["end"], params["ret"], params["ret_end"]):
         query = SearchQuery(
-            origin=params["origin"], destination=params["destination"], depart=day,
-            ret=back, adults=params["adults"], children=params["children"],
+            origin=params["origin"],
+            destination=params["destination"],
+            depart=day,
+            ret=back,
+            adults=params["adults"],
+            children=params["children"],
             infants=params["infants"],
-            cabin=params["cabin"], currency=params["currency"],
+            cabin=params["cabin"],
+            currency=params["currency"],
         )
         plan = store.plan(query, sources, ttl=default_scheduler().ttl)
-        per_day.append({
-            "day": day.isoformat(),
-            "ret": back.isoformat() if back else None,
-            "sources": [
-                {
-                    "source": name,
-                    "cached": not decision["fetch"] or decision["why"] != "never asked",
-                    "fresh": decision["why"] == "fresh",
-                    "why": decision["why"],
-                    "age_hours": decision.get("age_hours"),
-                    "offers": decision.get("count", 0),
-                }
-                for name, decision in plan.items()
-            ],
-        })
+        per_day.append(
+            {
+                "day": day.isoformat(),
+                "ret": back.isoformat() if back else None,
+                "sources": [
+                    {
+                        "source": name,
+                        "cached": not decision["fetch"] or decision["why"] != "never asked",
+                        "fresh": decision["why"] == "fresh",
+                        "why": decision["why"],
+                        "age_hours": decision.get("age_hours"),
+                        "offers": decision.get("count", 0),
+                    }
+                    for name, decision in plan.items()
+                ],
+            }
+        )
 
     # A per-source roll-up across the range is what the UI actually renders.
     summary = []
     for source in sources:
         rows = [s for d in per_day for s in d["sources"] if s["source"] == source]
         ages = [r["age_hours"] for r in rows if r["age_hours"] is not None]
-        summary.append({
-            "source": source,
-            "days_cached": sum(1 for r in rows if r["cached"]),
-            "days_total": len(rows),
-            "days_fresh": sum(1 for r in rows if r["fresh"]),
-            "oldest_hours": max(ages) if ages else None,
-            "newest_hours": min(ages) if ages else None,
-            "offers": sum(r["offers"] for r in rows),
-        })
+        summary.append(
+            {
+                "source": source,
+                "days_cached": sum(1 for r in rows if r["cached"]),
+                "days_total": len(rows),
+                "days_fresh": sum(1 for r in rows if r["fresh"]),
+                "oldest_hours": max(ages) if ages else None,
+                "newest_hours": min(ages) if ages else None,
+                "offers": sum(r["offers"] for r in rows),
+            }
+        )
 
-    return jsonify({
-        "ttl_hours": round(default_scheduler().ttl.total_seconds() / 3600, 2),
-        "summary": sorted(summary, key=lambda s: (s["oldest_hours"] is None,
-                                                  -(s["oldest_hours"] or 0))),
-        "days": per_day,
-    })
+    return jsonify(
+        {
+            "ttl_hours": round(default_scheduler().ttl.total_seconds() / 3600, 2),
+            "summary": sorted(
+                summary, key=lambda s: (s["oldest_hours"] is None, -(s["oldest_hours"] or 0))
+            ),
+            "days": per_day,
+        }
+    )
 
 
 @api.post("/maintenance/purge")
@@ -603,13 +667,16 @@ def challenges():
     pending = default_scheduler().challenges()
     solving = default_scheduler().challenge_control.solving()
     errors = default_scheduler().challenge_control.recovery_errors()
-    return jsonify({
-        "pending": [
-            {"source": s, "url": u, "solving": s in solving, "error": errors.get(s)} for s, u in pending.items()
-        ],
-        "can_solve_here": _can_solve_here(),
-        "how_to_clear": "flight-scraper unblock <source>",
-    })
+    return jsonify(
+        {
+            "pending": [
+                {"source": s, "url": u, "solving": s in solving, "error": errors.get(s)}
+                for s, u in pending.items()
+            ],
+            "can_solve_here": _can_solve_here(),
+            "how_to_clear": "flight-scraper unblock <source>",
+        }
+    )
 
 
 @api.post("/challenges/<source>/solve")
@@ -629,15 +696,19 @@ def solve_challenge(source: str):
     if source not in REGISTRY:
         return jsonify({"error": f"unknown source: {source}"}), 404
     if not _can_solve_here():
-        return jsonify({
-            "error": "this server cannot open a browser (Playwright is not installed)",
-        }), 501
+        return jsonify(
+            {
+                "error": "this server cannot open a browser (Playwright is not installed)",
+            }
+        ), 501
 
     control = default_scheduler().challenge_control
     if source not in control.pending():
         return jsonify({"source": source, "status": "already cleared"})
     started = control.start_recovery(source)
-    return jsonify({"source": source, "status": "opening a browser" if started else "already open"}), 202
+    return jsonify(
+        {"source": source, "status": "opening a browser" if started else "already open"}
+    ), 202
 
 
 @api.post("/challenges/<source>/cookies")
@@ -669,13 +740,17 @@ def store_challenge_cookies(source: str):
         return jsonify({"error": "expected a non-empty 'cookies' object or list"}), 400
 
     default_scheduler().challenge_control.accept_cookies(
-        source, {str(k): str(v) for k, v in cookies.items()}, payload.get("url", ""),
+        source,
+        {str(k): str(v) for k, v in cookies.items()},
+        payload.get("url", ""),
     )
-    return jsonify({
-        "source": source,
-        "stored": len(cookies),
-        "cleared": True,
-    })
+    return jsonify(
+        {
+            "source": source,
+            "stored": len(cookies),
+            "cleared": True,
+        }
+    )
 
 
 @api.delete("/challenges/<source>")
@@ -696,16 +771,24 @@ def places():
         matches = search_places(term)
     except PlaceLookupError as exc:
         return jsonify({"error": str(exc)}), 502
-    return jsonify([
-        {"code": p.code, "name": p.name, "country": p.country, "kind": p.kind, "city": p.city}
-        for p in matches
-    ])
+    return jsonify(
+        [
+            {"code": p.code, "name": p.name, "country": p.country, "kind": p.kind, "city": p.city}
+            for p in matches
+        ]
+    )
 
 
 def _stored_leg(
-    airport_from: str, airport_to: str, departure: str, arrival: str,
-    minutes: Optional[int], stops: Optional[int], airlines: str,
-    flight_numbers: str, segments: Any,
+    airport_from: str,
+    airport_to: str,
+    departure: str,
+    arrival: str,
+    minutes: Optional[int],
+    stops: Optional[int],
+    airlines: str,
+    flight_numbers: str,
+    segments: Any,
 ) -> Dict[str, Any]:
     """One direction, rebuilt from stored columns."""
     return {
@@ -783,18 +866,29 @@ def _stored_row(row: Dict[str, Any]) -> Dict[str, Any]:
             pretty_duration(row.get("return_duration_minutes") or 0) if has_return else ""
         ),
         "outbound": _stored_leg(
-            row["origin"], row["destination"],
-            row.get("departure_time"), row.get("arrival_time"),
-            row.get("duration_minutes"), row.get("stops"),
-            row.get("airlines"), row.get("flight_numbers"),
+            row["origin"],
+            row["destination"],
+            row.get("departure_time"),
+            row.get("arrival_time"),
+            row.get("duration_minutes"),
+            row.get("stops"),
+            row.get("airlines"),
+            row.get("flight_numbers"),
             row.get("depart_segments"),
         ),
         "inbound": _stored_leg(
-            row["destination"], row["origin"],
-            row.get("return_departure_time"), row.get("return_arrival_time"),
-            row.get("return_duration_minutes"), row.get("return_stops"),
-            row.get("airlines"), "", row.get("return_segments"),
-        ) if has_return else None,
+            row["destination"],
+            row["origin"],
+            row.get("return_departure_time"),
+            row.get("return_arrival_time"),
+            row.get("return_duration_minutes"),
+            row.get("return_stops"),
+            row.get("airlines"),
+            "",
+            row.get("return_segments"),
+        )
+        if has_return
+        else None,
         "best": offers[0] if offers else None,
         "sources": sources,
         "source_count": len(sources),
@@ -839,23 +933,27 @@ def stored_flights():
             ret=args.get("ret") or None,
             ret_to=args.get("ret_end") or args.get("ret") or None,
             match_return=True,
-            adults=adults, children=children, infants=infants,
+            adults=adults,
+            children=children,
+            infants=infants,
             cabin=args.get("cabin") or "economy",
             max_stops=max_stops,
             limit=limit,
         )
         results = [_stored_row(r) for r in rows]
         newest = max((r.get("last_fetched") or "" for r in rows), default="")
-        return jsonify({
-            "count": len(results),
-            "results": results,
-            # When these prices were last confirmed, so the page can say so.
-            "last_seen": newest,
-            # Where each source stands for exactly this search. The same call
-            # the scheduler makes to decide what to ask, so the page shows the
-            # decision rather than a guess at it.
-            "sources": _source_status(store, args, adults, children, infants),
-        })
+        return jsonify(
+            {
+                "count": len(results),
+                "results": results,
+                # When these prices were last confirmed, so the page can say so.
+                "last_seen": newest,
+                # Where each source stands for exactly this search. The same call
+                # the scheduler makes to decide what to ask, so the page shows the
+                # decision rather than a guess at it.
+                "sources": _source_status(store, args, adults, children, infants),
+            }
+        )
     finally:
         store.close()
 
@@ -879,16 +977,27 @@ def _source_status(
     ret_end = parse_date(args["ret_end"]) if str(args.get("ret_end") or "").strip() else None
 
     # Worst-first, so the roll-up keeps the state that needs attention.
-    rank = {"needs a human": 0, "retries exhausted": 1, "never asked": 2,
-            "stale": 3, "retrying": 4, "stuck loading": 5, "in flight": 6, "fresh": 7}
+    rank = {
+        "needs a human": 0,
+        "retries exhausted": 1,
+        "never asked": 2,
+        "stale": 3,
+        "retrying": 4,
+        "stuck loading": 5,
+        "in flight": 6,
+        "fresh": 7,
+    }
 
     worst: Dict[str, Dict[str, Any]] = {}
     for day, back in trip_pairs(start, end, ret, ret_end):
         query = SearchQuery(
             origin=(args.get("origin") or "").strip(),
             destination=(args.get("destination") or "").strip(),
-            depart=day, ret=back,
-            adults=adults, children=children, infants=infants,
+            depart=day,
+            ret=back,
+            adults=adults,
+            children=children,
+            infants=infants,
             cabin=args.get("cabin") or "economy",
             currency=(args.get("currency") or "EUR").upper(),
         )
@@ -912,19 +1021,20 @@ def _source_status(
                 ages = [a for a in (seen["age_hours"], entry["age_hours"]) if a is not None]
                 seen["age_hours"] = max(ages) if ages else None
                 if better:
-                    seen.update({
-                        k: entry[k]
-                        for k in ("why", "fetch", "reason", "retries", "last_fetched")
-                    })
+                    seen.update(
+                        {k: entry[k] for k in ("why", "fetch", "reason", "retries", "last_fetched")}
+                    )
     return [worst[s] for s in DEFAULT_SOURCES if s in worst]
 
 
 @api.get("/rates")
 def rates():
     table = fx.get_rates((request.args.get("base") or "EUR").upper())
-    return jsonify({
-        "base": table.base,
-        "provider": table.provider,
-        "fetched_at": table.fetched_at,
-        "rates": table.rates,
-    })
+    return jsonify(
+        {
+            "base": table.base,
+            "provider": table.provider,
+            "fetched_at": table.fetched_at,
+            "rates": table.rates,
+        }
+    )

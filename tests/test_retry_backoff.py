@@ -37,7 +37,7 @@ class Backoff(unittest.TestCase):
     def test_backoff_still_grows_with_each_attempt(self):
         """Jitter must not flatten the escalation, only blur it."""
         bands = self.waits()
-        self.assertEqual(len(bands), 3)          # one fewer than the attempts
+        self.assertEqual(len(bands), 3)  # one fewer than the attempts
         for attempt, wait in enumerate(bands, start=1):
             self.assertGreaterEqual(wait, 1.5 * attempt * 0.5)
             self.assertLessEqual(wait, 1.5 * attempt * 1.5)

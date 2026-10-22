@@ -1,4 +1,5 @@
 """Create a public update manifest referring to a versioned, signed installer."""
+
 import argparse
 import base64
 import hashlib
@@ -22,11 +23,22 @@ def manifest(directory: Path, version: str, repository: str, notes: str) -> dict
     if not decoded.startswith("untrusted comment:") or "trusted comment:" not in decoded:
         raise ValueError("Invalid update signature format")
     info = json.loads((directory / "build-info.json").read_text(encoding="utf-8"))
-    if info["version"] != version or info["sha256"] != hashlib.sha256(installer.read_bytes()).hexdigest():
+    if (
+        info["version"] != version
+        or info["sha256"] != hashlib.sha256(installer.read_bytes()).hexdigest()
+    ):
         raise ValueError("Installer does not match build metadata")
-    return {"version": version, "notes": notes.strip(), "pub_date": datetime.now(timezone.utc).isoformat(),
-            "platforms": {"windows-x86_64": {"signature": signature,
-                "url": f"https://github.com/{repository}/releases/download/v{version}/{name}"}}}
+    return {
+        "version": version,
+        "notes": notes.strip(),
+        "pub_date": datetime.now(timezone.utc).isoformat(),
+        "platforms": {
+            "windows-x86_64": {
+                "signature": signature,
+                "url": f"https://github.com/{repository}/releases/download/v{version}/{name}",
+            }
+        },
+    }
 
 
 if __name__ == "__main__":
@@ -36,7 +48,9 @@ if __name__ == "__main__":
     parser.add_argument("--repository", required=True)
     parser.add_argument("--notes", type=Path, required=True)
     args = parser.parse_args()
-    value = manifest(args.directory, args.version, args.repository, args.notes.read_text(encoding="utf-8"))
+    value = manifest(
+        args.directory, args.version, args.repository, args.notes.read_text(encoding="utf-8")
+    )
     temporary = args.directory / "latest.json.tmp"
     temporary.write_text(json.dumps(value, indent=2) + "\n", encoding="utf-8")
     temporary.replace(args.directory / "latest.json")

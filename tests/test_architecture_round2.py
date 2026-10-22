@@ -1,4 +1,5 @@
 """Behavioral regressions for the second architecture review."""
+
 import tempfile
 import threading
 import unittest
@@ -25,10 +26,16 @@ class SearchSubscriptions(unittest.TestCase):
         search = Aggregator(scheduler=scheduler)
         source = FakeSource()
         with mock.patch.object(search, "_sources", return_value=[source]):
-            iterator = search.search_trips(QUERY, [(QUERY.depart, None), (date(2026, 12, 22), None)])
+            iterator = search.search_trips(
+                QUERY, [(QUERY.depart, None), (date(2026, 12, 22), None)]
+            )
             with self.assertRaises(QueueFull):
                 next(iterator)
-        eventually(lambda: not any(j["state"] in ("queued", "running", "blocked") for j in scheduler.jobs()))
+        eventually(
+            lambda: (
+                not any(j["state"] in ("queued", "running", "blocked") for j in scheduler.jobs())
+            )
+        )
         self.assertEqual(source.calls, 0)
 
     def test_cancelling_during_admission_does_not_leave_later_work(self):
@@ -37,14 +44,22 @@ class SearchSubscriptions(unittest.TestCase):
         scheduler.block_source("test", "https://example.test/check")
         search = Aggregator(scheduler=scheduler)
         original = scheduler.submit
+
         def submit(*args, **kwargs):
             future = original(*args, **kwargs)
             search.cancel()
             return future
-        with mock.patch.object(search, "_sources", return_value=[FakeSource()]), \
-             mock.patch.object(scheduler, "submit", side_effect=submit):
+
+        with (
+            mock.patch.object(search, "_sources", return_value=[FakeSource()]),
+            mock.patch.object(scheduler, "submit", side_effect=submit),
+        ):
             list(search.search_trips(QUERY, [(QUERY.depart, None), (date(2026, 12, 22), None)]))
-        eventually(lambda: not any(j["state"] in ("queued", "running", "blocked") for j in scheduler.jobs()))
+        eventually(
+            lambda: (
+                not any(j["state"] in ("queued", "running", "blocked") for j in scheduler.jobs())
+            )
+        )
 
     def test_close_detaches_only_its_subscription_from_shared_work(self):
         scheduler = Scheduler(db_path=None)
@@ -66,19 +81,25 @@ class SearchSubscriptions(unittest.TestCase):
         release = threading.Event()
         self.addCleanup(release.set)
         other_day = date(2026, 12, 22)
+
         def work(query):
             if query.depart == other_day:
                 release.wait(2)
             return []
+
         search = Aggregator(scheduler=scheduler)
         futures = []
         original = scheduler.submit
+
         def submit(*args, **kwargs):
             future = original(*args, **kwargs)
             futures.append(future)
             return future
-        with mock.patch.object(search, "_sources", return_value=[FakeSource(work)]), \
-             mock.patch.object(scheduler, "submit", side_effect=submit):
+
+        with (
+            mock.patch.object(search, "_sources", return_value=[FakeSource(work)]),
+            mock.patch.object(scheduler, "submit", side_effect=submit),
+        ):
             iterator = search.search_trips(QUERY, [(QUERY.depart, None), (other_day, None)])
             self.assertEqual(next(iterator).query.depart, QUERY.depart)
             iterator.close()
@@ -125,11 +146,19 @@ class ExecutionSettings(unittest.TestCase):
 
     def test_http_rejects_conflicting_settings_before_starting_search(self):
         from flight_scraper.web import create_app
+
         first = default_scheduler(db_path=None, max_workers=2)
         with mock.patch("flight_scraper.web.start_job") as start:
             client = create_app().test_client()
-            response = client.post("/v1/searches", json={"origin": "BER", "destination": "CDG",
-                "start": "2026-12-21", "db": "another.db"})
+            response = client.post(
+                "/v1/searches",
+                json={
+                    "origin": "BER",
+                    "destination": "CDG",
+                    "start": "2026-12-21",
+                    "db": "another.db",
+                },
+            )
             self.assertEqual(response.status_code, 400)
             self.assertIn("ledger", response.json["error"])
             start.assert_not_called()
@@ -141,6 +170,7 @@ class ExecutionSettings(unittest.TestCase):
 
     def test_search_identity_includes_freshness_refresh_and_ledger(self):
         from flight_scraper.api import search_fingerprint
+
         params = {"db": "a", "cache_hours": 6, "refresh": False}
         original = search_fingerprint(params)
         for change in ({"db": "b"}, {"cache_hours": 0}, {"refresh": True}):
@@ -149,12 +179,15 @@ class ExecutionSettings(unittest.TestCase):
     def test_result_reader_uses_the_writers_ledger(self):
         with tempfile.TemporaryDirectory() as directory:
             from flight_scraper.models import Itinerary, Leg, Offer
+
             scheduler = Scheduler(db_path=str(Path(directory) / "db"))
             try:
                 offer = Offer(Itinerary(QUERY, Leg("BER", "CDG")), "test", 10, "EUR")
                 offer.price_eur = 10
                 with mock.patch("flight_scraper.store.fx.get_rates"):
-                    self.assertTrue(scheduler.submit(FakeSource(lambda query: [offer]), QUERY).result(2).ok)
+                    self.assertTrue(
+                        scheduler.submit(FakeSource(lambda query: [offer]), QUERY).result(2).ok
+                    )
                     self.assertEqual(len(Aggregator(scheduler=scheduler).stored_offers(QUERY)), 1)
             finally:
                 scheduler.shutdown(wait=True)
@@ -169,7 +202,9 @@ class ProgressIdentity(unittest.TestCase):
         self.addCleanup(lambda: scheduler.shutdown(wait=True))
         query = QUERY.replace_trip(QUERY.depart, date(2026, 12, 28))
         events = []
-        result = scheduler.submit(FakeSource(), query, lambda event, data: events.append((event, data))).result(2)
+        result = scheduler.submit(
+            FakeSource(), query, lambda event, data: events.append((event, data))
+        ).result(2)
         self.assertTrue(result.ok)
         for event, data in events:
             if event in ("source_start", "source_done"):
@@ -179,30 +214,43 @@ class ProgressIdentity(unittest.TestCase):
 
     def test_partial_answers_keep_distinct_return_dates(self):
         from flight_scraper.models import Itinerary, Leg, Offer
+
         scheduler = Scheduler(db_path=None)
         self.addCleanup(lambda: scheduler.shutdown(wait=True))
         returns = [date(2026, 12, 28), date(2026, 12, 29)]
         events = []
         search = Aggregator(scheduler=scheduler, on_progress=lambda e, d: events.append((e, d)))
         source = FakeSource(lambda q: [Offer(Itinerary(q, Leg("BER", "CDG")), "test", 10, "EUR")])
-        with mock.patch.object(search, "_sources", return_value=[source]), \
-             mock.patch("flight_scraper.aggregate.merge", return_value=[]):
+        with (
+            mock.patch.object(search, "_sources", return_value=[source]),
+            mock.patch("flight_scraper.aggregate.merge", return_value=[]),
+        ):
             list(search.search_trips(QUERY, [(QUERY.depart, ret) for ret in returns]))
-        self.assertEqual({data["ret"] for event, data in events if event == "day_partial"}, set(returns))
+        self.assertEqual(
+            {data["ret"] for event, data in events if event == "day_partial"}, set(returns)
+        )
 
 
 class RecoveryShutdown(unittest.TestCase):
     def test_browser_wait_is_cancelled_and_late_answer_is_discarded(self):
         from flight_scraper.challenge import ChallengeCoordinator
+
         control = ChallengeCoordinator()
         entered = threading.Event()
+
         def solve(*args, cancelled, **kwargs):
             entered.set()
             self.assertTrue(cancelled.wait(2))
             return {"solved": True, "cookies": 1}
-        with mock.patch("flight_scraper.challenge.probe_challenge", return_value=("https://example.test/check", "challenged")), \
-             mock.patch("flight_scraper.challenge.solve", side_effect=solve), \
-             mock.patch.object(control, "clear") as clear:
+
+        with (
+            mock.patch(
+                "flight_scraper.challenge.probe_challenge",
+                return_value=("https://example.test/check", "challenged"),
+            ),
+            mock.patch("flight_scraper.challenge.solve", side_effect=solve),
+            mock.patch.object(control, "clear") as clear,
+        ):
             control.start_recovery("test")
             self.assertTrue(entered.wait(2))
             control.close(wait=True)
@@ -211,14 +259,17 @@ class RecoveryShutdown(unittest.TestCase):
 
     def test_owned_ledger_is_retained_until_active_recovery_exits(self):
         from flight_scraper.challenge import ChallengeCoordinator
+
         ledger = mock.Mock()
         ledger.pending_challenges.return_value = {}
         control = ChallengeCoordinator(ledger=ledger, owns_ledger=True)
         entered, release = threading.Event(), threading.Event()
+
         def probe(source):
             entered.set()
             release.wait(2)
             return None, "clear"
+
         try:
             with mock.patch("flight_scraper.challenge.probe_challenge", side_effect=probe):
                 control.start_recovery("test")
@@ -237,6 +288,7 @@ class RecoveryShutdown(unittest.TestCase):
 
     def test_closed_coordinator_rejects_new_recovery(self):
         from flight_scraper.challenge import ChallengeCoordinator
+
         control = ChallengeCoordinator()
         control.close()
         with mock.patch("flight_scraper.challenge.probe_challenge", return_value=(None, "error")):
@@ -244,9 +296,12 @@ class RecoveryShutdown(unittest.TestCase):
 
     def test_failed_thread_start_releases_the_source_reservation(self):
         from flight_scraper.challenge import ChallengeCoordinator
+
         control = ChallengeCoordinator()
         try:
-            with mock.patch("threading.Thread.start", side_effect=RuntimeError("cannot start thread")):
+            with mock.patch(
+                "threading.Thread.start", side_effect=RuntimeError("cannot start thread")
+            ):
                 with self.assertRaises(RuntimeError):
                     control.start_recovery("test")
             self.assertFalse(control.solving())
@@ -256,13 +311,17 @@ class RecoveryShutdown(unittest.TestCase):
     def test_shutdown_during_probe_discards_late_clearance(self):
         scheduler = Scheduler(db_path=None)
         entered, release = threading.Event(), threading.Event()
+
         def probe(source):
             entered.set()
             release.wait(2)
             return None, "clear"
+
         try:
-            with mock.patch("flight_scraper.challenge.probe_challenge", side_effect=probe), \
-                 mock.patch.object(scheduler.challenge_control, "clear") as clear:
+            with (
+                mock.patch("flight_scraper.challenge.probe_challenge", side_effect=probe),
+                mock.patch.object(scheduler.challenge_control, "clear") as clear,
+            ):
                 scheduler.challenge_control.start_recovery("test")
                 self.assertTrue(entered.wait(2))
                 scheduler.shutdown(wait=False)

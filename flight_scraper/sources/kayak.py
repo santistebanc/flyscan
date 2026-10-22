@@ -62,11 +62,16 @@ _ADULT, _INFANT_LAP, _CHILD = "ADT", "INL", "CHD"
 # economy is hyphenated in the request body but a bare "premium" in the URL
 # path, and every other spelling of it is a 400.
 _CABINS = {
-    "economy": "", "premiumeconomy": "premium-economy",
-    "business": "business", "first": "first",
+    "economy": "",
+    "premiumeconomy": "premium-economy",
+    "business": "business",
+    "first": "first",
 }
 _URL_CABINS = {
-    "economy": "", "premiumeconomy": "premium", "business": "business", "first": "first",
+    "economy": "",
+    "premiumeconomy": "premium",
+    "business": "business",
+    "first": "first",
 }
 
 
@@ -141,9 +146,7 @@ class _KayakEngine(Source):
 
     def _body(self, query: SearchQuery) -> Dict[str, Any]:
         passengers = (
-            [_ADULT] * query.adults
-            + [_INFANT_LAP] * query.infants
-            + [_CHILD] * query.children
+            [_ADULT] * query.adults + [_INFANT_LAP] * query.infants + [_CHILD] * query.children
         )
         details: List[Dict[str, Any]] = [{"ptc": _ADULT}] * query.adults
         details += [{"ptc": _INFANT_LAP}] * query.infants
@@ -192,7 +195,9 @@ class _KayakEngine(Source):
         }
 
         body = self._body(query)
-        first = self.request(session, "post", self.poll_url, json=body, headers=headers, timeout=self.timeout)
+        first = self.request(
+            session, "post", self.poll_url, json=body, headers=headers, timeout=self.timeout
+        )
         self._raise_if_challenged(first)
         if first.status_code != 200:
             raise SourceError(f"poll returned HTTP {first.status_code}")
@@ -209,8 +214,8 @@ class _KayakEngine(Source):
         deadline = time.monotonic() + 60
         while time.monotonic() < deadline:
             try:
-                poll = self.request(session, "post", 
-                    self.poll_url, json=body, headers=headers, timeout=self.timeout
+                poll = self.request(
+                    session, "post", self.poll_url, json=body, headers=headers, timeout=self.timeout
                 )
             except (RateLimited, JobTimeout, CancelledError):
                 raise
@@ -246,16 +251,14 @@ class _KayakEngine(Source):
         """
         landed = str(getattr(response, "url", "") or "")
         body = self.text_of(response)
-        markers = ("/security/check", "recaptcha", "unusual traffic",
-                   "are you a robot")
+        markers = ("/security/check", "recaptcha", "unusual traffic", "are you a robot")
         looks_blocked = "/security/check" in landed or any(
             marker in body.lower() for marker in markers
         )
         if not looks_blocked:
             return
         raise ChallengeRequired(
-            landed if "/security/check" in landed
-            else f"https://{self.host}/security/check",
+            landed if "/security/check" in landed else f"https://{self.host}/security/check",
             self.name,
         )
 
@@ -308,8 +311,8 @@ class _KayakEngine(Source):
             self.pause(PAGE_DELAY)
             body["searchMetaData"]["pageNumber"] = page_number
             try:
-                poll = self.request(session, "post", 
-                    self.poll_url, json=body, headers=headers, timeout=self.timeout
+                poll = self.request(
+                    session, "post", self.poll_url, json=body, headers=headers, timeout=self.timeout
                 )
             except (RateLimited, JobTimeout, CancelledError):
                 raise
@@ -354,10 +357,7 @@ class _KayakEngine(Source):
             if not legs:
                 continue
 
-            built = [
-                self._leg(leg, legs_index, segments_index, airlines)
-                for leg in legs
-            ]
+            built = [self._leg(leg, legs_index, segments_index, airlines) for leg in legs]
             if any(not leg.segments for leg in built):
                 continue  # a coach or train, not a flight
             booking = self._cheapest_booking(result)
@@ -370,7 +370,7 @@ class _KayakEngine(Source):
 
             provider_code = booking.get("providerCode", "")
             provider = providers.get(provider_code) or {}
-            url = ((booking.get("bookingUrl") or {}).get("url") or "")
+            url = (booking.get("bookingUrl") or {}).get("url") or ""
             if url.startswith("/"):
                 url = f"https://{self.host}{url}"
 

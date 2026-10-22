@@ -23,9 +23,7 @@ def offers_to_dicts(offers: List[Offer]) -> List[Dict[str, Any]]:
     return [_offer_to_dict(o) for o in offers]
 
 
-def offers_from_dicts(
-    data: List[Dict[str, Any]], source: str, query: SearchQuery
-) -> List[Offer]:
+def offers_from_dicts(data: List[Dict[str, Any]], source: str, query: SearchQuery) -> List[Offer]:
     """Rebuild offers against the search that is asking for them."""
     return [_offer_from_dict(item, source, query) for item in data]
 

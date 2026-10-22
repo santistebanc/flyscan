@@ -37,6 +37,7 @@ ProgressHook = Callable[[str, Dict[str, Any]], None]
 #: against. The unit of work: one trip asked of one source.
 Trip = Tuple[date, Optional[date]]
 
+
 def _noop(event: str, data: Dict[str, Any]) -> None:
     pass
 
@@ -120,11 +121,11 @@ def merge(offers: Sequence[Offer], base_currency: str = "EUR") -> List[MergedIti
 
     unpriced = float("inf")
     for item in grouped.values():
-        item.offers.sort(key=lambda o: (o.price_eur if o.price_eur is not None else unpriced))
+        item.offers.sort(key=lambda o: o.price_eur if o.price_eur is not None else unpriced)
 
     return sorted(
         grouped.values(),
-        key=lambda m: (m.best.price_eur if m.best.price_eur is not None else unpriced),
+        key=lambda m: m.best.price_eur if m.best.price_eur is not None else unpriced,
     )
 
 
@@ -134,7 +135,7 @@ class Aggregator:
     def __init__(
         self,
         sources: Optional[Sequence[str]] = None,
-        base_currency: str = "EUR",   # what offers are converted to; always EUR
+        base_currency: str = "EUR",  # what offers are converted to; always EUR
         timeout: int = 60,
         retries: int = 2,
         max_workers: int = DEFAULT_MAX_WORKERS,
@@ -160,7 +161,8 @@ class Aggregator:
         # The scheduler is shared on purpose: its gates are the rate limits, and
         # a second set of them would simply be a second allowance.
         self.scheduler = scheduler or default_scheduler(
-            max_workers=max_workers, db_path=db_path,
+            max_workers=max_workers,
+            db_path=db_path,
         )
 
     @property
@@ -228,9 +230,7 @@ class Aggregator:
         finally:
             self.scheduler.cancel_owner(self.owner)
 
-    def _search_trips(
-        self, query: SearchQuery, trips: Sequence[Trip]
-    ) -> Iterator[DayResult]:
+    def _search_trips(self, query: SearchQuery, trips: Sequence[Trip]) -> Iterator[DayResult]:
         """Yield a :class:`DayResult` per trip, in the order given.
 
         Every (source, trip) pair is handed to the scheduler up front, so a
@@ -246,8 +246,11 @@ class Aggregator:
         sources = self._sources()
         self.on_progress(
             "start",
-            {"days": len(trips), "sources": [s.name for s in sources],
-             "jobs": len(trips) * len(sources)},
+            {
+                "days": len(trips),
+                "sources": [s.name for s in sources],
+                "jobs": len(trips) * len(sources),
+            },
         )
 
         queries = {trip: query.replace_trip(*trip) for trip in trips}
@@ -262,8 +265,13 @@ class Aggregator:
                 if self._cancelled.is_set():
                     return
                 future = self.scheduler.submit(
-                    source, queries[trip], self.on_progress, self._cancelled, self.refresh,
-                    owner=self.owner, ttl=self.ttl,
+                    source,
+                    queries[trip],
+                    self.on_progress,
+                    self._cancelled,
+                    self.refresh,
+                    owner=self.owner,
+                    ttl=self.ttl,
                 )
                 futures[future] = (trip, source)
                 if self._cancelled.is_set():
@@ -276,8 +284,12 @@ class Aggregator:
         for trip in trips:
             self.on_progress(
                 "day_start",
-                {"day": trip[0], "ret": trip[1], "sources": [s.name for s in sources],
-                 "query": queries[trip].label()},
+                {
+                    "day": trip[0],
+                    "ret": trip[1],
+                    "sources": [s.name for s in sources],
+                    "query": queries[trip].label(),
+                },
             )
 
         for future in as_completed(futures):
@@ -285,9 +297,7 @@ class Aggregator:
             try:
                 result = future.result()
             except Exception as exc:  # a job must never take the run down
-                result = SourceResult(
-                    source=source.name, error=f"{type(exc).__name__}: {exc}"
-                )
+                result = SourceResult(source=source.name, error=f"{type(exc).__name__}: {exc}")
             collected[trip].append(result)
             remaining[trip] -= 1
 

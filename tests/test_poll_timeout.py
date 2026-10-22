@@ -57,7 +57,7 @@ class FakeSession:
         self.posts = 0
         self.cookies = self
 
-    def set(self, *args, **kwargs):        # the challenge store writes here
+    def set(self, *args, **kwargs):  # the challenge store writes here
         pass
 
     def get(self, url, **kwargs):
@@ -86,15 +86,17 @@ class PollTimeout(unittest.TestCase):
     def source(self, polls) -> FlightsFinderSky:
         source = FlightsFinderSky(timeout=1, retries=2)
         session = FakeSession(polls)
-        source.session = lambda *a, **k: session       # type: ignore[method-assign]
+        source.session = lambda *a, **k: session  # type: ignore[method-assign]
         self.session = session
         return source
 
     def test_a_timeout_after_results_keeps_them(self):
-        source = self.source([
-            poll_body("N", "1", CARD),
-            TimeoutError("poll timed out"),
-        ])
+        source = self.source(
+            [
+                poll_body("N", "1", CARD),
+                TimeoutError("poll timed out"),
+            ]
+        )
         offers = source.search(QUERY)
         self.assertEqual(len(offers), 1)
         self.assertEqual(self.session.posts, 2)
@@ -107,10 +109,12 @@ class PollTimeout(unittest.TestCase):
 
     def test_run_does_not_re_search_when_the_poll_merely_timed_out(self):
         """The whole point: one search page fetch, not two."""
-        source = self.source([
-            poll_body("N", "1", CARD),
-            TimeoutError("poll timed out"),
-        ])
+        source = self.source(
+            [
+                poll_body("N", "1", CARD),
+                TimeoutError("poll timed out"),
+            ]
+        )
         result = source.run(QUERY)
         self.assertEqual(result.error, "")
         self.assertEqual(len(result.offers), 1)
@@ -142,29 +146,33 @@ class PollSettles(unittest.TestCase):
     def source(self, polls) -> FlightsFinderSky:
         source = FlightsFinderSky(timeout=1, retries=1)
         session = FakeSession(polls)
-        source.session = lambda *a, **k: session       # type: ignore[method-assign]
+        source.session = lambda *a, **k: session  # type: ignore[method-assign]
         self.session = session
         return source
 
     def test_an_unchanging_count_ends_the_poll(self):
-        source = self.source([
-            poll_body("N", "1", CARD),      # first sighting
-            poll_body("N", "1", CARD),      # same
-            poll_body("N", "1", CARD),      # same again — stop here
-            poll_body("N", "1", CARD),      # must never be asked for
-        ])
+        source = self.source(
+            [
+                poll_body("N", "1", CARD),  # first sighting
+                poll_body("N", "1", CARD),  # same
+                poll_body("N", "1", CARD),  # same again — stop here
+                poll_body("N", "1", CARD),  # must never be asked for
+            ]
+        )
         offers = source.search(QUERY)
         self.assertEqual(len(offers), 1)
         self.assertEqual(self.session.posts, 3)
 
     def test_a_moving_count_keeps_polling(self):
         """Growth must not be mistaken for settling."""
-        source = self.source([
-            poll_body("N", "1", CARD),
-            poll_body("N", "2", CARD * 2),
-            poll_body("N", "3", CARD * 3),
-            poll_body("Y", "3", CARD * 3),
-        ])
+        source = self.source(
+            [
+                poll_body("N", "1", CARD),
+                poll_body("N", "2", CARD * 2),
+                poll_body("N", "3", CARD * 3),
+                poll_body("Y", "3", CARD * 3),
+            ]
+        )
         offers = source.search(QUERY)
         self.assertEqual(len(offers), 3)
         self.assertEqual(self.session.posts, 4)
@@ -175,24 +183,28 @@ class PollSettles(unittest.TestCase):
         The live payload grew by ~200 bytes between polls carrying identical
         results, so byte equality would never settle.
         """
-        source = self.source([
-            poll_body("N", "1", CARD),
-            poll_body("N", "1", CARD + "<!-- a -->"),
-            poll_body("N", "1", CARD + "<!-- bb -->"),
-            poll_body("N", "1", CARD + "<!-- ccc -->"),
-        ])
+        source = self.source(
+            [
+                poll_body("N", "1", CARD),
+                poll_body("N", "1", CARD + "<!-- a -->"),
+                poll_body("N", "1", CARD + "<!-- bb -->"),
+                poll_body("N", "1", CARD + "<!-- ccc -->"),
+            ]
+        )
         offers = source.search(QUERY)
         self.assertEqual(len(offers), 1)
         self.assertEqual(self.session.posts, 3)
 
     def test_an_empty_result_never_counts_as_settled(self):
         """Three polls of nothing is a search still starting up, not a finished one."""
-        source = self.source([
-            poll_body("N", "0", ""),
-            poll_body("N", "0", ""),
-            poll_body("N", "0", ""),
-            poll_body("Y", "1", CARD),
-        ])
+        source = self.source(
+            [
+                poll_body("N", "0", ""),
+                poll_body("N", "0", ""),
+                poll_body("N", "0", ""),
+                poll_body("Y", "1", CARD),
+            ]
+        )
         offers = source.search(QUERY)
         self.assertEqual(len(offers), 1)
         self.assertEqual(self.session.posts, 4)

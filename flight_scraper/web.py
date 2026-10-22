@@ -114,16 +114,15 @@ def start_job(params):
     params = dict(params)
     fingerprint = params.pop("_fingerprint", None) or search_fingerprint(params)
     force = params.pop("_force", False)
-    return JOBS.start(_public_params(params), fingerprint,
-                      lambda job: execute_search(job, params), force=force)
+    return JOBS.start(
+        _public_params(params), fingerprint, lambda job: execute_search(job, params), force=force
+    )
 
 
 def _public_params(params: Dict[str, Any]) -> Dict[str, Any]:
     """The search as a client would describe it — no local file paths."""
     return {
-        k: (v.isoformat() if hasattr(v, "isoformat") else v)
-        for k, v in params.items()
-        if k != "db"
+        k: (v.isoformat() if hasattr(v, "isoformat") else v) for k, v in params.items() if k != "db"
     }
 
 
@@ -147,10 +146,12 @@ def create_app() -> Flask:
         from werkzeug.exceptions import HTTPException
 
         if isinstance(exc, HTTPException):
-            return exc          # 404s and the like are answers, not failures
+            return exc  # 404s and the like are answers, not failures
         entry = errorlog.record(
-            f"api{incoming.path.replace('/', '.')}", exc,
-            method=incoming.method, path=incoming.full_path,
+            f"api{incoming.path.replace('/', '.')}",
+            exc,
+            method=incoming.method,
+            path=incoming.full_path,
             body=incoming.get_json(silent=True),
         )
         return jsonify({"error": f"{type(exc).__name__}: {exc}", "logged": entry}), 500
@@ -181,7 +182,9 @@ def create_app() -> Flask:
 
     app.register_blueprint(api)
     app.extensions["flight_scraper"] = {
-        "jobs": JOBS, "start_job": start_job, "parse_params": parse_params,
+        "jobs": JOBS,
+        "start_job": start_job,
+        "parse_params": parse_params,
     }
 
     @app.get("/download/<path:filename>")
@@ -204,8 +207,13 @@ def _frontend_dir(root: Path) -> Optional[Path]:
     return None
 
 
-def run_server(host: str = "127.0.0.1", port: int = 5000, debug: bool = False,
-               db_path="flights.db", max_workers=DEFAULT_MAX_WORKERS) -> None:
+def run_server(
+    host: str = "127.0.0.1",
+    port: int = 5000,
+    debug: bool = False,
+    db_path="flights.db",
+    max_workers=DEFAULT_MAX_WORKERS,
+) -> None:
     default_scheduler(db_path=db_path or None, max_workers=max_workers)
     for noisy in ("curl_cffi", "urllib3"):
         logging.getLogger(noisy).setLevel(logging.DEBUG if debug else logging.WARNING)
@@ -215,6 +223,7 @@ def run_server(host: str = "127.0.0.1", port: int = 5000, debug: bool = False,
     # threaded=True so an in-flight SSE stream does not block new requests.
     if getattr(sys, "frozen", False):
         from waitress import serve
+
         # SSE holds a worker for each active stream; leave capacity for API
         # requests and cache reads while searches run. Bind only to loopback.
         serve(app, host="127.0.0.1", port=port, threads=16, channel_timeout=120)

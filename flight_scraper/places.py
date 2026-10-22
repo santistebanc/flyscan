@@ -31,7 +31,7 @@ class Place:
     code: str
     name: str
     country: str = ""
-    kind: str = ""          # "city" or "airport"
+    kind: str = ""  # "city" or "airport"
     detail: str = ""
     city: str = ""
 

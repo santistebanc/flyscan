@@ -1,4 +1,5 @@
 """Query jobs stay independent of the results view and share source gates."""
+
 import tempfile
 import threading
 import time
@@ -29,9 +30,14 @@ class QueryJobTests(unittest.TestCase):
 
     def test_groups_are_global_and_identity_includes_currency_and_party(self):
         source = FakeSource()
-        for query in (QUERY, QUERY.replace_date(date(2026, 12, 22)),
-                      replace(QUERY, currency="USD"), replace(QUERY, adults=2),
-                      replace(QUERY, ret=date(2026, 12, 28)), replace(QUERY, cabin="business")):
+        for query in (
+            QUERY,
+            QUERY.replace_date(date(2026, 12, 22)),
+            replace(QUERY, currency="USD"),
+            replace(QUERY, adults=2),
+            replace(QUERY, ret=date(2026, 12, 28)),
+            replace(QUERY, cabin="business"),
+        ):
             self.scheduler.submit(source, query).result(2)
         response = self.client.get("/v1/jobs?origin=MAD&destination=LHR&start=2026-12-21")
         self.assertEqual(len(response.json["query_jobs"]), 6)
@@ -42,8 +48,10 @@ class QueryJobTests(unittest.TestCase):
         self.scheduler.block_source("test", "https://example.test/check")
         later = QUERY.replace_date(date(2026, 12, 22))
         first = self.scheduler.submit(source, QUERY)
-        response = self.client.post("/v1/queue/selection", json={"origin": "BER",
-            "destination": "CDG", "start": "2026-12-22"})
+        response = self.client.post(
+            "/v1/queue/selection",
+            json={"origin": "BER", "destination": "CDG", "start": "2026-12-22"},
+        )
         self.assertEqual(response.status_code, 200)
         second = self.scheduler.submit(source, later)
         self.assertEqual(self.scheduler.find_job(first.job_id).describe()["priority"], 10)
@@ -51,8 +59,10 @@ class QueryJobTests(unittest.TestCase):
         # Last-submitted search subscriptions must not steal selected priority.
         self.scheduler.focus("background-owner")
         self.assertEqual(self.scheduler.find_job(second.job_id).describe()["priority"], 0)
-        self.client.post("/v1/queue/selection", json={"origin": "BER",
-            "destination": "CDG", "start": "2026-12-21"})
+        self.client.post(
+            "/v1/queue/selection",
+            json={"origin": "BER", "destination": "CDG", "start": "2026-12-21"},
+        )
         self.assertEqual(self.scheduler.find_job(first.job_id).describe()["priority"], 0)
         self.assertEqual(self.scheduler.find_job(second.job_id).describe()["priority"], 10)
         self.client.post("/v1/queue/selection", data="null", content_type="application/json")
@@ -96,7 +106,9 @@ class QueryJobTests(unittest.TestCase):
         group = self.client.get("/v1/jobs").json["query_jobs"][0]
         self.assertEqual(len(group["sources"]), 2)
         self.assertEqual(good.calls, 1)
-        self.assertEqual(next(s for s in group["sources"] if s["source"] == "other")["status"], "waiting_input")
+        self.assertEqual(
+            next(s for s in group["sources"] if s["source"] == "other")["status"], "waiting_input"
+        )
 
     def test_selected_job_runs_first_but_manual_retry_keeps_source_cooldown(self):
         starts = []
@@ -110,7 +122,9 @@ class QueryJobTests(unittest.TestCase):
         self.scheduler.clear_challenge("test")
         selected.result(2)
         self.assertEqual(starts[0][0], later.depart)
-        group_id = next(g["id"] for g in self.scheduler.query_jobs() if g["depart"] == later.depart.isoformat())
+        group_id = next(
+            g["id"] for g in self.scheduler.query_jobs() if g["depart"] == later.depart.isoformat()
+        )
         self.assertEqual(self.scheduler.query_action(group_id, "retry", "test")["retried"], 1)
         eventually(lambda: len(starts) == 3)
         background.result(2)
@@ -120,12 +134,14 @@ class QueryJobTests(unittest.TestCase):
     def test_rate_limit_survives_cancelled_request_and_applies_to_other_queries(self):
         entered, release = threading.Event(), threading.Event()
         self.addCleanup(release.set)
+
         def work(query):
             if query.depart == QUERY.depart:
                 entered.set()
                 release.wait(2)
                 raise RateLimited(0.15)
             return []
+
         source = FakeSource(work)
         first = self.scheduler.submit(source, QUERY)
         self.assertTrue(entered.wait(2))
@@ -133,7 +149,9 @@ class QueryJobTests(unittest.TestCase):
         first.result(2)
         second = self.scheduler.submit(source, QUERY.replace_date(date(2026, 12, 22)))
         release.set()
-        eventually(lambda: self.scheduler.find_job(second.job_id).describe()["status"] == "rate_limited")
+        eventually(
+            lambda: self.scheduler.find_job(second.job_id).describe()["status"] == "rate_limited"
+        )
         self.assertGreater(self.scheduler.find_job(second.job_id).describe()["ready_in"], 0)
         self.assertEqual(source.calls, 1)
         self.assertTrue(second.result(2).ok)
@@ -168,12 +186,21 @@ class QueryJobTests(unittest.TestCase):
                 scheduler.shutdown(wait=True)
 
     def test_invalid_selection_and_actions_do_not_change_work(self):
-        for body in ([], {}, {"origin": "BER", "destination": "CDG", "start": "bad"},
-                     {"origin": "BER", "destination": "CDG", "start": "2026-12-21", "cabin": "bad"}):
+        for body in (
+            [],
+            {},
+            {"origin": "BER", "destination": "CDG", "start": "bad"},
+            {"origin": "BER", "destination": "CDG", "start": "2026-12-21", "cabin": "bad"},
+        ):
             self.assertEqual(self.client.post("/v1/queue/selection", json=body).status_code, 400)
         self.assertEqual(self.client.post("/v1/query-jobs/missing/retry").status_code, 404)
         self.assertEqual(self.client.post("/v1/query-jobs/missing/unknown").status_code, 400)
-        self.assertEqual(self.client.post("/v1/queue/selection", data="broken", content_type="application/json").status_code, 400)
+        self.assertEqual(
+            self.client.post(
+                "/v1/queue/selection", data="broken", content_type="application/json"
+            ).status_code,
+            400,
+        )
 
     def test_group_retry_reports_capacity_errors_without_losing_failed_state(self):
         source = FakeSource()
@@ -195,15 +222,30 @@ class QueryJobTests(unittest.TestCase):
         source = FakeSource()
         self.scheduler.block_source("test", "https://example.test/check")
         included = [QUERY, QUERY.replace_date(date(2026, 12, 22))]
-        excluded = [QUERY.replace_date(date(2026, 12, 23)), replace(QUERY, adults=2),
-                    replace(QUERY, currency="USD"), replace(QUERY, cabin="business"),
-                    replace(QUERY, destination="LON"), replace(QUERY, ret=date(2026, 12, 28))]
-        wanted = [self.scheduler.submit(source, q, owner=f"search-{index}") for index, q in enumerate(included)]
+        excluded = [
+            QUERY.replace_date(date(2026, 12, 23)),
+            replace(QUERY, adults=2),
+            replace(QUERY, currency="USD"),
+            replace(QUERY, cabin="business"),
+            replace(QUERY, destination="LON"),
+            replace(QUERY, ret=date(2026, 12, 28)),
+        ]
+        wanted = [
+            self.scheduler.submit(source, q, owner=f"search-{index}")
+            for index, q in enumerate(included)
+        ]
         others = [self.scheduler.submit(source, q) for q in excluded]
         # Another tab's foreground selection must not widen or redirect a bulk action.
         self.scheduler.select_query({"origin": "BER", "destination": "LON", "start": "2026-12-21"})
-        response = self.client.post("/v1/queue/actions/cancel", json={"origin": "BER",
-            "destination": "CDG", "start": "2026-12-21", "end": "2026-12-22"})
+        response = self.client.post(
+            "/v1/queue/actions/cancel",
+            json={
+                "origin": "BER",
+                "destination": "CDG",
+                "start": "2026-12-21",
+                "end": "2026-12-22",
+            },
+        )
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.json["groups"], 2)
         self.assertEqual(response.json["cancelled"], 2)
@@ -214,8 +256,10 @@ class QueryJobTests(unittest.TestCase):
         good, bad = FakeSource(), FakeSource()
         bad.name = "other"
         self.scheduler.block_source("other", "https://example.test/check")
-        wanted = [replace(QUERY, ret=date(2026, 12, 28)),
-                  replace(QUERY, depart=date(2026, 12, 22), ret=date(2026, 12, 29))]
+        wanted = [
+            replace(QUERY, ret=date(2026, 12, 28)),
+            replace(QUERY, depart=date(2026, 12, 22), ret=date(2026, 12, 29)),
+        ]
         outside = replace(QUERY, ret=date(2026, 12, 30))
         cancelled = []
         for query in [*wanted, outside]:
@@ -224,8 +268,14 @@ class QueryJobTests(unittest.TestCase):
             self.scheduler.cancel_job(future.job_id)
             future.result(2)
             cancelled.append(future)
-        filters = {"origin": "BER", "destination": "CDG", "start": "2026-12-21",
-                   "end": "2026-12-22", "ret": "2026-12-28", "ret_end": "2026-12-29"}
+        filters = {
+            "origin": "BER",
+            "destination": "CDG",
+            "start": "2026-12-21",
+            "end": "2026-12-22",
+            "ret": "2026-12-28",
+            "ret_end": "2026-12-29",
+        }
         response = self.client.post("/v1/queue/actions/retry", json=filters)
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.json["groups"], 2)
@@ -233,14 +283,23 @@ class QueryJobTests(unittest.TestCase):
         self.assertEqual(good.calls, 3)
         self.assertEqual(bad.calls, 0)  # Verification still gates the whole source.
         groups = self.scheduler.query_jobs()
-        self.assertEqual(sum(s["status"] == "waiting_input" for g in groups for s in g["sources"]), 2)
-        self.assertEqual(self.client.post("/v1/queue/actions/retry", json=filters).json["retried"], 0)
+        self.assertEqual(
+            sum(s["status"] == "waiting_input" for g in groups for s in g["sources"]), 2
+        )
+        self.assertEqual(
+            self.client.post("/v1/queue/actions/retry", json=filters).json["retried"], 0
+        )
         outside_group = next(g for g in groups if g["ret"] == "2026-12-30")
-        self.assertEqual(next(s for s in outside_group["sources"] if s["source"] == "other")["status"], "cancelled")
+        self.assertEqual(
+            next(s for s in outside_group["sources"] if s["source"] == "other")["status"],
+            "cancelled",
+        )
 
     def test_range_actions_reject_missing_or_invalid_filters(self):
         for payload in (None, [], {}, {"origin": "BER", "destination": "CDG", "start": "bad"}):
-            self.assertEqual(self.client.post("/v1/queue/actions/cancel", json=payload).status_code, 400)
+            self.assertEqual(
+                self.client.post("/v1/queue/actions/cancel", json=payload).status_code, 400
+            )
         self.assertEqual(self.client.post("/v1/queue/actions/drop", json={}).status_code, 400)
 
 

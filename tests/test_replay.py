@@ -52,11 +52,13 @@ class Recordings(unittest.TestCase):
 
                 offers = replay(recording)
                 self.assertEqual(
-                    len(offers), recording.expect["offers"],
+                    len(offers),
+                    recording.expect["offers"],
                     f"{directory.name}: offer count moved",
                 )
                 self.assertEqual(
-                    digest_offers(offers), recording.expect["digest"],
+                    digest_offers(offers),
+                    recording.expect["digest"],
                     f"{directory.name}: the offers parsed differently — prices, "
                     f"flight numbers or times have changed",
                 )
@@ -81,7 +83,8 @@ class Player(unittest.TestCase):
         for name, body in bodies.items():
             (directory / name).write_bytes(body)
         return Recording(
-            directory=directory, source="ff-sky",
+            directory=directory,
+            source="ff-sky",
             query={"origin": "BER", "destination": "CDG", "depart": "2026-09-21"},
             exchanges=exchanges,
         )
@@ -115,7 +118,8 @@ class Player(unittest.TestCase):
 
     def test_an_unrecorded_url_never_reaches_the_network(self):
         recording = self.recording(
-            [Exchange("GET", "https://x/page", body_file="a", bytes=1)], {"a": b"page"},
+            [Exchange("GET", "https://x/page", body_file="a", bytes=1)],
+            {"a": b"page"},
         )
         with self.assertRaises(RecordingMissing):
             PlayerSession(recording).get("https://somewhere-else/")
@@ -123,14 +127,12 @@ class Player(unittest.TestCase):
     def test_a_truncated_body_is_refused(self):
         """Replaying half a JSON body looks exactly like a scraper bug."""
         recording = self.recording(
-            [Exchange("GET", "https://x/big", body_file="a", bytes=9_000_000,
-                      truncated=True)],
+            [Exchange("GET", "https://x/big", body_file="a", bytes=9_000_000, truncated=True)],
             {"a": b'{"results": [{"id"'},
         )
         with self.assertRaises(RecordingMissing) as caught:
             PlayerSession(recording).get("https://x/big")
         self.assertIn("truncated", str(caught.exception))
-
 
 
 class DigestCatchesWhatCountsDoNot(unittest.TestCase):
@@ -145,10 +147,7 @@ class DigestCatchesWhatCountsDoNot(unittest.TestCase):
         import shutil
         import tempfile
 
-        source = next(
-            d for d in cases()
-            if not Recording.load(d).expect.get("error")
-        )
+        source = next(d for d in cases() if not Recording.load(d).expect.get("error"))
         copy = Path(tempfile.mkdtemp()) / source.name
         shutil.copytree(source, copy)
         recording = Recording.load(copy)
@@ -164,8 +163,9 @@ class DigestCatchesWhatCountsDoNot(unittest.TestCase):
     def test_a_changed_price_moves_the_digest_but_not_the_count(self):
         recording = self.tampered(b'data-price="', b'data-price="9')
         offers = replay(recording)
-        self.assertEqual(len(offers), recording.expect["offers"],
-                         "the count is exactly what fails to notice")
+        self.assertEqual(
+            len(offers), recording.expect["offers"], "the count is exactly what fails to notice"
+        )
         self.assertNotEqual(digest_offers(offers), recording.expect["digest"])
 
 

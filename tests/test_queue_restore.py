@@ -1,4 +1,5 @@
 """Applying a server fix must not discard queued work or restart settled sources."""
+
 import time
 import unittest
 from datetime import timedelta
@@ -33,7 +34,9 @@ class QueueRestore(unittest.TestCase):
             self.assertEqual(states[QUERY.depart.isoformat()], "done")
             self.assertEqual(states[(QUERY.depart + timedelta(days=1)).isoformat()], "cancelled")
             self.assertEqual(resumed.calls, 0)
-            cancelled = next(g for g in restored.query_jobs() if g["sources"][0]["queue_state"] == "cancelled")
+            cancelled = next(
+                g for g in restored.query_jobs() if g["sources"][0]["queue_state"] == "cancelled"
+            )
             self.assertEqual(restored.query_action(cancelled["id"], "retry")["retried"], 1)
             eventually(lambda: resumed.calls == 1)
         finally:
@@ -52,7 +55,9 @@ class QueueRestore(unittest.TestCase):
             groups[0]["sources"][0]["ready_in"] = 0.15
             with mock.patch.dict("flight_scraper.scheduler.REGISTRY", {"test": lambda: source}):
                 restored.restore_query_jobs(groups)
-            self.assertEqual(restored.query_jobs()[0]["sources"][0]["queue_state"], "waiting_action")
+            self.assertEqual(
+                restored.query_jobs()[0]["sources"][0]["queue_state"], "waiting_action"
+            )
             self.assertEqual(source.calls, 0)
             restored.clear_challenge("test")
             time.sleep(0.03)

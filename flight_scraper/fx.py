@@ -158,7 +158,9 @@ def get_rates(base: str = "EUR", refresh: bool = False) -> RateTable:
             _MEMORY[base] = fallback
             return fallback
 
-        empty = RateTable(base, {}, datetime.now(timezone.utc).isoformat(timespec="seconds"), "none")
+        empty = RateTable(
+            base, {}, datetime.now(timezone.utc).isoformat(timespec="seconds"), "none"
+        )
         _MEMORY[base] = empty
         return empty
 
@@ -169,9 +171,19 @@ def convert(amount: Optional[float], currency: str, base: str = "EUR") -> Option
 
 
 SYMBOLS = {
-    "EUR": "€", "USD": "$", "GBP": "£", "CHF": "CHF", "PLN": "zł",
-    "SEK": "kr", "NOK": "kr", "DKK": "kr", "CZK": "Kč", "HUF": "Ft",
-    "CAD": "CA$", "AUD": "A$", "JPY": "¥",
+    "EUR": "€",
+    "USD": "$",
+    "GBP": "£",
+    "CHF": "CHF",
+    "PLN": "zł",
+    "SEK": "kr",
+    "NOK": "kr",
+    "DKK": "kr",
+    "CZK": "Kč",
+    "HUF": "Ft",
+    "CAD": "CA$",
+    "AUD": "A$",
+    "JPY": "¥",
 }
 
 

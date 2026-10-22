@@ -17,8 +17,9 @@ from flight_scraper.sources import REGISTRY
 from flight_scraper.sources.base import ChallengeRequired
 from tests import quiet_errorlog
 
-QUERY = SearchQuery(origin="BER", destination="SLP", depart=date(2026, 12, 23),
-                    ret=date(2026, 12, 27))
+QUERY = SearchQuery(
+    origin="BER", destination="SLP", depart=date(2026, 12, 23), ret=date(2026, 12, 27)
+)
 
 # What the real page looks like, trimmed: a 200, no form token, and the
 # security path in the URL it landed on.
@@ -61,39 +62,51 @@ class SecurityPage(unittest.TestCase):
 
     def source(self, page):
         source = REGISTRY["ff-kayak"](timeout=1, retries=1)
-        source.session = lambda *a, **k: FakeSession(page)   # type: ignore[method-assign]
+        source.session = lambda *a, **k: FakeSession(page)  # type: ignore[method-assign]
         return source
 
     def test_a_redirect_to_the_security_page_is_a_challenge(self):
-        source = self.source(Fake(
-            BLOCKED, "https://ie-kayak.flightsfinder.com/security/check?out=%2Fflights",
-        ))
+        source = self.source(
+            Fake(
+                BLOCKED,
+                "https://ie-kayak.flightsfinder.com/security/check?out=%2Fflights",
+            )
+        )
         with self.assertRaises(ChallengeRequired) as caught:
             source.search(QUERY)
         self.assertIn("/security/check", caught.exception.url)
 
     def test_a_challenge_is_never_retried(self):
         """The point of the distinction: retrying is actively harmful here."""
-        source = self.source(Fake(
-            BLOCKED, "https://ie-kayak.flightsfinder.com/security/check",
-        ))
+        source = self.source(
+            Fake(
+                BLOCKED,
+                "https://ie-kayak.flightsfinder.com/security/check",
+            )
+        )
         with self.assertRaises(ChallengeRequired):
-            source.run(QUERY)          # `run` re-raises rather than retrying
+            source.run(QUERY)  # `run` re-raises rather than retrying
 
     def test_markup_that_really_did_change_is_still_an_ordinary_failure(self):
         """Not everything without a token is a block, and saying so would hide
         the day this site renames its form token."""
-        source = self.source(Fake(
-            CHANGED, "https://ie-kayak.flightsfinder.com/flights/BER-SLP/2026-12-23",
-        ))
+        source = self.source(
+            Fake(
+                CHANGED,
+                "https://ie-kayak.flightsfinder.com/flights/BER-SLP/2026-12-23",
+            )
+        )
         result = source.run(QUERY)
         self.assertIn("no form token", result.error)
         self.assertNotIn("challenge", result.error.lower())
 
     def test_an_ordinary_page_gets_past_the_check(self):
-        source = self.source(Fake(
-            ORDINARY, "https://ie-kayak.flightsfinder.com/flights/BER-SLP/2026-12-23",
-        ))
+        source = self.source(
+            Fake(
+                ORDINARY,
+                "https://ie-kayak.flightsfinder.com/flights/BER-SLP/2026-12-23",
+            )
+        )
         # It reaches the poll, which the fake session refuses — proof that the
         # security check did not stand in the way.
         with self.assertRaises(AssertionError):
