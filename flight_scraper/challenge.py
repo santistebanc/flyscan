@@ -359,7 +359,8 @@ def probe_challenge(source_name: str) -> Tuple[Optional[str], str]:
     identical to "probe failed" — and the caller then opened a captcha for a
     source that had already recovered.
     """
-    from datetime import date, timedelta as _td
+    from datetime import date
+    from datetime import timedelta as _td
 
     from .models import SearchQuery
     from .sources import ChallengeRequired, build

@@ -8,8 +8,8 @@ physical worker and resource slot until it exits; it is never retried in paralle
 
 from __future__ import annotations
 
-import math
 import logging
+import math
 import random
 import threading
 import time
@@ -18,8 +18,8 @@ from concurrent.futures import CancelledError, Future, ThreadPoolExecutor
 from contextvars import ContextVar
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
-from typing import Any, Callable, Dict, Optional, Mapping
 from types import MappingProxyType
+from typing import Any, Callable, Dict, Mapping, Optional
 
 
 class QueueFull(RuntimeError):

@@ -20,13 +20,18 @@ from typing import Any, Dict, Optional
 
 from flask import Flask, jsonify, send_from_directory
 
+from . import errorlog
 from .api import api, search_fingerprint
 from .jobs import JobRegistry
-from . import errorlog
 from .models import parse_date, trip_pairs
-from .scheduler import DEFAULT_MAX_WORKERS, default_scheduler, execution_settings, validate_execution_settings
-from .sources import DEFAULT_SOURCES, REGISTRY
+from .scheduler import (
+    DEFAULT_MAX_WORKERS,
+    default_scheduler,
+    execution_settings,
+    validate_execution_settings,
+)
 from .searches import OUT_DIR, execute_search
+from .sources import DEFAULT_SOURCES, REGISTRY
 
 #: One registry for the process, shared by the UI endpoints and the API.
 JOBS = JobRegistry()

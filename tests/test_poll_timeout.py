@@ -12,9 +12,9 @@ from datetime import date
 from typing import List
 from unittest import mock
 
-from tests import quiet_errorlog
 from flight_scraper.models import SearchQuery
 from flight_scraper.sources.flightsfinder import FlightsFinderSky
+from tests import quiet_errorlog
 
 QUERY = SearchQuery(origin="BER", destination="CDG", depart=date(2026, 9, 21))
 

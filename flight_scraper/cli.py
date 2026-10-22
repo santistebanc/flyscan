@@ -6,23 +6,32 @@ import argparse
 import json
 import logging
 import sys
-from datetime import date, datetime, timedelta
+from datetime import date, timedelta
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
 from . import fx
 from .aggregate import (
-    DEFAULT_MAX_WORKERS, Aggregator, DayResult, MergedItinerary, merge,
+    DEFAULT_MAX_WORKERS,
+    Aggregator,
+    DayResult,
+    MergedItinerary,
+    merge,
 )
 from .challenge import (
     STORE as CHALLENGE_STORE,
 )
-from .models import CABIN_CLASSES, SearchQuery, parse_date as _parse_date, pretty_duration
+from .models import CABIN_CLASSES, SearchQuery, pretty_duration
+from .models import parse_date as _parse_date
 from .places import PlaceLookupError, resolve, search_places
 from .sources import DEFAULT_SOURCES, REGISTRY
 from .store import (
     DEFAULT_TTL,
-    FlightStore, default_output_stem, offer_to_row, write_csv, write_json,
+    FlightStore,
+    default_output_stem,
+    offer_to_row,
+    write_csv,
+    write_json,
 )
 
 OUT_DIR = Path("out")
@@ -212,7 +221,6 @@ def cmd_scrape(args: argparse.Namespace) -> int:
         ttl=timedelta(hours=cache_hours),
         on_progress=_make_reporter(args.quiet, args.base_currency),
     )
-    started_at = datetime.now()
     days: List[DayResult] = []
     #: (day, every stored offer for it, merged) — complete, cache hits included.
     collected: List[tuple] = []
@@ -433,7 +441,7 @@ def cmd_capture(args: argparse.Namespace) -> int:
     is a fixture the parser can be tested against forever, without the site
     having to still be in the same mood.
     """
-    from .capture import record, replay, trim_recording, digest_offers
+    from .capture import digest_offers, record, replay, trim_recording
 
     query = SearchQuery(
         origin=resolve(args.origin, prefer="city").code,
@@ -454,7 +462,7 @@ def cmd_capture(args: argparse.Namespace) -> int:
         # Kept deliberately: a recording of the failure is the thing worth
         # having when a source breaks.
         print(f"  the search failed: {recording.expect['error']}")
-        print(f"  recording kept anyway — replay it to work on the parser")
+        print("  recording kept anyway — replay it to work on the parser")
 
     if args.trim:
         trimmed = trim_recording(recording, keep=args.keep)

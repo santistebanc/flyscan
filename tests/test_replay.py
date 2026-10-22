@@ -11,7 +11,12 @@ import unittest
 from pathlib import Path
 
 from flight_scraper.capture import (
-    Exchange, PlayerSession, Recording, RecordingMissing, digest_offers, replay,
+    Exchange,
+    PlayerSession,
+    Recording,
+    RecordingMissing,
+    digest_offers,
+    replay,
 )
 
 RECORDINGS = Path(__file__).parent / "recordings"

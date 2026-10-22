@@ -12,10 +12,10 @@ just asked for a human.
 import unittest
 from datetime import date
 
-from tests import quiet_errorlog
 from flight_scraper.models import SearchQuery
 from flight_scraper.sources import REGISTRY
-from flight_scraper.sources.base import ChallengeRequired, SourceError
+from flight_scraper.sources.base import ChallengeRequired
+from tests import quiet_errorlog
 
 QUERY = SearchQuery(origin="BER", destination="SLP", depart=date(2026, 12, 23),
                     ret=date(2026, 12, 27))

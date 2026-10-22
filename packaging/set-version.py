@@ -1,8 +1,8 @@
 """Keep the desktop, service and lockfile versions in step before tagging a release."""
 import argparse
 import json
-from pathlib import Path
 import re
+from pathlib import Path
 
 
 def set_version(root: Path, version: str) -> None:

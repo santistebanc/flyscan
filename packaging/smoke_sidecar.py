@@ -2,12 +2,12 @@
 import argparse
 import json
 import os
-from pathlib import Path
 import secrets
 import socket
 import subprocess
 import tempfile
 import time
+from pathlib import Path
 from urllib.error import HTTPError, URLError
 from urllib.request import Request, urlopen
 

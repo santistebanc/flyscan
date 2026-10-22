@@ -1,24 +1,32 @@
 """Flight-specific adapter over the shared background task queue."""
 from __future__ import annotations
 
-import threading
 import os
+import threading
 import time
 from concurrent.futures import CancelledError, Future
 from dataclasses import dataclass, field
 from datetime import date, datetime, timezone
 from pathlib import Path
-from typing import Callable, Dict, List, Optional
 from types import MappingProxyType
+from typing import Callable, Dict, List, Optional
 
 from . import errorlog
-from .challenge import ChallengeCoordinator
 from .cache import offers_from_dicts, offers_to_dicts
-from .store import DEFAULT_MAX_RETRIES, DEFAULT_TTL, FlightStore, query_key
+from .challenge import ChallengeCoordinator
 from .models import SearchQuery
 from .query_jobs import belongs_to, query_job_id
 from .sources import REGISTRY, ChallengeRequired, Source, SourceResult
-from .task_queue import ActionRequired, QueueClosed, QueueFull, ResourceLimit, RetryPolicy, Task, TaskQueue
+from .store import DEFAULT_MAX_RETRIES, DEFAULT_TTL, FlightStore, query_key
+from .task_queue import (
+    ActionRequired,
+    QueueClosed,
+    QueueFull,
+    ResourceLimit,
+    RetryPolicy,
+    Task,
+    TaskQueue,
+)
 
 ProgressHook = Callable[[str, dict], None]
 DEFAULT_MAX_WORKERS = 12

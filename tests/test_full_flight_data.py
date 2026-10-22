@@ -13,7 +13,6 @@ from flight_scraper.searches import execute_search
 from flight_scraper.store import FlightStore
 from flight_scraper.web import create_app
 
-
 QUERY = SearchQuery("BER", "CDG", date(2026, 12, 21))
 
 

@@ -1,19 +1,18 @@
 import tempfile
 import threading
-import time
 import unittest
 from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
 from types import SimpleNamespace
 from unittest import mock
 
-from tests import quiet_errorlog
-from tests.test_task_queue import eventually, FAST_RETRY
 from flight_scraper.models import SearchQuery
 from flight_scraper.scheduler import Scheduler
 from flight_scraper.sources.base import ChallengeRequired, Source, SourceError
-from flight_scraper.task_queue import JobTimeout, RateLimited, RetryPolicy, RetryableError
+from flight_scraper.task_queue import RateLimited, RetryableError
 from flight_scraper.web import create_app
+from tests import quiet_errorlog
+from tests.test_task_queue import FAST_RETRY, eventually
 
 QUERY = SearchQuery("BER", "CDG", date(2026, 12, 21))
 

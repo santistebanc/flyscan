@@ -32,13 +32,13 @@ from typing import Any, Dict, List, Optional
 from flask import Blueprint, Response, current_app, jsonify, request
 
 from . import errorlog, fx
+from .jobs import Job
 from .models import SearchQuery, parse_date, pretty_duration, trip_pairs
 from .places import resolve
 from .query_jobs import belongs_to as _belongs_to
-from .jobs import Job
-from .store import FlightStore
 from .scheduler import FOREGROUND, default_scheduler
 from .sources import DEFAULT_SOURCES, REGISTRY
+from .store import FlightStore
 from .task_queue import QueueClosed, QueueFull
 
 api = Blueprint("api_v1", __name__, url_prefix="/v1")

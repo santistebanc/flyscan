@@ -2,9 +2,9 @@ import base64
 import hashlib
 import importlib.util
 import json
-from pathlib import Path
 import tempfile
 import unittest
+from pathlib import Path
 
 spec = importlib.util.spec_from_file_location("update_manifest", Path(__file__).resolve().parents[1] / "packaging/create-update-manifest.py")
 module = importlib.util.module_from_spec(spec)

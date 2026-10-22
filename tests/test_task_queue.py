@@ -5,8 +5,16 @@ import unittest
 from concurrent.futures import CancelledError
 
 from flight_scraper.task_queue import (
-    ActionRequired, JobTimeout, PermanentError, QueueClosed, QueueFull,
-    RateLimited, ResourceLimit, RetryPolicy, RetryableError, TaskQueue,
+    ActionRequired,
+    JobTimeout,
+    PermanentError,
+    QueueClosed,
+    QueueFull,
+    RateLimited,
+    ResourceLimit,
+    RetryableError,
+    RetryPolicy,
+    TaskQueue,
 )
 
 
@@ -84,7 +92,7 @@ class QueueTests(unittest.TestCase):
         for task in tasks:
             task.future.result(2)
         self.assertEqual(maximum, 1)
-        self.assertTrue(all(b - a >= 0.055 for a, b in zip(starts, starts[1:])))
+        self.assertTrue(all(b - a >= 0.055 for a, b in zip(starts, starts[1:], strict=False)))
 
     def test_rate_limit_cools_whole_resource_but_not_others(self):
         notified = threading.Event()

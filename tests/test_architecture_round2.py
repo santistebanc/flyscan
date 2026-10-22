@@ -6,12 +6,12 @@ from datetime import date, timedelta
 from pathlib import Path
 from unittest import mock
 
-from tests import quiet_errorlog
-from tests.test_scheduler_queue import FakeSource, QUERY
-from tests.test_task_queue import eventually
 from flight_scraper.aggregate import Aggregator
 from flight_scraper.scheduler import Scheduler, default_scheduler, reset_default_scheduler
 from flight_scraper.task_queue import QueueFull
+from tests import quiet_errorlog
+from tests.test_scheduler_queue import QUERY, FakeSource
+from tests.test_task_queue import eventually
 
 
 class SearchSubscriptions(unittest.TestCase):
@@ -148,7 +148,7 @@ class ExecutionSettings(unittest.TestCase):
 
     def test_result_reader_uses_the_writers_ledger(self):
         with tempfile.TemporaryDirectory() as directory:
-            from flight_scraper.models import Offer, Itinerary, Leg
+            from flight_scraper.models import Itinerary, Leg, Offer
             scheduler = Scheduler(db_path=str(Path(directory) / "db"))
             try:
                 offer = Offer(Itinerary(QUERY, Leg("BER", "CDG")), "test", 10, "EUR")
@@ -178,7 +178,7 @@ class ProgressIdentity(unittest.TestCase):
                 self.assertEqual(data.get("attempt"), 1)
 
     def test_partial_answers_keep_distinct_return_dates(self):
-        from flight_scraper.models import Offer, Itinerary, Leg
+        from flight_scraper.models import Itinerary, Leg, Offer
         scheduler = Scheduler(db_path=None)
         self.addCleanup(lambda: scheduler.shutdown(wait=True))
         returns = [date(2026, 12, 28), date(2026, 12, 29)]

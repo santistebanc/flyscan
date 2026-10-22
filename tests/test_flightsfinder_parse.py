@@ -8,9 +8,9 @@ import unittest
 from datetime import date
 from pathlib import Path
 
+from flight_scraper.capture import trim_cffi_payload
 from flight_scraper.models import SearchQuery
 from flight_scraper.sources.flightsfinder import _CFFLiveParser, _split_flight
-from flight_scraper.capture import trim_cffi_payload
 
 
 class ModalReferences(unittest.TestCase):

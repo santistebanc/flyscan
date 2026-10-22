@@ -17,9 +17,9 @@ both calls are rejected without the ``affiliate-marker`` and
 
 from __future__ import annotations
 
+import math
 import time
 import uuid
-import math
 from typing import Any, Dict, List, Optional
 
 from ..models import Itinerary, Leg, Offer, SearchQuery, Segment
@@ -275,7 +275,7 @@ class Travelpayouts(Source):
 
         terms = proposal.get("flight_terms") or {}
         segments: List[Segment] = []
-        for index, raw in zip(indices, raw_flights):
+        for index, raw in zip(indices, raw_flights, strict=False):
             # Prefer the marketing carrier from the fare terms; the leg itself
             # names the operating carrier, which is often a wet-lease subsidiary.
             term = terms.get(str(index)) or {}

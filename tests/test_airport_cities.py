@@ -1,5 +1,6 @@
 import unittest
 from unittest.mock import Mock, patch
+
 from flight_scraper.places import search_places
 
 

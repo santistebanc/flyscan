@@ -1,25 +1,23 @@
 """Regressions for the lifecycle seams identified in the architecture review."""
-import threading
-import tempfile
-import unittest
 import io
 import subprocess
 import sys
+import tempfile
+import threading
+import unittest
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from contextlib import redirect_stdout
-from concurrent.futures import as_completed
-from concurrent.futures import ThreadPoolExecutor
-from datetime import date
 from pathlib import Path
 from types import SimpleNamespace
 from unittest import mock
 
-from tests import quiet_errorlog
-from tests.test_task_queue import eventually
-from tests.test_scheduler_queue import FakeSource, QUERY
 from flight_scraper.jobs import EventLog, Job, JobRegistry
 from flight_scraper.scheduler import Scheduler
 from flight_scraper.store import FlightStore
 from flight_scraper.task_queue import ActionRequired, TaskQueue
+from tests import quiet_errorlog
+from tests.test_scheduler_queue import QUERY, FakeSource
+from tests.test_task_queue import eventually
 
 
 class SearchLifecycle(unittest.TestCase):
@@ -106,7 +104,7 @@ class SearchTransportTests(unittest.TestCase):
 
     def test_export_error_closes_actual_search_stream_and_keeps_results(self):
         from flight_scraper.aggregate import DayResult
-        from flight_scraper.models import Offer, Itinerary, Leg
+        from flight_scraper.models import Itinerary, Leg, Offer
         offer = Offer(Itinerary(QUERY, Leg("BER", "CDG")), "test", 10, "EUR")
         day = DayResult(QUERY, [], [SimpleNamespace(best=offer)])
         # DayResult.offers reads source results, while merged is only presentation.

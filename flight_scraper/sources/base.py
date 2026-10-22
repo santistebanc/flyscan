@@ -8,12 +8,12 @@ and headers via curl_cffi, plus a decode that does not mangle currency symbols.
 
 from __future__ import annotations
 
-import random
 import math
+import random
 import time
+from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from email.utils import parsedate_to_datetime
-from dataclasses import dataclass, field
 from typing import Any, Callable, Dict, List, Optional
 
 from curl_cffi import requests

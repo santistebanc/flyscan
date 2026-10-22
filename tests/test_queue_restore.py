@@ -6,7 +6,7 @@ from unittest import mock
 
 from flight_scraper.scheduler import Scheduler
 from tests import quiet_errorlog
-from tests.test_scheduler_queue import FakeSource, QUERY
+from tests.test_scheduler_queue import QUERY, FakeSource
 from tests.test_task_queue import eventually
 
 

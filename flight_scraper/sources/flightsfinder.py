@@ -16,6 +16,7 @@ from __future__ import annotations
 import html
 import re
 import time
+from concurrent.futures import CancelledError
 from datetime import date, timedelta
 from typing import Any, Dict, List, Optional, Tuple
 from urllib.parse import urlencode
@@ -23,9 +24,8 @@ from urllib.parse import urlencode
 from lxml import html as lxml_html
 
 from ..models import Itinerary, Leg, Offer, SearchQuery, Segment, parse_duration
+from ..task_queue import JobTimeout, RateLimited
 from .base import Source, SourceError
-from ..task_queue import RateLimited, JobTimeout
-from concurrent.futures import CancelledError
 
 BASE = "https://www.flightsfinder.com"
 

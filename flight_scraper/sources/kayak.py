@@ -20,14 +20,19 @@ from __future__ import annotations
 
 import re
 import time
+from concurrent.futures import CancelledError
 from typing import Any, Dict, List, Optional
 
 from ..models import (
-    DEFAULT_CHILD_AGE, Itinerary, Leg, Offer, SearchQuery, Segment,
+    DEFAULT_CHILD_AGE,
+    Itinerary,
+    Leg,
+    Offer,
+    SearchQuery,
+    Segment,
 )
+from ..task_queue import JobTimeout, RateLimited
 from .base import ChallengeRequired, Source, SourceError
-from ..task_queue import RateLimited, JobTimeout
-from concurrent.futures import CancelledError
 
 _FORMTOKEN_RE = re.compile(r'"formtoken"\s*:\s*"([^"]+)"')
 

@@ -1,20 +1,20 @@
 """Query jobs stay independent of the results view and share source gates."""
-import threading
 import tempfile
+import threading
 import time
 import unittest
-from dataclasses import replace
 from collections import deque
+from dataclasses import replace
 from datetime import date
 from pathlib import Path
 from unittest import mock
 
-from tests import quiet_errorlog
-from tests.test_scheduler_queue import FakeSource, QUERY
-from tests.test_task_queue import eventually, FAST_RETRY
 from flight_scraper.scheduler import Scheduler
-from flight_scraper.task_queue import RateLimited, RetryPolicy
+from flight_scraper.task_queue import RateLimited
 from flight_scraper.web import create_app
+from tests import quiet_errorlog
+from tests.test_scheduler_queue import QUERY, FakeSource
+from tests.test_task_queue import FAST_RETRY, eventually
 
 
 class QueryJobTests(unittest.TestCase):
@@ -115,7 +115,7 @@ class QueryJobTests(unittest.TestCase):
         eventually(lambda: len(starts) == 3)
         background.result(2)
         self.assertEqual([s[0] for s in starts], [later.depart, later.depart, QUERY.depart])
-        self.assertTrue(all(b[1] - a[1] >= 0.105 for a, b in zip(starts, starts[1:])))
+        self.assertTrue(all(b[1] - a[1] >= 0.105 for a, b in zip(starts, starts[1:], strict=False)))
 
     def test_rate_limit_survives_cancelled_request_and_applies_to_other_queries(self):
         entered, release = threading.Event(), threading.Event()

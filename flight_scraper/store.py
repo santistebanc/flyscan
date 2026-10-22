@@ -182,7 +182,7 @@ def _merge_segments(stored: Optional[str], fresh: Optional[str]) -> Optional[str
 
     changed = False
     out: List[Dict[str, Any]] = []
-    for was, now in zip(old, new):
+    for was, now in zip(old, new, strict=False):
         if not isinstance(was, dict) or not isinstance(now, dict):
             return None
         old_identity, new_identity = identity(was), identity(now)
