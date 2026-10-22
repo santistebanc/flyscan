@@ -13,7 +13,8 @@ FIXTURE = Path(__file__).parent / "fixtures" / "momondo-security-check-reference
 
 def test_only_sources_with_a_custom_method_get_a_script():
     assert "accept all" in check_page_script("momondo")
-    assert check_page_script("ff-kayak") is None
+    assert check_page_script("ff-kayak") == check_page_script("momondo")
+    assert check_page_script("ff-sky") is None
 
 
 def test_solve_installs_the_script_before_opening_the_check(tmp_path):
@@ -73,7 +74,7 @@ LATE = """<!doctype html><body><header>site</header>
 <script>setTimeout(() => {
   const go = document.createElement("a"); go.id = "go"; go.textContent = "Continue";
   go.href = "#"; document.getElementById("check").append(go);
-}, 400);</script></body>"""
+}, 2500);</script></body>"""
 
 
 def test_nothing_is_hidden_until_the_continue_button_has_rendered(tmp_path):
@@ -89,7 +90,7 @@ def test_nothing_is_hidden_until_the_continue_button_has_rendered(tmp_path):
         page.goto((tmp_path / "late.html").as_uri())
         page.wait_for_timeout(200)
         early = page.is_visible("#intro"), page.is_visible("footer")
-        page.wait_for_timeout(1800)
+        page.wait_for_timeout(4500)
         late = {n: page.is_visible(n) for n in ("#intro", "#robot", "#go", "footer", "header")}
         browser.close()
     assert early == (True, True)

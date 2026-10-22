@@ -27,16 +27,21 @@ class CheckPageTweak:
     scale: float = 1.3
 
 
-CHECK_PAGE_TWEAKS: Dict[str, CheckPageTweak] = {
-    "momondo": CheckPageTweak(
-        consent_buttons=("accept all",),
-        captcha_selectors=(
-            'iframe[src*="recaptcha"]',
-            ".g-recaptcha",
-            '[class*="captcha" i]',
-            'input[type="checkbox"]',
-        ),
+#: Momondo's check and the Kayak engine's (FlightsFinder) are the same page: a consent popup over
+#: "Security Check", a reCAPTCHA box and Continue.
+_KAYAK_ENGINE_CHECK = CheckPageTweak(
+    consent_buttons=("accept all",),
+    captcha_selectors=(
+        'iframe[src*="recaptcha"]',
+        ".g-recaptcha",
+        '[class*="captcha" i]',
+        'input[type="checkbox"]',
     ),
+)
+
+CHECK_PAGE_TWEAKS: Dict[str, CheckPageTweak] = {
+    "momondo": _KAYAK_ENGINE_CHECK,
+    "ff-kayak": _KAYAK_ENGINE_CHECK,
 }
 
 _SCRIPT = r"""
