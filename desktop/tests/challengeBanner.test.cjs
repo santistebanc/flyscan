@@ -20,7 +20,7 @@ function host(platform) {
     useRef(initial) { const i = cursor++; return slots[i] ??= { current: initial }; },
   };
   const module = { exports: {} };
-  vm.runInNewContext(bundle, { module, exports: module.exports, Error,
+  vm.runInNewContext(bundle, { module, exports: module.exports, Error, URL,
     require: (name) => name === "react" ? hooks : name === "./platform" ? platform : require(name) });
   return (overrides = {}) => { cursor = 0; return module.exports.ChallengeBanner({ api: {},
     pending: requests, canSolveHere: true, onCleared() {}, ...overrides }); };
