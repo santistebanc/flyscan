@@ -492,12 +492,10 @@ def solve(
         ]
 
     with sync_playwright() as driver:
+        # no_viewport: the window itself sets the page size (an emulated viewport would not zoom).
+        viewport = {"no_viewport": True} if tidy else {"viewport": {"width": 1280, "height": 900}}
         context = driver.chromium.launch_persistent_context(
-            str(profile),
-            headless=headless,
-            locale="en-GB",
-            viewport=None if tidy else {"width": SCREEN[0], "height": SCREEN[1]},
-            args=args,
+            str(profile), headless=headless, locale="en-GB", args=args, **viewport
         )
         try:
             if was_cancelled():

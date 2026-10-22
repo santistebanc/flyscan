@@ -24,7 +24,7 @@ class CheckPageTweak:
     continue_button: str = "continue"
     #: Browser zoom for the check window. The check is shown scaled down in a viewer, so it is
     #: drawn larger here (the captcha's own image grid included).
-    scale: float = 1.5
+    scale: float = 1.3
 
 
 CHECK_PAGE_TWEAKS: Dict[str, CheckPageTweak] = {
