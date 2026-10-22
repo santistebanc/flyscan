@@ -15,7 +15,7 @@ const keys = (rows, sort = "best") => Array.from(sortFlightRows(rows, sort), (r)
 
 test("Best is the default and favors a reasonable price/time balance", () => {
   assert.equal(DEFAULT_SORT, "best");
-  assert.equal(SORT_LABELS.best, "Best");
+  assert.equal(SORT_LABELS.best, "Recommended");
   const rows = [row("cheap-slow", 80, "12h"), row("fast-expensive", 400, "2h"), row("balanced", 120, "3h")];
   assert.deepEqual(keys(rows), ["balanced", "fast-expensive", "cheap-slow"]);
   assert.deepEqual(rows.map((r) => r.trip_key), ["cheap-slow", "fast-expensive", "balanced"], "sorting leaves input order intact");
