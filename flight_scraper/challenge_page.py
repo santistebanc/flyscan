@@ -22,6 +22,9 @@ class CheckPageTweak:
     captcha_selectors: Tuple[str, ...] = ()
     #: Label of the button that submits the check, kept visible with the captcha.
     continue_button: str = "continue"
+    #: Browser zoom for the check window. The check is shown scaled down in a viewer, so it is
+    #: drawn larger here (the captcha's own image grid included).
+    scale: float = 1.5
 
 
 CHECK_PAGE_TWEAKS: Dict[str, CheckPageTweak] = {
@@ -111,7 +114,7 @@ _SCRIPT = r"""
     fill(keeper);
   };
 
-  // What is left is small: centre it on a plain page, enlarged, rather than leave it in the corner
+  // What is left is small: centre it on a plain page, rather than leave it in the corner
   // of the site's own layout (a purple page with a white content block).
   const fill = (keeper) => {
     if (document.documentElement.hasAttribute(FILLED)) return; // once, never nested
@@ -124,7 +127,7 @@ _SCRIPT = r"""
       position: "fixed", inset: "0", display: "flex", "flex-direction": "column",
       "align-items": "center", "justify-content": "center", margin: "0", padding: "16px",
       width: "auto", height: "auto", "max-width": "none", "min-height": "0",
-      background: "#fff", zoom: "1.5", "z-index": "1",
+      background: "#fff", "z-index": "1",
     };
     for (const [name, value] of Object.entries(style)) keeper.style.setProperty(name, value, "important");
   };
