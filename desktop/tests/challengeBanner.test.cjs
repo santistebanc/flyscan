@@ -102,6 +102,7 @@ test("a solving source on the web embeds the viewer with a link to open it in a 
   assert.match(markup, /<iframe[^>]*src="http:\/\/beelink\.test:6080\/vnc\.html"/);
   assert.match(markup, /<a [^>]*href="http:\/\/beelink\.test:6080\/vnc\.html"[^>]*target="_blank"[^>]*rel="noopener noreferrer"[^>]*>Open in a new tab/);
   assert.equal(markup.match(/<iframe/g).length, 1);
+  assert.match(markup, /role="dialog"[^>]*aria-modal="true"/);
 });
 
 test("no viewer panel without a viewer address, when not solving, or in the desktop shell", () => {
