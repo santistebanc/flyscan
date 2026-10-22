@@ -591,7 +591,7 @@ label.inline select {
 .challenge-source { flex: 1; min-width: 0; }
 .challenge button { display: inline-flex; align-items: center; gap: 4px; padding: 4px 8px; font-size: 12px; }
 /* The check opens as a large modal; collapsed, it shrinks to a bar in the corner. */
-.challenge-viewer { position: fixed; right: 16px; bottom: 16px; z-index: 50; padding: 8px 10px; background: var(--panel); border: 1px solid var(--line); border-radius: 6px; box-shadow: 0 8px 32px rgba(0,0,0,.5); }
+.challenge-viewer { position: fixed; right: 16px; bottom: 16px; z-index: 100; padding: 8px 10px; background: var(--panel); border: 1px solid var(--line); border-radius: 6px; box-shadow: 0 8px 32px rgba(0,0,0,.5); }
 .challenge-viewer.open { inset: 4vh 4vw; display: flex; flex-direction: column; padding: 12px; box-shadow: 0 0 0 100vmax rgba(0,0,0,.65); }
 .challenge-viewer-bar { display: flex; align-items: center; gap: 12px; }
 .challenge-viewer-title { flex: 1; font-weight: 600; }

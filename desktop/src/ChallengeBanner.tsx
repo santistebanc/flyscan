@@ -1,9 +1,13 @@
-import { useRef, useState } from "react";
+import { useRef, useState, type ReactNode } from "react";
+import { createPortal } from "react-dom";
 import type { FlightScraperApi, PendingChallenge } from "./api";
 import { isDesktop, openChallenge } from "./platform";
 import { Icon, Spinner } from "./Icon";
 import { sourceLabel } from "./queueModel";
 import { showsViewerPanel } from "./challengeViewer";
+
+/** The modal must escape the side panel's stacking context to sit above the header; without a DOM (static render) it stays inline. */
+const inBody = (node: ReactNode) => typeof document === "undefined" ? node : createPortal(node, document.body);
 
 /** Each source owns its verification request; other sources remain available. */
 export function ChallengeBanner({ api, pending, canSolveHere, viewerUrl, onCleared }: {
@@ -73,7 +77,7 @@ export function ChallengeBanner({ api, pending, canSolveHere, viewerUrl, onClear
             {working ? "Verifying" : "Verify"}
           </button>
         </div>
-        {viewing && <div className={expanded ? "challenge-viewer open" : "challenge-viewer"}
+        {viewing && inBody(<div className={expanded ? "challenge-viewer open" : "challenge-viewer"}
           role="dialog" aria-modal={expanded} aria-label={`${name} verification`}>
           <div className="challenge-viewer-bar">
             <span className="challenge-viewer-title">{name} security check</span>
@@ -82,7 +86,7 @@ export function ChallengeBanner({ api, pending, canSolveHere, viewerUrl, onClear
             <a href={viewerUrl!} target="_blank" rel="noopener noreferrer">Open in a new tab</a>
           </div>
           {expanded && <iframe className="challenge-viewer-frame" src={viewerUrl!} title={`${name} verification`} />}
-        </div>}
+        </div>)}
         {!working && error && <div className="challenge-error" role="alert">{error}</div>}
       </div>;
     })}
