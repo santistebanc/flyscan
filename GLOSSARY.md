@@ -10,6 +10,8 @@
 
 **Challenge**: A source's request for human verification. It pauses further work for that source while other sources continue.
 
+**Challenge viewer**: The live display of a pending challenge's security check, shown to a person so they can solve it. The web app embeds it under the source's row while the check is open; the desktop app opens the check in its own window instead.
+
 **Clearance**: Evidence earned by a person completing a challenge, or confirmation that the source no longer requires verification. Clearance allows waiting work to resume.
 
 **Challenge lifecycle**: Encountering a challenge, waiting for clearance, and resuming the original work. A challenge remains pending when verification fails or is abandoned.
