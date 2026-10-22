@@ -120,16 +120,30 @@ CREATE INDEX IF NOT EXISTS idx_offers_price ON offers (price);
 
 #: Columns exported to CSV/JSON, in order.
 _EXPORT_COLUMNS = [
-    "depart_date", "origin_airport", "destination_airport", "departure",
-    "arrival", "duration_minutes", "stops", "airlines", "flight_numbers",
-    "source", "agent", "price", "currency", "price_base", "base_currency",
-    "deeplink", "trip_key",
+    "depart_date",
+    "origin_airport",
+    "destination_airport",
+    "departure",
+    "arrival",
+    "duration_minutes",
+    "stops",
+    "airlines",
+    "flight_numbers",
+    "source",
+    "agent",
+    "price",
+    "currency",
+    "price_base",
+    "base_currency",
+    "deeplink",
+    "trip_key",
 ]
 
 _JSON_COLUMNS = ("depart_segments", "return_segments")
 
 
 # -- keys -------------------------------------------------------------------
+
 
 def query_fingerprint(query: SearchQuery) -> Dict[str, Any]:
     """The parts of a search that decide the answer, in a stable order."""
@@ -150,7 +164,8 @@ def query_key(source: str, query: SearchQuery) -> str:
     """Identity of one question put to one source."""
     payload = json.dumps(
         {"source": source, **query_fingerprint(query)},
-        sort_keys=True, separators=(",", ":"),
+        sort_keys=True,
+        separators=(",", ":"),
     )
     return hashlib.sha1(payload.encode()).hexdigest()
 
@@ -171,18 +186,26 @@ def _merge_segments(stored: Optional[str], fresh: Optional[str]) -> Optional[str
         new = json.loads(fresh or "[]") or []
     except (TypeError, ValueError):
         return None
-    if not isinstance(old, list) or not isinstance(new, list) or not old or not new or len(old) != len(new):
+    if (
+        not isinstance(old, list)
+        or not isinstance(new, list)
+        or not old
+        or not new
+        or len(old) != len(new)
+    ):
         return None
 
     def identity(segment):
-        return (str(segment.get("origin") or "").upper(),
-                str(segment.get("destination") or "").upper(),
-                str(segment.get("departure") or "")[:16],
-                str(segment.get("arrival") or "")[:16])
+        return (
+            str(segment.get("origin") or "").upper(),
+            str(segment.get("destination") or "").upper(),
+            str(segment.get("departure") or "")[:16],
+            str(segment.get("arrival") or "")[:16],
+        )
 
     changed = False
     out: List[Dict[str, Any]] = []
-    for was, now in zip(old, new):
+    for was, now in zip(old, new, strict=False):
         if not isinstance(was, dict) or not isinstance(now, dict):
             return None
         old_identity, new_identity = identity(was), identity(now)
@@ -260,8 +283,13 @@ class FlightStore:
 
             if row is None:
                 out[source] = {
-                    "fetch": True, "why": "never asked", "age_hours": None,
-                    "last_fetched": None, "count": 0, "retries": 0, "reason": None,
+                    "fetch": True,
+                    "why": "never asked",
+                    "age_hours": None,
+                    "last_fetched": None,
+                    "count": 0,
+                    "retries": 0,
+                    "reason": None,
                 }
                 continue
 
@@ -328,10 +356,18 @@ class FlightStore:
                     last_fetched = excluded.last_fetched
                 """,
                 (
-                    key, fingerprint["origin"], fingerprint["destination"],
-                    fingerprint["depart"], fingerprint["ret"], fingerprint["adults"],
-                    fingerprint["children"], fingerprint["infants"],
-                    fingerprint["cabin"], fingerprint["currency"], source, now,
+                    key,
+                    fingerprint["origin"],
+                    fingerprint["destination"],
+                    fingerprint["depart"],
+                    fingerprint["ret"],
+                    fingerprint["adults"],
+                    fingerprint["children"],
+                    fingerprint["infants"],
+                    fingerprint["cabin"],
+                    fingerprint["currency"],
+                    source,
+                    now,
                 ),
             )
         row = self.conn.execute("SELECT id FROM fetches WHERE query_key = ?", (key,)).fetchone()
@@ -356,7 +392,7 @@ class FlightStore:
                 if price is None:
                     price = rates.convert(offer.price, offer.currency)
                 if price is None:
-                    continue        # unconvertible: no comparable number to store
+                    continue  # unconvertible: no comparable number to store
                 price = round(price, 2)
                 trip_id = self._upsert_trip(offer.itinerary)
 
@@ -403,8 +439,7 @@ class FlightStore:
         now = datetime.now(timezone.utc).isoformat(timespec="seconds")
         with self.conn:
             self.conn.execute(
-                "UPDATE fetches SET status='challenge', reason=?, last_fetched=?"
-                " WHERE id=?",
+                "UPDATE fetches SET status='challenge', reason=?, last_fetched=? WHERE id=?",
                 (url, now, fetch_id),
             )
 
@@ -462,8 +497,7 @@ class FlightStore:
         columns = ", ".join(values)
         marks = ", ".join("?" * len(values))
         cursor = self.conn.execute(
-            f"INSERT INTO trips ({columns}) VALUES ({marks})"
-            f" ON CONFLICT (trip_key) DO NOTHING",
+            f"INSERT INTO trips ({columns}) VALUES ({marks}) ON CONFLICT (trip_key) DO NOTHING",
             list(values.values()),
         )
         if cursor.rowcount:
@@ -475,7 +509,8 @@ class FlightStore:
         # Sources describe the same flight in different detail; fill the gaps
         # rather than overwrite what another source already knew.
         gaps = {
-            key: value for key, value in values.items()
+            key: value
+            for key, value in values.items()
             if value not in (None, "", "[]") and not row[key]
         }
         # The same rule, one level down. A segment list is a single column, so
@@ -517,10 +552,15 @@ class FlightStore:
               AND f.adults = ? AND f.children = ? AND f.infants = ? AND f.cabin = ?
             """,
             (
-                query.origin, query.destination, query.depart.isoformat(),
+                query.origin,
+                query.destination,
+                query.depart.isoformat(),
                 query.ret.isoformat() if query.ret else None,
                 query.ret.isoformat() if query.ret else None,
-                query.adults, query.children, query.infants, query.cabin,
+                query.adults,
+                query.children,
+                query.infants,
+                query.cabin,
             ),
         )
 
@@ -604,7 +644,7 @@ class FlightStore:
             FROM offers o
             JOIN trips t   ON t.id = o.trip_id
             JOIN fetches f ON f.id = o.fetch_id
-            WHERE {' AND '.join(where)}
+            WHERE {" AND ".join(where)}
             ORDER BY o.price
             """,
             params,
@@ -619,18 +659,21 @@ class FlightStore:
                 if limit is not None and len(trips) >= limit:
                     continue
                 trip = {
-                    key: value for key, value in data.items()
+                    key: value
+                    for key, value in data.items()
                     if key not in ("price", "deeplink", "agent", "source", "last_fetched")
                 }
                 trip["offers"] = []
                 trip["last_fetched"] = data["last_fetched"]
                 trips[data["id"]] = trip
-            trip["offers"].append({
-                "source": data["source"],
-                "agent": data["agent"] or "",
-                "price": float(data["price"]),
-                "deeplink": data["deeplink"] or "",
-            })
+            trip["offers"].append(
+                {
+                    "source": data["source"],
+                    "agent": data["agent"] or "",
+                    "price": float(data["price"]),
+                    "deeplink": data["deeplink"] or "",
+                }
+            )
             if (data["last_fetched"] or "") > (trip["last_fetched"] or ""):
                 trip["last_fetched"] = data["last_fetched"]
 
@@ -677,7 +720,7 @@ class FlightStore:
             FROM offers o
             JOIN trips t   ON t.id = o.trip_id
             JOIN fetches f ON f.id = o.fetch_id
-            WHERE {' AND '.join(where)}
+            WHERE {" AND ".join(where)}
             GROUP BY t.id
             ORDER BY price_base
             LIMIT ?
@@ -795,6 +838,7 @@ class FlightStore:
 
 
 # -- export helpers ---------------------------------------------------------
+
 
 def offer_to_row(offer: Offer, base_currency: str = STORED_CURRENCY) -> Dict[str, Any]:
     """Flatten an offer for CSV/JSON export."""

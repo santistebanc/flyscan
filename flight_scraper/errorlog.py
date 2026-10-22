@@ -68,9 +68,7 @@ def record(
         "context": {key: _plain(value) for key, value in context.items()},
     }
     if isinstance(error, BaseException):
-        frames = "".join(
-            traceback.format_exception(type(error), error, error.__traceback__)
-        )
+        frames = "".join(traceback.format_exception(type(error), error, error.__traceback__))
         entry["traceback"] = frames[:MAX_TRACEBACK]
 
     try:
@@ -101,10 +99,17 @@ def summary() -> List[Dict[str, Any]]:
     seen: Dict[tuple, Dict[str, Any]] = {}
     for entry in _read():
         key = (entry.get("where", "?"), entry.get("kind", "?"), entry.get("message", "")[:80])
-        row = seen.setdefault(key, {
-            "where": key[0], "kind": key[1], "message": key[2],
-            "count": 0, "first": entry.get("at"), "last": entry.get("at"),
-        })
+        row = seen.setdefault(
+            key,
+            {
+                "where": key[0],
+                "kind": key[1],
+                "message": key[2],
+                "count": 0,
+                "first": entry.get("at"),
+                "last": entry.get("at"),
+            },
+        )
         row["count"] += 1
         row["last"] = entry.get("at")
     return sorted(seen.values(), key=lambda row: -row["count"])
@@ -145,14 +150,14 @@ def _read() -> List[Dict[str, Any]]:
         try:
             entries.append(json.loads(line))
         except ValueError:
-            continue          # a half-written line from a killed process
+            continue  # a half-written line from a killed process
     return entries
 
 
 def _trim() -> None:
     """Keep the file to `KEEP` entries. Called with the lock held."""
     lines = LOG_FILE.read_text(encoding="utf-8", errors="replace").splitlines()
-    if len(lines) <= KEEP * 2:      # trim in batches rather than every write
+    if len(lines) <= KEEP * 2:  # trim in batches rather than every write
         return
     LOG_FILE.write_text("\n".join(lines[-KEEP:]) + "\n", encoding="utf-8")
 

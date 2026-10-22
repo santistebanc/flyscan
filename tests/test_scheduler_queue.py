@@ -1,19 +1,18 @@
 import tempfile
 import threading
-import time
 import unittest
 from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
 from types import SimpleNamespace
 from unittest import mock
 
-from tests import quiet_errorlog
-from tests.test_task_queue import eventually, FAST_RETRY
 from flight_scraper.models import SearchQuery
 from flight_scraper.scheduler import Scheduler
 from flight_scraper.sources.base import ChallengeRequired, Source, SourceError
-from flight_scraper.task_queue import JobTimeout, RateLimited, RetryPolicy, RetryableError
+from flight_scraper.task_queue import RateLimited, RetryableError
 from flight_scraper.web import create_app
+from tests import quiet_errorlog
+from tests.test_task_queue import FAST_RETRY, eventually
 
 QUERY = SearchQuery("BER", "CDG", date(2026, 12, 21))
 
@@ -37,17 +36,21 @@ class SchedulerTests(unittest.TestCase):
         quiet_errorlog(self)
 
     def scheduler(self, **kwargs):
-        scheduler = Scheduler(db_path=kwargs.pop("db_path", None), retry_policy=FAST_RETRY, **kwargs)
+        scheduler = Scheduler(
+            db_path=kwargs.pop("db_path", None), retry_policy=FAST_RETRY, **kwargs
+        )
         self.addCleanup(lambda: scheduler.shutdown(wait=True))
         return scheduler
 
     def test_scraping_uses_queue_retries_not_source_run_sleeps(self):
         scheduler = self.scheduler(max_workers=1)
         source = FakeSource()
+
         def work(query):
             if source.calls < 3:
                 raise TimeoutError("temporary")
             return []
+
         source.work = work
         events = []
         with mock.patch.object(source, "run", side_effect=AssertionError("legacy retry path")):
@@ -61,10 +64,12 @@ class SchedulerTests(unittest.TestCase):
         release, entered = threading.Event(), threading.Event()
         scheduler = self.scheduler(max_workers=1)
         self.addCleanup(release.set)
+
         def work(query):
             entered.set()
             release.wait(2)
             return []
+
         source = FakeSource(work)
         first = scheduler.submit(source, QUERY, owner="first")
         self.assertTrue(entered.wait(2))
@@ -82,10 +87,12 @@ class SchedulerTests(unittest.TestCase):
         scheduler = self.scheduler(max_workers=1)
         solved = threading.Event()
         events = []
+
         def work(query):
             if not solved.is_set():
                 raise ChallengeRequired("https://example.test/check", "test")
             return []
+
         source = FakeSource(work)
         first = scheduler.submit(source, QUERY, lambda e, d: events.append(e))
         eventually(lambda: "challenge_required" in events)
@@ -104,7 +111,9 @@ class SchedulerTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as directory:
             path = str(Path(directory) / "flights.db")
             first = self.scheduler(db_path=path, action_timeout=0.1)
-            source = FakeSource(lambda q: (_ for _ in ()).throw(ChallengeRequired("https://example.test/check")))
+            source = FakeSource(
+                lambda q: (_ for _ in ()).throw(ChallengeRequired("https://example.test/check"))
+            )
             future = first.submit(source, QUERY)
             eventually(lambda: bool(first.challenges()))
             first.shutdown(wait=True)
@@ -122,10 +131,12 @@ class SchedulerTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as directory:
             scheduler = self.scheduler(db_path=str(Path(directory) / "db"))
             source = FakeSource()
+
             def work(query):
                 if source.calls < 2:
                     raise RetryableError("offline")
                 return []
+
             source.work = work
             with mock.patch("flight_scraper.store.fx.get_rates"):
                 self.assertTrue(scheduler.submit(source, QUERY).result(2).ok)
@@ -174,10 +185,12 @@ class SchedulerTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as directory:
             scheduler = self.scheduler(db_path=str(Path(directory) / "db"))
             self.addCleanup(release.set)
+
             def work(query):
                 entered.set()
                 release.wait(2)
                 return []
+
             source = FakeSource(work)
             source.job_timeout = 0.05
             future = scheduler.submit(source, QUERY)
@@ -190,15 +203,23 @@ class SchedulerTests(unittest.TestCase):
 
     def test_progress_callback_failure_does_not_lose_result(self):
         scheduler = self.scheduler()
+
         def progress(event, data):
             raise RuntimeError("observer broken")
+
         self.assertTrue(scheduler.submit(FakeSource(), QUERY, progress).result(2).ok)
 
     def test_failed_ledger_write_does_not_strand_subscribers(self):
         with tempfile.TemporaryDirectory() as directory:
             scheduler = self.scheduler(db_path=str(Path(directory) / "db"))
-            with mock.patch.object(scheduler.store, "complete_fetch", side_effect=RuntimeError("disk full")), \
-                 mock.patch.object(scheduler.store, "fail_fetch", side_effect=RuntimeError("disk full")):
+            with (
+                mock.patch.object(
+                    scheduler.store, "complete_fetch", side_effect=RuntimeError("disk full")
+                ),
+                mock.patch.object(
+                    scheduler.store, "fail_fetch", side_effect=RuntimeError("disk full")
+                ),
+            ):
                 result = scheduler.submit(FakeSource(), QUERY).result(2)
             self.assertIn("disk full", result.error)
             scheduler.shutdown(wait=True)
@@ -213,18 +234,31 @@ class HTTPPolicyTests(unittest.TestCase):
 
     def test_retry_after_seconds_date_and_invalid_values(self):
         source = FakeSource()
-        for raw, minimum, maximum in [("12", 12, 12), ("bogus", 60, 60), ("nan", 60, 60), ("-1", 60, 60)]:
+        for raw, minimum, maximum in [
+            ("12", 12, 12),
+            ("bogus", 60, 60),
+            ("nan", 60, 60),
+            ("-1", 60, 60),
+        ]:
             with self.assertRaises(RateLimited) as caught:
                 source.request(self.response(429, raw), "get", "https://example.test")
             self.assertGreaterEqual(caught.exception.retry_after, minimum)
             self.assertLessEqual(caught.exception.retry_after, maximum)
-        future_date = (datetime.now(timezone.utc) + timedelta(seconds=30)).strftime("%a, %d %b %Y %H:%M:%S GMT")
+        future_date = (datetime.now(timezone.utc) + timedelta(seconds=30)).strftime(
+            "%a, %d %b %Y %H:%M:%S GMT"
+        )
         with self.assertRaises(RateLimited) as caught:
             source.request(self.response(429, future_date), "get", "https://example.test")
         self.assertTrue(28 <= caught.exception.retry_after <= 30)
 
     def test_transient_and_permanent_http_errors(self):
-        for code, error in [(500, RetryableError), (408, RetryableError), (404, SourceError), (401, SourceError), (403, SourceError)]:
+        for code, error in [
+            (500, RetryableError),
+            (408, RetryableError),
+            (404, SourceError),
+            (401, SourceError),
+            (403, SourceError),
+        ]:
             with self.assertRaises(error):
                 FakeSource().request(self.response(code), "get", "https://example.test")
 
@@ -235,7 +269,10 @@ class HTTPPolicyTests(unittest.TestCase):
         source.job_timeout = 0.3
         session = mock.Mock()
         session.get.return_value = SimpleNamespace(status_code=200)
-        source.work = lambda q: (source.request(session, "get", "https://example.test", timeout=60), [])[1]
+        source.work = lambda q: (
+            source.request(session, "get", "https://example.test", timeout=60),
+            [],
+        )[1]
         self.assertTrue(scheduler.submit(source, QUERY).result(2).ok)
         self.assertLessEqual(session.get.call_args.kwargs["timeout"], 0.301)
 
@@ -252,13 +289,23 @@ class QueueAPITests(unittest.TestCase):
 
     def test_push_inspect_and_clear_captcha_through_api(self):
         solved = threading.Event()
+
         def work(query):
             if not solved.is_set():
                 raise ChallengeRequired("https://example.test/check", "test")
             return []
+
         source = FakeSource(work)
         with mock.patch.dict("flight_scraper.api.REGISTRY", {"test": lambda: source}):
-            response = self.client.post("/v1/jobs", json={"source": "test", "origin": "BER", "destination": "CDG", "depart": "2026-12-21"})
+            response = self.client.post(
+                "/v1/jobs",
+                json={
+                    "source": "test",
+                    "origin": "BER",
+                    "destination": "CDG",
+                    "depart": "2026-12-21",
+                },
+            )
         self.assertEqual(response.status_code, 202)
         job_id = response.json["id"]
         eventually(lambda: self.scheduler.find_job(job_id).state == "blocked")
@@ -269,7 +316,12 @@ class QueueAPITests(unittest.TestCase):
         self.assertEqual(self.client.get(f"/v1/jobs/{job_id}").json["attempts"], 2)
 
     def test_invalid_requests_are_rejected_without_starting_jobs(self):
-        for payload in ([], {}, {"source": "missing"}, {"source": "ff-sky", "origin": "x", "destination": "CDG", "depart": "2026-12-21"}):
+        for payload in (
+            [],
+            {},
+            {"source": "missing"},
+            {"source": "ff-sky", "origin": "x", "destination": "CDG", "depart": "2026-12-21"},
+        ):
             self.assertEqual(self.client.post("/v1/jobs", json=payload).status_code, 400)
         self.assertEqual(self.scheduler.jobs(), [])
 
@@ -285,15 +337,21 @@ class QueueAPITests(unittest.TestCase):
             self.assertEqual(response.headers["Retry-After"], "5")
             with mock.patch.dict("os.environ", {"FLIGHT_SCRAPER_API_KEY": "test-key"}):
                 self.assertEqual(self.client.post("/v1/jobs", json=payload).status_code, 401)
-                self.assertEqual(self.client.post("/v1/jobs", json=payload,
-                    headers={"X-API-Key": "test-key"}).status_code, 202)
+                self.assertEqual(
+                    self.client.post(
+                        "/v1/jobs", json=payload, headers={"X-API-Key": "test-key"}
+                    ).status_code,
+                    202,
+                )
 
     def test_filtered_cancellation_includes_human_waiting_jobs(self):
         source = FakeSource()
         self.scheduler.block_source("test", "https://example.test/check")
         future = self.scheduler.submit(source, QUERY)
-        response = self.client.post("/v1/jobs/cancel", json={"mine": True, "origin": "BER",
-            "destination": "CDG", "start": "2026-12-21"})
+        response = self.client.post(
+            "/v1/jobs/cancel",
+            json={"mine": True, "origin": "BER", "destination": "CDG", "start": "2026-12-21"},
+        )
         self.assertEqual(response.json["cancelled"], 1)
         self.assertIn("cancelled", future.result(2).error)
 

@@ -28,8 +28,11 @@ class ErrorLog(unittest.TestCase):
 
     def test_an_entry_keeps_the_context_it_happened_in(self):
         errorlog.record(
-            "source.ff-sky", RuntimeError("poll returned HTTP 404"),
-            route="BER-CDG", depart=date(2026, 9, 21), adults=2,
+            "source.ff-sky",
+            RuntimeError("poll returned HTTP 404"),
+            route="BER-CDG",
+            depart=date(2026, 9, 21),
+            adults=2,
         )
         entry = errorlog.recent()[0]
         self.assertEqual(entry["where"], "source.ff-sky")
@@ -55,10 +58,10 @@ class ErrorLog(unittest.TestCase):
         errorlog.record("source.ff-sky", "one")
         errorlog.record("source.ff-kiwi", "two")
         errorlog.record("source.ff-sky", "three")
-        self.assertEqual([e["message"] for e in errorlog.recent()],
-                         ["three", "two", "one"])
-        self.assertEqual([e["message"] for e in errorlog.recent(where="source.ff-sky")],
-                         ["three", "one"])
+        self.assertEqual([e["message"] for e in errorlog.recent()], ["three", "two", "one"])
+        self.assertEqual(
+            [e["message"] for e in errorlog.recent(where="source.ff-sky")], ["three", "one"]
+        )
 
     def test_the_summary_counts_repeats(self):
         """Forty of one thing is a site that changed; one of forty is a fluke."""
@@ -83,7 +86,7 @@ class ErrorLog(unittest.TestCase):
     def test_recording_a_failure_never_becomes_a_failure(self):
         """An exception thrown from an except block is the worst outcome."""
         with mock.patch.object(errorlog.Path, "mkdir", side_effect=OSError("read-only")):
-            errorlog.record("source.ff-sky", "whatever")   # must not raise
+            errorlog.record("source.ff-sky", "whatever")  # must not raise
 
     def test_a_half_written_line_does_not_poison_the_read(self):
         errorlog.record("source.ff-sky", "good line")

@@ -76,16 +76,22 @@ class Exchange:
 
     def to_dict(self) -> Dict[str, Any]:
         return {
-            "method": self.method, "url": self.url,
-            "request_headers": self.request_headers, "request_body": self.request_body,
-            "status": self.status, "response_headers": self.response_headers,
-            "body": self.body_file, "truncated": self.truncated, "bytes": self.bytes,
+            "method": self.method,
+            "url": self.url,
+            "request_headers": self.request_headers,
+            "request_body": self.request_body,
+            "status": self.status,
+            "response_headers": self.response_headers,
+            "body": self.body_file,
+            "truncated": self.truncated,
+            "bytes": self.bytes,
         }
 
     @classmethod
     def from_dict(cls, data: Dict[str, Any]) -> "Exchange":
         return cls(
-            method=data["method"], url=data["url"],
+            method=data["method"],
+            url=data["url"],
             request_headers=data.get("request_headers") or {},
             request_body=data.get("request_body"),
             status=data.get("status", 200),
@@ -119,7 +125,9 @@ def digest_offers(offers: List[Offer]) -> str:
     for offer in offers:
         legs = [offer.itinerary.outbound, offer.itinerary.inbound]
         parts = [
-            f"{offer.price:.2f}", offer.currency, offer.agent or "",
+            f"{offer.price:.2f}",
+            offer.currency,
+            offer.agent or "",
             offer.itinerary.trip_key,
         ]
         for leg in legs:
@@ -196,20 +204,29 @@ class RecordingSession:
         (self._dir / name).write_bytes(body)
 
         sent = kwargs.get("data") or kwargs.get("json")
-        self.exchanges.append(Exchange(
-            method=method, url=url,
-            request_headers=dict(kwargs.get("headers") or {}),
-            request_body=(
-                sent if isinstance(sent, str)
-                else json.dumps(sent, default=str) if sent is not None else None
-            ),
-            status=response.status_code,
-            response_headers={
-                k: v for k, v in dict(getattr(response, "headers", {}) or {}).items()
-                if k.lower() in ("content-type", "content-encoding", "location")
-            },
-            body_file=name, truncated=truncated, bytes=len(raw),
-        ))
+        self.exchanges.append(
+            Exchange(
+                method=method,
+                url=url,
+                request_headers=dict(kwargs.get("headers") or {}),
+                request_body=(
+                    sent
+                    if isinstance(sent, str)
+                    else json.dumps(sent, default=str)
+                    if sent is not None
+                    else None
+                ),
+                status=response.status_code,
+                response_headers={
+                    k: v
+                    for k, v in dict(getattr(response, "headers", {}) or {}).items()
+                    if k.lower() in ("content-type", "content-encoding", "location")
+                },
+                body_file=name,
+                truncated=truncated,
+                bytes=len(raw),
+            )
+        )
         return response
 
 
@@ -240,8 +257,7 @@ class PlayerSession:
         matches = self._recording.by_key.get(key)
         if not matches:
             raise RecordingMissing(
-                f"no recorded answer for {key}\n"
-                f"  recorded: {sorted(self._recording.by_key)}"
+                f"no recorded answer for {key}\n  recorded: {sorted(self._recording.by_key)}"
             )
         index = self._cursor.get(key, 0)
         if index >= len(matches):
@@ -260,8 +276,10 @@ class PlayerSession:
                 f"{exchange.bytes:,} bytes; replaying it would look like a parse bug"
             )
         return Replayed(
-            exchange.status, exchange.response_headers,
-            self._recording.body(exchange), url,
+            exchange.status,
+            exchange.response_headers,
+            self._recording.body(exchange),
+            url,
         )
 
 
@@ -289,11 +307,14 @@ class Recording:
     def search_query(self) -> SearchQuery:
         data = dict(self.query)
         return SearchQuery(
-            origin=data["origin"], destination=data["destination"],
+            origin=data["origin"],
+            destination=data["destination"],
             depart=_as_date(data["depart"]),
             ret=_as_date(data["ret"]) if data.get("ret") else None,
-            adults=data.get("adults", 1), children=data.get("children", 0),
-            infants=data.get("infants", 0), cabin=data.get("cabin", "economy"),
+            adults=data.get("adults", 1),
+            children=data.get("children", 0),
+            infants=data.get("infants", 0),
+            cabin=data.get("cabin", "economy"),
             currency=data.get("currency", "EUR"),
         )
 
@@ -301,37 +322,49 @@ class Recording:
     def load(cls, directory: Path) -> "Recording":
         data = json.loads((directory / INDEX).read_text(encoding="utf-8"))
         return cls(
-            directory=directory, source=data["source"], query=data["query"],
+            directory=directory,
+            source=data["source"],
+            query=data["query"],
             exchanges=[Exchange.from_dict(e) for e in data["exchanges"]],
-            expect=data.get("expect") or {}, recorded_at=data.get("recorded_at", ""),
+            expect=data.get("expect") or {},
+            recorded_at=data.get("recorded_at", ""),
         )
 
     def save(self) -> None:
         self.directory.mkdir(parents=True, exist_ok=True)
         (self.directory / INDEX).write_text(
-            json.dumps({
-                "source": self.source,
-                "recorded_at": self.recorded_at,
-                "query": self.query,
-                "expect": self.expect,
-                "exchanges": [e.to_dict() for e in self.exchanges],
-            }, indent=2) + "\n",
+            json.dumps(
+                {
+                    "source": self.source,
+                    "recorded_at": self.recorded_at,
+                    "query": self.query,
+                    "expect": self.expect,
+                    "exchanges": [e.to_dict() for e in self.exchanges],
+                },
+                indent=2,
+            )
+            + "\n",
             encoding="utf-8",
         )
 
 
 def _as_date(value: str):
     from datetime import date
+
     return date.fromisoformat(value)
 
 
 def _query_dict(query: SearchQuery) -> Dict[str, Any]:
     return {
-        "origin": query.origin, "destination": query.destination,
+        "origin": query.origin,
+        "destination": query.destination,
         "depart": query.depart.isoformat(),
         "ret": query.ret.isoformat() if query.ret else None,
-        "adults": query.adults, "children": query.children, "infants": query.infants,
-        "cabin": query.cabin, "currency": query.currency,
+        "adults": query.adults,
+        "children": query.children,
+        "infants": query.infants,
+        "cabin": query.cabin,
+        "currency": query.currency,
     }
 
 
@@ -342,15 +375,14 @@ def _query_dict(query: SearchQuery) -> Dict[str, Any]:
 def _sessions_from(build) -> Iterator[None]:
     """Point every `Source.session()` at something else for the duration."""
     original = Source.session
-    Source.session = build          # type: ignore[assignment]
+    Source.session = build  # type: ignore[assignment]
     try:
         yield
     finally:
-        Source.session = original   # type: ignore[assignment]
+        Source.session = original  # type: ignore[assignment]
 
 
-def record(source_name: str, query: SearchQuery, directory: Path,
-           cap: int = MAX_BODY) -> Recording:
+def record(source_name: str, query: SearchQuery, directory: Path, cap: int = MAX_BODY) -> Recording:
     """Run one source for real, and write down every exchange it makes."""
     directory.mkdir(parents=True, exist_ok=True)
     source = REGISTRY[source_name]()
@@ -378,13 +410,16 @@ def record(source_name: str, query: SearchQuery, directory: Path,
 
     session = holder.get("session")
     expect: Dict[str, Any] = {
-        "offers": len(offers), "digest": digest_offers(offers),
+        "offers": len(offers),
+        "digest": digest_offers(offers),
     }
     if error:
         expect["error"] = error
 
     recording = Recording(
-        directory=directory, source=source_name, query=_query_dict(query),
+        directory=directory,
+        source=source_name,
+        query=_query_dict(query),
         exchanges=session.exchanges if session else [],
         expect=expect,
         recorded_at=datetime.now(timezone.utc).isoformat(timespec="seconds"),
@@ -454,12 +489,12 @@ def trim_recording(recording: Recording, keep: int = 3) -> int:
         path = recording.directory / exchange.body_file
         body = path.read_bytes()
         if len(body) < 200_000:
-            continue                       # the search page is small; leave it
+            continue  # the search page is small; leave it
         smaller = trim_cffi_payload(body, keep)
         if len(smaller) < len(body):
             path.write_bytes(smaller)
             exchange.bytes = len(smaller)
-            exchange.truncated = False     # cut deliberately, and still valid
+            exchange.truncated = False  # cut deliberately, and still valid
             trimmed += 1
 
     try:
@@ -469,7 +504,8 @@ def trim_recording(recording: Recording, keep: int = 3) -> int:
         # Trimming a recording of a failure is still useful; what it should
         # reproduce is the failure.
         recording.expect = {
-            "offers": 0, "digest": digest_offers([]),
+            "offers": 0,
+            "digest": digest_offers([]),
             "error": f"{type(exc).__name__}: {exc}",
         }
     recording.save()

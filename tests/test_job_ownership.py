@@ -13,17 +13,28 @@ import unittest
 from flight_scraper.api import _belongs_to
 
 SEARCH = {
-    "origin": "BER", "destination": "CDG",
-    "start": "2026-12-18", "end": "2026-12-20",
-    "ret": "2026-12-27", "ret_end": "2026-12-30",
-    "adults": "1", "children": "0", "infants": "0", "cabin": "economy",
+    "origin": "BER",
+    "destination": "CDG",
+    "start": "2026-12-18",
+    "end": "2026-12-20",
+    "ret": "2026-12-27",
+    "ret_end": "2026-12-30",
+    "adults": "1",
+    "children": "0",
+    "infants": "0",
+    "cabin": "economy",
 }
 
 
 def job(**over):
     base = {
-        "route": "BER-CDG", "depart": "2026-12-19", "ret": "2026-12-28",
-        "adults": 1, "children": 0, "infants": 0, "cabin": "economy",
+        "route": "BER-CDG",
+        "depart": "2026-12-19",
+        "ret": "2026-12-28",
+        "adults": 1,
+        "children": 0,
+        "infants": 0,
+        "cabin": "economy",
     }
     base.update(over)
     return base
@@ -70,8 +81,9 @@ class Ownership(unittest.TestCase):
         self.assertFalse(_belongs_to(job(depart="2026-12-19"), one_day))
 
     def test_case_and_spacing_in_the_route_do_not_matter(self):
-        self.assertTrue(_belongs_to(job(route="ber-cdg"),
-                                    {**SEARCH, "origin": " ber ", "destination": "cdg"}))
+        self.assertTrue(
+            _belongs_to(job(route="ber-cdg"), {**SEARCH, "origin": " ber ", "destination": "cdg"})
+        )
 
 
 if __name__ == "__main__":

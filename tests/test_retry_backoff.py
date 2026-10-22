@@ -9,9 +9,9 @@ import unittest
 from datetime import date
 from unittest import mock
 
-from tests import quiet_errorlog
 from flight_scraper.models import SearchQuery
 from flight_scraper.sources.base import Source
+from tests import quiet_errorlog
 
 QUERY = SearchQuery(origin="BER", destination="CDG", depart=date(2026, 9, 21))
 
@@ -37,7 +37,7 @@ class Backoff(unittest.TestCase):
     def test_backoff_still_grows_with_each_attempt(self):
         """Jitter must not flatten the escalation, only blur it."""
         bands = self.waits()
-        self.assertEqual(len(bands), 3)          # one fewer than the attempts
+        self.assertEqual(len(bands), 3)  # one fewer than the attempts
         for attempt, wait in enumerate(bands, start=1):
             self.assertGreaterEqual(wait, 1.5 * attempt * 0.5)
             self.assertLessEqual(wait, 1.5 * attempt * 1.5)

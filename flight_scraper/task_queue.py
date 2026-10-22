@@ -8,8 +8,8 @@ physical worker and resource slot until it exits; it is never retried in paralle
 
 from __future__ import annotations
 
-import math
 import logging
+import math
 import random
 import threading
 import time
@@ -18,8 +18,8 @@ from concurrent.futures import CancelledError, Future, ThreadPoolExecutor
 from contextvars import ContextVar
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
-from typing import Any, Callable, Dict, Optional, Mapping
 from types import MappingProxyType
+from typing import Any, Callable, Dict, Mapping, Optional
 
 
 class QueueFull(RuntimeError):
@@ -75,11 +75,17 @@ class RetryPolicy:
     def __post_init__(self):
         if not isinstance(self.max_attempts, int) or self.max_attempts < 1:
             raise ValueError("max_attempts must be a positive integer")
-        object.__setattr__(self, "base_delay", _seconds(self.base_delay, "base_delay", allow_zero=True))
-        object.__setattr__(self, "max_delay", _seconds(self.max_delay, "max_delay", allow_zero=True))
+        object.__setattr__(
+            self, "base_delay", _seconds(self.base_delay, "base_delay", allow_zero=True)
+        )
+        object.__setattr__(
+            self, "max_delay", _seconds(self.max_delay, "max_delay", allow_zero=True)
+        )
 
     def delay(self, failures: int) -> float:
-        return min(self.max_delay, self.base_delay * 2 ** min(failures - 1, 30)) * random.uniform(0.5, 1.0)
+        return min(self.max_delay, self.base_delay * 2 ** min(failures - 1, 30)) * random.uniform(
+            0.5, 1.0
+        )
 
 
 @dataclass(frozen=True)
@@ -90,7 +96,9 @@ class ResourceLimit:
     def __post_init__(self):
         if not isinstance(self.concurrency, int) or self.concurrency < 1:
             raise ValueError("concurrency must be a positive integer")
-        object.__setattr__(self, "min_interval", _seconds(self.min_interval, "min_interval", allow_zero=True))
+        object.__setattr__(
+            self, "min_interval", _seconds(self.min_interval, "min_interval", allow_zero=True)
+        )
 
 
 class _ResultFuture(Future):
@@ -143,15 +151,23 @@ class TaskSnapshot:
 
     def describe(self):
         return {
-            "id": self.id, "kind": self.kind, "resource": self.resource,
-            "owner": self.owner, "priority": self.priority, "state": self.state,
-            "attempts": self.attempts, "failures": self.failures, "error": self.error,
-            "action": dict(self.action) if self.action else None, "retry_in": self.retry_in,
+            "id": self.id,
+            "kind": self.kind,
+            "resource": self.resource,
+            "owner": self.owner,
+            "priority": self.priority,
+            "state": self.state,
+            "attempts": self.attempts,
+            "failures": self.failures,
+            "error": self.error,
+            "action": dict(self.action) if self.action else None,
+            "retry_in": self.retry_in,
             "created_at": self.created_at.isoformat(),
             "started_at": self.started_at.isoformat() if self.started_at else None,
             "finished_at": self.finished_at.isoformat() if self.finished_at else None,
             "worker_busy": self.worker_busy,
-            "wait_reason": self.wait_reason, "ready_in": self.ready_in,
+            "wait_reason": self.wait_reason,
+            "ready_in": self.ready_in,
         }
 
 
@@ -217,7 +233,6 @@ class _Task:
         return self.state in ("done", "failed", "timed_out", "cancelled")
 
 
-
 class JobContext:
     def __init__(self, task: _Task):
         self.task_id = task.id
@@ -247,8 +262,13 @@ def current_context() -> Optional[JobContext]:
 
 
 class TaskQueue:
-    def __init__(self, max_workers: int = 12, max_pending: int = 10000,
-                 history_limit: int = 200, on_event: Optional[Callable[[str, TaskSnapshot], None]] = None):
+    def __init__(
+        self,
+        max_workers: int = 12,
+        max_pending: int = 10000,
+        history_limit: int = 200,
+        on_event: Optional[Callable[[str, TaskSnapshot], None]] = None,
+    ):
         if any(not isinstance(n, int) or n < 1 for n in (max_workers, max_pending, history_limit)):
             raise ValueError("worker, pending and history limits must be positive")
         if on_event is not None and not callable(on_event):
@@ -288,10 +308,19 @@ class TaskQueue:
                 raise ValueError(f"conflicting limits for resource {resource}")
             self._limits[resource] = limit
 
-    def submit(self, kind: str, payload: Any = None, *, resource: Optional[str] = None,
-               owner: str = "", priority: int = 10, timeout: float = 120,
-               retry: Optional[RetryPolicy] = None, action_timeout: float = 900,
-               delay: float = 0) -> Task:
+    def submit(
+        self,
+        kind: str,
+        payload: Any = None,
+        *,
+        resource: Optional[str] = None,
+        owner: str = "",
+        priority: int = 10,
+        timeout: float = 120,
+        retry: Optional[RetryPolicy] = None,
+        action_timeout: float = 900,
+        delay: float = 0,
+    ) -> Task:
         timeout = _seconds(timeout, "timeout")
         action_timeout = _seconds(action_timeout, "action_timeout")
         delay = _seconds(delay, "delay", allow_zero=True)
@@ -308,11 +337,23 @@ class TaskQueue:
                 raise QueueClosed("queue is shutting down")
             if kind not in self._handlers:
                 raise ValueError(f"no handler registered: {kind}")
-            if sum(not t.done or t.id in self._active for t in self._tasks.values()) >= self.max_pending:
+            if (
+                sum(not t.done or t.id in self._active for t in self._tasks.values())
+                >= self.max_pending
+            ):
                 raise QueueFull(f"queue capacity ({self.max_pending}) reached")
             self._next_id += 1
-            task = _Task(self._next_id, kind, payload, resource or kind, owner, priority,
-                        timeout, retry or RetryPolicy(), action_timeout)
+            task = _Task(
+                self._next_id,
+                kind,
+                payload,
+                resource or kind,
+                owner,
+                priority,
+                timeout,
+                retry or RetryPolicy(),
+                action_timeout,
+            )
             task.available_at = time.monotonic() + delay
             self._tasks[task.id] = task
             task.future.add_done_callback(lambda future: self._wake())
@@ -339,7 +380,9 @@ class TaskQueue:
         if task.state in ("queued", "retry_wait"):
             now = time.monotonic()
             limit = self._limits.get(task.resource, ResourceLimit(self.max_workers))
-            ready_in = max(0.0, max(task.available_at, self._next_start.get(task.resource, 0)) - now)
+            ready_in = max(
+                0.0, max(task.available_at, self._next_start.get(task.resource, 0)) - now
+            )
             if self._next_start.get(task.resource, 0) > now:
                 wait_reason = "rate_limit"
             elif task.available_at > now:
@@ -349,12 +392,23 @@ class TaskQueue:
             else:
                 wait_reason = "capacity"
         return TaskSnapshot(
-            task.id, task.kind, task.resource, task.owner, task.priority, task.state,
-            task.attempts, task.failures, task.error,
+            task.id,
+            task.kind,
+            task.resource,
+            task.owner,
+            task.priority,
+            task.state,
+            task.attempts,
+            task.failures,
+            task.error,
             MappingProxyType(dict(task.action)) if task.action else None,
             max(0.0, task.available_at - time.monotonic()) if task.state == "retry_wait" else None,
-            task.created_at, task.started_at, task.finished_at, task.id in self._active,
-            wait_reason, ready_in,
+            task.created_at,
+            task.started_at,
+            task.finished_at,
+            task.id in self._active,
+            wait_reason,
+            ready_in,
         )
 
     def tasks(self) -> list:
@@ -426,7 +480,9 @@ class TaskQueue:
         task.state, task.action, task.error = "waiting_action", action.describe(), str(action)
         task.action_deadline = since + task.action_timeout
 
-    def _finish(self, task: _Task, state: str, value: Any = None, error: Optional[BaseException] = None):
+    def _finish(
+        self, task: _Task, state: str, value: Any = None, error: Optional[BaseException] = None
+    ):
         task.state = state
         task.error = str(error) if error else ""
         task.finished_at = datetime.now(timezone.utc)
@@ -450,13 +506,23 @@ class TaskQueue:
                             task.context.cancelled.set()
                         self._finish(task, "cancelled", error=CancelledError("job cancelled"))
                     elif task.state == "waiting_action" and now >= task.action_deadline:
-                        self._finish(task, "timed_out", error=JobTimeout("user action was not resolved in time"))
+                        self._finish(
+                            task,
+                            "timed_out",
+                            error=JobTimeout("user action was not resolved in time"),
+                        )
                     elif task.id in self._active and now >= task.context.deadline:
                         task.context.cancelled.set()
-                        self._finish(task, "timed_out", error=JobTimeout("job attempt exceeded its deadline"))
+                        self._finish(
+                            task, "timed_out", error=JobTimeout("job attempt exceeded its deadline")
+                        )
 
                 # Capacity follows physical threads, including timed-out handlers.
-                if not self._closed and not self._notifications and len(self._active) < self.max_workers:
+                if (
+                    not self._closed
+                    and not self._notifications
+                    and len(self._active) < self.max_workers
+                ):
                     for task in sorted(self._tasks.values(), key=lambda t: (t.priority, t.id)):
                         if task.state not in ("queued", "retry_wait") or task.id in self._active:
                             continue
@@ -464,8 +530,10 @@ class TaskQueue:
                             self._hold(task, *self._actions[task.resource])
                             continue
                         limit = self._limits.get(task.resource, ResourceLimit(self.max_workers))
-                        if (now < max(task.available_at, self._next_start.get(task.resource, 0))
-                                or self._busy.get(task.resource, 0) >= limit.concurrency):
+                        if (
+                            now < max(task.available_at, self._next_start.get(task.resource, 0))
+                            or self._busy.get(task.resource, 0) >= limit.concurrency
+                        ):
                             continue
                         if not task.future.running() and not task.future._mark_running():
                             self._finish(task, "cancelled", error=CancelledError("job cancelled"))
@@ -535,26 +603,40 @@ class TaskQueue:
             # still imposes a source-wide cooldown on every subsequent task.
             if isinstance(error, RateLimited):
                 self._next_start[task.resource] = max(
-                    self._next_start.get(task.resource, 0), time.monotonic() + error.retry_after)
+                    self._next_start.get(task.resource, 0), time.monotonic() + error.retry_after
+                )
             if not task.done:
                 if isinstance(error, ActionRequired):
                     task.action_requests += 1
                     if task.action_requests > 3:
-                        self._finish(task, "failed", error=PermanentError("user action requested repeatedly"))
+                        self._finish(
+                            task, "failed", error=PermanentError("user action requested repeatedly")
+                        )
                     else:
                         self.pause(task.resource, error)
-                        self._notifications.append(("action_required", task, None, error, self._snapshot(task)))
+                        self._notifications.append(
+                            ("action_required", task, None, error, self._snapshot(task))
+                        )
                 elif isinstance(error, CancelledError):
                     self._finish(task, "cancelled", error=error)
                 elif error is not None:
                     task.failures += 1
-                    if (isinstance(error, (RetryableError, TimeoutError, ConnectionError))
-                            and task.failures < task.retry.max_attempts and not self._closed):
+                    if (
+                        isinstance(error, (RetryableError, TimeoutError, ConnectionError))
+                        and task.failures < task.retry.max_attempts
+                        and not self._closed
+                    ):
                         task.state, task.error = "retry_wait", str(error)
                         task.available_at = time.monotonic() + task.retry.delay(task.failures)
-                        self._notifications.append(("retry", task, None, error, self._snapshot(task)))
+                        self._notifications.append(
+                            ("retry", task, None, error, self._snapshot(task))
+                        )
                     else:
-                        self._finish(task, "timed_out" if isinstance(error, TimeoutError) else "failed", error=error)
+                        self._finish(
+                            task,
+                            "timed_out" if isinstance(error, TimeoutError) else "failed",
+                            error=error,
+                        )
                 else:
                     self._finish(task, "done", value=value)
             elif task.id not in self._history:
@@ -567,8 +649,12 @@ class TaskQueue:
             for task in self._tasks.values():
                 if task.state in counts:
                     counts[task.state] += 1
-            return {**counts, "workers_busy": len(self._active), "max_workers": self.max_workers,
-                    "closed": self._closed}
+            return {
+                **counts,
+                "workers_busy": len(self._active),
+                "max_workers": self.max_workers,
+                "closed": self._closed,
+            }
 
     def shutdown(self, wait: bool = True) -> None:
         with self._cv:

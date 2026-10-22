@@ -6,23 +6,32 @@ import argparse
 import json
 import logging
 import sys
-from datetime import date, datetime, timedelta
+from datetime import date, timedelta
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
 from . import fx
 from .aggregate import (
-    DEFAULT_MAX_WORKERS, Aggregator, DayResult, MergedItinerary, merge,
+    DEFAULT_MAX_WORKERS,
+    Aggregator,
+    DayResult,
+    MergedItinerary,
+    merge,
 )
 from .challenge import (
     STORE as CHALLENGE_STORE,
 )
-from .models import CABIN_CLASSES, SearchQuery, parse_date as _parse_date, pretty_duration
+from .models import CABIN_CLASSES, SearchQuery, pretty_duration
+from .models import parse_date as _parse_date
 from .places import PlaceLookupError, resolve, search_places
 from .sources import DEFAULT_SOURCES, REGISTRY
 from .store import (
     DEFAULT_TTL,
-    FlightStore, default_output_stem, offer_to_row, write_csv, write_json,
+    FlightStore,
+    default_output_stem,
+    offer_to_row,
+    write_csv,
+    write_json,
 )
 
 OUT_DIR = Path("out")
@@ -59,6 +68,7 @@ def _make_reporter(quiet: bool, base_currency: str):
     Lines arrive interleaved across dates, so each one names its date rather
     than sitting under a heading that may be several dates old by now.
     """
+
     def report(event: str, data: Dict[str, Any]) -> None:
         if quiet:
             return
@@ -75,12 +85,15 @@ def _make_reporter(quiet: bool, base_currency: str):
             elif data.get("origin") in ("cache", "shared"):
                 age = data.get("age_hours")
                 note = (
-                    f"cached, {age:.1f}h old" if data["origin"] == "cache" and age is not None
-                    else "cached" if data["origin"] == "cache"
+                    f"cached, {age:.1f}h old"
+                    if data["origin"] == "cache" and age is not None
+                    else "cached"
+                    if data["origin"] == "cache"
                     else "shared with another search"
                 )
-                print(f"  {day}  {data['source']:<12} {data['count']:>4} offers  ({note})",
-                      flush=True)
+                print(
+                    f"  {day}  {data['source']:<12} {data['count']:>4} offers  ({note})", flush=True
+                )
             else:
                 print(
                     f"  {day}  {data['source']:<12} {data['count']:>4} offers "
@@ -99,10 +112,10 @@ def _make_reporter(quiet: bool, base_currency: str):
             flights = data.get("itineraries")
             across = f"across {flights} distinct flights " if flights is not None else ""
             print(
-                f"  {data['day']}  -> {data['offers']} offers {across}"
-                f"in {data['elapsed']:.0f}s",
+                f"  {data['day']}  -> {data['offers']} offers {across}in {data['elapsed']:.0f}s",
                 flush=True,
             )
+
     return report
 
 
@@ -212,7 +225,6 @@ def cmd_scrape(args: argparse.Namespace) -> int:
         ttl=timedelta(hours=cache_hours),
         on_progress=_make_reporter(args.quiet, args.base_currency),
     )
-    started_at = datetime.now()
     days: List[DayResult] = []
     #: (day, every stored offer for it, merged) — complete, cache hits included.
     collected: List[tuple] = []
@@ -325,8 +337,10 @@ def cmd_query(args: argparse.Namespace) -> int:
         symbol = fx.SYMBOLS.get(args.base_currency, "")
         if stored_base != args.base_currency:
             print(f"  converted from {stored_base} at today's rate")
-        print(f"  {'price':>10}  {'date':<11} {'route':<9} {'depart':<16} {'stp':>3}  "
-              f"{'airlines':<26} source")
+        print(
+            f"  {'price':>10}  {'date':<11} {'route':<9} {'depart':<16} {'stp':>3}  "
+            f"{'airlines':<26} source"
+        )
         print("  " + "-" * 88)
         for row in rows:
             print(
@@ -369,8 +383,10 @@ def cmd_unblock(args: argparse.Namespace) -> int:
         print("  " + "-" * 52)
         for row in rows:
             mark = "" if row["fresh"] else "  (stale)"
-            print(f"  {row['source']:<12} {row['cookies']:>8} {row['age_hours']:>7.1f}h  "
-                  f"{row['solved_at'][:16]}{mark}")
+            print(
+                f"  {row['source']:<12} {row['cookies']:>8} {row['age_hours']:>7.1f}h  "
+                f"{row['solved_at'][:16]}{mark}"
+            )
         return 0
 
     if args.forget:
@@ -379,6 +395,7 @@ def cmd_unblock(args: argparse.Namespace) -> int:
         return 0
 
     from .challenge import ChallengeCoordinator
+
     print(f"  Checking {args.source}; a browser opens if a challenge is needed.")
     try:
         with ChallengeCoordinator.for_database(args.db, cookies=CHALLENGE_STORE) as recovery:
@@ -410,8 +427,10 @@ def cmd_cache(args: argparse.Namespace) -> int:
         print(f"  {'source':<12} {'status':<11} {'searches':>9}  newest")
         print("  " + "-" * 50)
         for row in rows:
-            print(f"  {row['source']:<12} {row['status']:<11} {row['n']:>9}  "
-                  f"{(row['newest'] or '')[:16]}")
+            print(
+                f"  {row['source']:<12} {row['status']:<11} {row['n']:>9}  "
+                f"{(row['newest'] or '')[:16]}"
+            )
         return 0
     finally:
         store.close()
@@ -433,38 +452,47 @@ def cmd_capture(args: argparse.Namespace) -> int:
     is a fixture the parser can be tested against forever, without the site
     having to still be in the same mood.
     """
-    from .capture import record, replay, trim_recording, digest_offers
+    from .capture import digest_offers, record, replay, trim_recording
 
     query = SearchQuery(
         origin=resolve(args.origin, prefer="city").code,
         destination=resolve(args.destination, prefer="city").code,
         depart=args.start,
         ret=args.ret,
-        adults=args.adults, children=args.children, infants=args.infants,
-        cabin=args.cabin, currency=args.currency,
+        adults=args.adults,
+        children=args.children,
+        infants=args.infants,
+        cabin=args.cabin,
+        currency=args.currency,
     )
     directory = Path(args.out)
     print(f"recording {args.source} {query.label()} -> {directory}")
 
     recording = record(args.source, query, directory)
     total = sum(e.bytes for e in recording.exchanges)
-    print(f"  {len(recording.exchanges)} exchanges, {total / 1e6:.1f} MB, "
-          f"{recording.expect['offers']} offers")
+    print(
+        f"  {len(recording.exchanges)} exchanges, {total / 1e6:.1f} MB, "
+        f"{recording.expect['offers']} offers"
+    )
     if recording.expect.get("error"):
         # Kept deliberately: a recording of the failure is the thing worth
         # having when a source breaks.
         print(f"  the search failed: {recording.expect['error']}")
-        print(f"  recording kept anyway — replay it to work on the parser")
+        print("  recording kept anyway — replay it to work on the parser")
 
     if args.trim:
         trimmed = trim_recording(recording, keep=args.keep)
         after = sum((directory / e.body_file).stat().st_size for e in recording.exchanges)
-        print(f"  trimmed {trimmed} bodies to {args.keep} cards each: "
-              f"{after / 1e6:.1f} MB, {recording.expect['offers']} offers")
+        print(
+            f"  trimmed {trimmed} bodies to {args.keep} cards each: "
+            f"{after / 1e6:.1f} MB, {recording.expect['offers']} offers"
+        )
 
     offers = replay(recording)
-    ok = (len(offers) == recording.expect["offers"]
-          and digest_offers(offers) == recording.expect["digest"])
+    ok = (
+        len(offers) == recording.expect["offers"]
+        and digest_offers(offers) == recording.expect["digest"]
+    )
     print(f"  replays {'identically' if ok else 'DIFFERENTLY — do not commit this'}")
     return 0 if ok else 1
 
@@ -522,32 +550,46 @@ def build_parser() -> argparse.ArgumentParser:
     scrape.add_argument("origin", help="place name or IATA code, e.g. berlin or BER")
     scrape.add_argument("destination", help="place name or IATA code")
     scrape.add_argument("start", type=parse_date, help="departure date (YYYY-MM-DD, today, +14)")
-    scrape.add_argument("end", type=parse_date, nargs="?",
-                        help="last departure date, to scan a range")
-    scrape.add_argument("--return", dest="ret", type=parse_date, default=None,
-                        help="return date, for a round trip")
+    scrape.add_argument(
+        "end", type=parse_date, nargs="?", help="last departure date, to scan a range"
+    )
+    scrape.add_argument(
+        "--return", dest="ret", type=parse_date, default=None, help="return date, for a round trip"
+    )
     scrape.add_argument("--adults", type=int, default=1)
     scrape.add_argument("--children", type=int, default=0)
-    scrape.add_argument("--infants", type=int, default=0,
-                        help="infants on a lap, under 2")
+    scrape.add_argument("--infants", type=int, default=0, help="infants on a lap, under 2")
     scrape.add_argument("--cabin", choices=CABIN_CLASSES, default="economy")
-    scrape.add_argument("--currency", default="EUR",
-                        help="currency to ask the sources for (default EUR)")
-    scrape.add_argument("--base-currency", default="EUR",
-                        help="currency the printed table and CSV are shown in "
-                             "(the database always stores EUR)")
-    scrape.add_argument("--sources", nargs="+", choices=list(REGISTRY),
-                        help=f"limit to these sources (default: all {len(REGISTRY)})")
+    scrape.add_argument(
+        "--currency", default="EUR", help="currency to ask the sources for (default EUR)"
+    )
+    scrape.add_argument(
+        "--base-currency",
+        default="EUR",
+        help="currency the printed table and CSV are shown in (the database always stores EUR)",
+    )
+    scrape.add_argument(
+        "--sources",
+        nargs="+",
+        choices=list(REGISTRY),
+        help=f"limit to these sources (default: all {len(REGISTRY)})",
+    )
     scrape.add_argument("--prefer", choices=("city", "airport"), default="city")
     scrape.add_argument("--timeout", type=int, default=60)
-    scrape.add_argument("--workers", type=int, default=DEFAULT_MAX_WORKERS,
-                        help="ceiling on source searches in flight at once "
-                             f"(default {DEFAULT_MAX_WORKERS}); each source also "
-                             "throttles itself")
-    scrape.add_argument("--cache-hours", type=float,
-                        default=DEFAULT_TTL.total_seconds() / 3600,
-                        help="reuse a source's answer to an identical search for "
-                             "this long; 0 disables the cache")
+    scrape.add_argument(
+        "--workers",
+        type=int,
+        default=DEFAULT_MAX_WORKERS,
+        help="ceiling on source searches in flight at once "
+        f"(default {DEFAULT_MAX_WORKERS}); each source also "
+        "throttles itself",
+    )
+    scrape.add_argument(
+        "--cache-hours",
+        type=float,
+        default=DEFAULT_TTL.total_seconds() / 3600,
+        help="reuse a source's answer to an identical search for this long; 0 disables the cache",
+    )
     scrape.add_argument("--retries", type=int, default=2)
     scrape.add_argument("--top", type=int, default=25, help="rows to print")
     scrape.add_argument("--db", default="flights.db", help="SQLite file, or '' to skip storage")
@@ -566,9 +608,11 @@ def build_parser() -> argparse.ArgumentParser:
     query.add_argument("--sources", nargs="+", choices=list(REGISTRY))
     query.add_argument("--top", type=int, default=25)
     query.add_argument("--summary", action="store_true", help="per-source totals instead of rows")
-    query.add_argument("--base-currency", default="EUR",
-                       help="currency to display in; converted at today's rate "
-                            "(the database always stores EUR)")
+    query.add_argument(
+        "--base-currency",
+        default="EUR",
+        help="currency to display in; converted at today's rate (the database always stores EUR)",
+    )
     query.add_argument("--db", default="flights.db")
     query.set_defaults(func=cmd_query)
 
@@ -593,16 +637,16 @@ def build_parser() -> argparse.ArgumentParser:
     capture.add_argument("--infants", type=int, default=0)
     capture.add_argument("--cabin", default="economy", choices=list(CABIN_CLASSES))
     capture.add_argument("--currency", default="EUR")
-    capture.add_argument("--trim", action="store_true",
-                         help="cut result payloads down to a few cards")
-    capture.add_argument("--keep", type=int, default=3,
-                         help="cards to keep when trimming (default 3)")
+    capture.add_argument(
+        "--trim", action="store_true", help="cut result payloads down to a few cards"
+    )
+    capture.add_argument(
+        "--keep", type=int, default=3, help="cards to keep when trimming (default 3)"
+    )
     capture.set_defaults(func=cmd_capture)
 
     # errors
-    errors = sub.add_parser(
-        "errors", help="what has gone wrong lately, and in what context"
-    )
+    errors = sub.add_parser("errors", help="what has gone wrong lately, and in what context")
     errors.add_argument("--limit", type=int, default=10)
     errors.add_argument("--where", help="only this subsystem, e.g. source.ff-sky")
     errors.add_argument("--json", action="store_true", help="the entries, whole")
@@ -627,31 +671,35 @@ def build_parser() -> argparse.ArgumentParser:
     unblock.add_argument("source", nargs="?", default="ff-kayak", choices=list(REGISTRY))
     unblock.add_argument("--url", help="challenge URL, if you already have one")
     unblock.add_argument("--db", default="flights.db")
-    unblock.add_argument("--wait", type=int, default=300,
-                         help="seconds to wait for you to finish (default 300)")
-    unblock.add_argument("--status", action="store_true",
-                         help="show which sources have been cleared")
-    unblock.add_argument("--forget", action="store_true",
-                         help="discard a stored challenge for this source")
+    unblock.add_argument(
+        "--wait", type=int, default=300, help="seconds to wait for you to finish (default 300)"
+    )
+    unblock.add_argument(
+        "--status", action="store_true", help="show which sources have been cleared"
+    )
+    unblock.add_argument(
+        "--forget", action="store_true", help="discard a stored challenge for this source"
+    )
     unblock.set_defaults(func=cmd_unblock)
 
     # prune
     prune = sub.add_parser("prune", help="forget flights that have already departed")
-    prune.add_argument("--before", metavar="YYYY-MM-DD",
-                       help="cutoff date (default: today)")
+    prune.add_argument("--before", metavar="YYYY-MM-DD", help="cutoff date (default: today)")
     prune.add_argument("--db", default="flights.db")
-    prune.add_argument("--cache-hours", type=float,
-                       default=DEFAULT_TTL.total_seconds() / 3600)
+    prune.add_argument("--cache-hours", type=float, default=DEFAULT_TTL.total_seconds() / 3600)
     prune.set_defaults(func=cmd_prune)
 
     # cache
     cache = sub.add_parser("cache", help="inspect or clear the per-source response cache")
     cache.add_argument("--db", default="flights.db")
-    cache.add_argument("--cache-hours", type=float,
-                       default=DEFAULT_TTL.total_seconds() / 3600)
+    cache.add_argument("--cache-hours", type=float, default=DEFAULT_TTL.total_seconds() / 3600)
     cache.add_argument("--purge", action="store_true", help="delete stale entries")
-    cache.add_argument("--older-than", type=float, metavar="HOURS",
-                       help="with --purge, the age to delete beyond (default: the TTL)")
+    cache.add_argument(
+        "--older-than",
+        type=float,
+        metavar="HOURS",
+        help="with --purge, the age to delete beyond (default: the TTL)",
+    )
     cache.set_defaults(func=cmd_cache)
 
     # serve
@@ -659,11 +707,18 @@ def build_parser() -> argparse.ArgumentParser:
     serve.add_argument("--host", default="127.0.0.1")
     serve.add_argument("--port", type=int, default=5000)
     serve.add_argument("--debug", action="store_true")
-    serve.add_argument("--db", default="flights.db", help="process ledger path, or '' to disable storage")
+    serve.add_argument(
+        "--db", default="flights.db", help="process ledger path, or '' to disable storage"
+    )
     serve.add_argument("--workers", type=int, default=DEFAULT_MAX_WORKERS)
-    serve.add_argument("--exit-with-parent", type=int, default=0, metavar="PID",
-                       help="shut down when this process does (the desktop "
-                            "shell passes its own pid so no sidecar is orphaned)")
+    serve.add_argument(
+        "--exit-with-parent",
+        type=int,
+        default=0,
+        metavar="PID",
+        help="shut down when this process does (the desktop "
+        "shell passes its own pid so no sidecar is orphaned)",
+    )
     serve.set_defaults(func=cmd_serve)
 
     return parser
@@ -674,7 +729,9 @@ def cmd_serve(args: argparse.Namespace) -> int:
     from .web import run_server
 
     exit_with_parent(args.exit_with_parent)
-    run_server(host=args.host, port=args.port, debug=args.debug, db_path=args.db, max_workers=args.workers)
+    run_server(
+        host=args.host, port=args.port, debug=args.debug, db_path=args.db, max_workers=args.workers
+    )
     return 0
 
 

@@ -16,6 +16,7 @@ from __future__ import annotations
 import html
 import re
 import time
+from concurrent.futures import CancelledError
 from datetime import date, timedelta
 from typing import Any, Dict, List, Optional, Tuple
 from urllib.parse import urlencode
@@ -23,9 +24,8 @@ from urllib.parse import urlencode
 from lxml import html as lxml_html
 
 from ..models import Itinerary, Leg, Offer, SearchQuery, Segment, parse_duration
+from ..task_queue import JobTimeout, RateLimited
 from .base import Source, SourceError
-from ..task_queue import RateLimited, JobTimeout
-from concurrent.futures import CancelledError
 
 BASE = "https://www.flightsfinder.com"
 
@@ -94,11 +94,7 @@ class _CFFLiveParser:
 
     def parse(self, markup: str) -> List[Offer]:
         tree = lxml_html.fromstring(f"<div>{markup}</div>")
-        modals = {
-            node.get("id"): node
-            for node in tree.cssselect("div.modal")
-            if node.get("id")
-        }
+        modals = {node.get("id"): node for node in tree.cssselect("div.modal") if node.get("id")}
         offers: List[Offer] = []
         for index, item in enumerate(tree.cssselect("div.list-item")):
             try:
@@ -159,8 +155,9 @@ class _CFFLiveParser:
             source_id=item.get("data-best", "") or "",
         )
 
-    def _leg(self, block, base_day: str, fallback_minutes, panel: "_LegDetail",
-             card_airlines: str) -> Leg:
+    def _leg(
+        self, block, base_day: str, fallback_minutes, panel: "_LegDetail", card_airlines: str
+    ) -> Leg:
         endpoints = block.cssselect("p")
         depart_clock = arrive_clock = ""
         origin_airport = destination_airport = ""
@@ -310,9 +307,7 @@ def _fallback_stops(panel: "_LegDetail") -> Optional[int]:
 # single-class version, `[A-Z][A-Z0-9]{1,2}`, is not equivalent: being greedy
 # it reads `KLM KL1405` as code `KL1`, and being letter-first it fails to match
 # `Germanwings 4U 8425` at all.
-_FLIGHT_RE = re.compile(
-    r"^(?P<name>.*?)\s+(?P<code>[A-Z]{3}|[A-Z0-9]{2})\s?(?P<num>\d{1,4})\s*$"
-)
+_FLIGHT_RE = re.compile(r"^(?P<name>.*?)\s+(?P<code>[A-Z]{3}|[A-Z0-9]{2})\s?(?P<num>\d{1,4})\s*$")
 
 
 def _split_flight(text: str) -> Tuple[str, str, str]:
@@ -329,8 +324,13 @@ def _split_flight(text: str) -> Tuple[str, str, str]:
     return match.group("name").strip(), code, f"{code}{num}"
 
 
-_MONTHS = {m: i for i, m in enumerate(
-    ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"], start=1)}
+_MONTHS = {
+    m: i
+    for i, m in enumerate(
+        ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"],
+        start=1,
+    )
+}
 
 
 def _date_from_words(text: str) -> str:
@@ -443,8 +443,13 @@ class _FlightsFinderPortal(Source):
         settled, last = 0, None
         while time.monotonic() < deadline:
             try:
-                poll = self.request(session, "post", 
-                    BASE + endpoint, data=body, headers=headers, timeout=self.timeout
+                poll = self.request(
+                    session,
+                    "post",
+                    BASE + endpoint,
+                    data=body,
+                    headers=headers,
+                    timeout=self.timeout,
                 )
             except (RateLimited, JobTimeout, CancelledError):
                 raise

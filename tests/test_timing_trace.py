@@ -1,4 +1,5 @@
 """The captured BER-LHR-DFW-SLP route must never mix two connection schedules."""
+
 import copy
 import json
 import unittest
@@ -30,8 +31,16 @@ class CapturedTimingTrace(unittest.TestCase):
         self.assertEqual(jet.segments[1].flight_number, "AA81")
 
     def test_elapsed_time_rejects_missing_invalid_and_backwards_absolute_timestamps(self):
-        for start, end in [(None, 100), (100, None), ("bad", 100), (100, 99),
-                           (100, 100), (float("nan"), 200), (100, float("inf")), (True, 200)]:
+        for start, end in [
+            (None, 100),
+            (100, None),
+            ("bad", 100),
+            (100, 99),
+            (100, 100),
+            (float("nan"), 200),
+            (100, float("inf")),
+            (True, 200),
+        ]:
             with self.subTest(start=start, end=end):
                 self.assertIsNone(_elapsed_minutes(start, end))
         self.assertEqual(_elapsed_minutes("1796910600", "1796948700"), 635)
@@ -50,7 +59,9 @@ class CapturedTimingTrace(unittest.TestCase):
         jet.segments[1].duration_minutes = None  # What the original parser discarded.
         old = json.dumps([s.to_dict() for s in jet.segments])
         incoming = json.dumps([s.to_dict() for s in mom.segments])
-        self.assertIsNone(_merge_segments(old, incoming), "different departure clocks are different flights")
+        self.assertIsNone(
+            _merge_segments(old, incoming), "different departure clocks are different flights"
+        )
 
     def test_store_keeps_both_real_itineraries_instead_of_creating_a_hybrid(self):
         jet, mom = captured_legs()
@@ -84,14 +95,18 @@ class CapturedTimingTrace(unittest.TestCase):
             s.flight_number = "BA9999"
             s.departure += ":00"
             s.arrival += ":00"
-        merged = _merge_segments(json.dumps([s.to_dict() for s in jet.segments]),
-                                 json.dumps([s.to_dict() for s in other.segments]))
+        merged = _merge_segments(
+            json.dumps([s.to_dict() for s in jet.segments]),
+            json.dumps([s.to_dict() for s in other.segments]),
+        )
         self.assertEqual(json.loads(merged)[1]["duration_minutes"], 635)
         self.assertEqual(json.loads(merged)[1]["flight_number"], "AA81")
 
     def test_return_connections_also_belong_to_trip_identity(self):
         jet, mom = captured_legs()
-        self.assertNotEqual(Itinerary(QUERY, jet, jet).trip_key, Itinerary(QUERY, jet, mom).trip_key)
+        self.assertNotEqual(
+            Itinerary(QUERY, jet, jet).trip_key, Itinerary(QUERY, jet, mom).trip_key
+        )
 
 
 if __name__ == "__main__":

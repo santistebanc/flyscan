@@ -17,9 +17,9 @@ both calls are rejected without the ``affiliate-marker`` and
 
 from __future__ import annotations
 
+import math
 import time
 import uuid
-import math
 from typing import Any, Dict, List, Optional
 
 from ..models import Itinerary, Leg, Offer, SearchQuery, Segment
@@ -98,21 +98,25 @@ class Travelpayouts(Source):
     # -- the search payload ------------------------------------------------
 
     def _payload(self, query: SearchQuery) -> Dict[str, Any]:
-        directions = [{
-            "origin": query.origin,
-            "destination": query.destination,
-            "date": query.depart.isoformat(),
-            "is_origin_airport": len(query.origin) == 3 and query.origin.isalpha(),
-            "is_destination_airport": False,
-        }]
-        if query.ret:
-            directions.append({
-                "origin": query.destination,
-                "destination": query.origin,
-                "date": query.ret.isoformat(),
-                "is_origin_airport": False,
+        directions = [
+            {
+                "origin": query.origin,
+                "destination": query.destination,
+                "date": query.depart.isoformat(),
+                "is_origin_airport": len(query.origin) == 3 and query.origin.isalpha(),
                 "is_destination_airport": False,
-            })
+            }
+        ]
+        if query.ret:
+            directions.append(
+                {
+                    "origin": query.destination,
+                    "destination": query.origin,
+                    "date": query.ret.isoformat(),
+                    "is_origin_airport": False,
+                    "is_destination_airport": False,
+                }
+            )
         # The marker is per-visitor; a fresh one each run keeps searches from
         # being folded together upstream.
         marker = f"{MARKER}.Z{uuid.uuid4().hex[:24]}-{MARKER}"
@@ -154,14 +158,18 @@ class Travelpayouts(Source):
         headers = self._headers
         payload = self._payload(query)
 
-        signed = self.request(session, "post", SIGN_URL, json=payload, headers=headers, timeout=self.timeout)
+        signed = self.request(
+            session, "post", SIGN_URL, json=payload, headers=headers, timeout=self.timeout
+        )
         if signed.status_code != 200:
             raise SourceError(f"signing returned HTTP {signed.status_code}")
         payload["signature"] = (signed.json() or {}).get("signature")
         if not payload["signature"]:
             raise SourceError("signing returned no signature")
 
-        started = self.request(session, "post", START_URL, json=payload, headers=headers, timeout=self.timeout)
+        started = self.request(
+            session, "post", START_URL, json=payload, headers=headers, timeout=self.timeout
+        )
         if started.status_code != 200:
             raise SourceError(f"search start returned HTTP {started.status_code}")
         opening = started.json()
@@ -177,8 +185,13 @@ class Travelpayouts(Source):
         collected: Dict[str, Offer] = {}
         deadline = time.monotonic() + 45
         while time.monotonic() < deadline:
-            poll = self.request(session, "post", 
-                results_url, json={"search_id": search_id}, headers=headers, timeout=self.timeout
+            poll = self.request(
+                session,
+                "post",
+                results_url,
+                json={"search_id": search_id},
+                headers=headers,
+                timeout=self.timeout,
             )
             if poll.status_code == 204:
                 self.pause(interval)
@@ -235,8 +248,9 @@ class Travelpayouts(Source):
                 continue
 
             agent = agents.get(str(proposal.get("agent_id"))) or {}
-            agent_name = ((agent.get("label") or {}).get("en") or {}).get("default") \
-                or agent.get("gate_name", "")
+            agent_name = ((agent.get("label") or {}).get("en") or {}).get("default") or agent.get(
+                "gate_name", ""
+            )
 
             itinerary = Itinerary(
                 query=query, outbound=legs[0], inbound=legs[1] if len(legs) > 1 else None
@@ -259,40 +273,45 @@ class Travelpayouts(Source):
         proposals = [p for p in (ticket.get("proposals") or []) if isinstance(p, dict)]
         if not proposals:
             return None
-        return min(
-            proposals, key=lambda p: (p.get("price") or {}).get("value", float("inf"))
-        )
+        return min(proposals, key=lambda p: (p.get("price") or {}).get("value", float("inf")))
 
     @staticmethod
     def _leg(segment: Dict[str, Any], flight_legs, airlines, proposal) -> Optional[Leg]:
         indices = segment.get("flights") or []
         raw_flights = [
-            flight_legs[i] for i in indices
-            if isinstance(i, int) and 0 <= i < len(flight_legs)
+            flight_legs[i] for i in indices if isinstance(i, int) and 0 <= i < len(flight_legs)
         ]
         if not raw_flights:
             return None
 
         terms = proposal.get("flight_terms") or {}
         segments: List[Segment] = []
-        for index, raw in zip(indices, raw_flights):
+        for index, raw in zip(indices, raw_flights, strict=False):
             # Prefer the marketing carrier from the fare terms; the leg itself
             # names the operating carrier, which is often a wet-lease subsidiary.
             term = terms.get(str(index)) or {}
-            designator = term.get("marketing_carrier_designator") \
-                or raw.get("operating_carrier_designator") or {}
+            designator = (
+                term.get("marketing_carrier_designator")
+                or raw.get("operating_carrier_designator")
+                or {}
+            )
             code = designator.get("carrier", "")
             segments.append(
                 Segment(
                     carrier=code,
                     carrier_name=((airlines.get(code) or {}).get("name") or {})
-                    .get("en", {}).get("default", "") if airlines else "",
+                    .get("en", {})
+                    .get("default", "")
+                    if airlines
+                    else "",
                     flight_number=f"{code}{designator.get('number', '')}".strip(),
                     origin=raw.get("origin", ""),
                     destination=raw.get("destination", ""),
                     departure=_iso(raw.get("local_departure_date_time", "")),
                     arrival=_iso(raw.get("local_arrival_date_time", "")),
-                    duration_minutes=_elapsed_minutes(raw.get("departure_unix_timestamp"), raw.get("arrival_unix_timestamp")),
+                    duration_minutes=_elapsed_minutes(
+                        raw.get("departure_unix_timestamp"), raw.get("arrival_unix_timestamp")
+                    ),
                 )
             )
 
@@ -304,7 +323,9 @@ class Travelpayouts(Source):
                 names.append(display)
 
         first, last = raw_flights[0], raw_flights[-1]
-        duration = _elapsed_minutes(first.get("departure_unix_timestamp"), last.get("arrival_unix_timestamp"))
+        duration = _elapsed_minutes(
+            first.get("departure_unix_timestamp"), last.get("arrival_unix_timestamp")
+        )
 
         return Leg(
             origin_airport=first.get("origin", ""),

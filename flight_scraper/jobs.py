@@ -233,11 +233,19 @@ class Job:
             self._error = error or self._error
             if self._error and not self._totals.get("errors"):
                 self._totals["errors"] = 1
-            self._status = status or ("cancelled" if self._cancelled else "failed" if self._error else "done")
+            self._status = status or (
+                "cancelled" if self._cancelled else "failed" if self._error else "done"
+            )
             self.finished_at = datetime.now(timezone.utc)
-            self.emit("done", total=self._totals.get("offers", 0),
-                      itineraries=self._totals.get("itineraries", 0), errors=self._totals.get("errors", 0),
-                      csv=self._csv_path, json=self._json_path, cancelled=self._cancelled)
+            self.emit(
+                "done",
+                total=self._totals.get("offers", 0),
+                itineraries=self._totals.get("itineraries", 0),
+                errors=self._totals.get("errors", 0),
+                csv=self._csv_path,
+                json=self._json_path,
+                cancelled=self._cancelled,
+            )
             self.log.close()
             self._aggregator = None
 
@@ -252,7 +260,8 @@ class Job:
             "params": deepcopy(self._params),
             "created_at": self.created_at.isoformat(timespec="seconds"),
             "finished_at": self.finished_at.isoformat(timespec="seconds")
-            if self.finished_at else None,
+            if self.finished_at
+            else None,
             "error": self._error,
             "last_seq": self.log.last_seq,
             "days_done": len(self._days),
@@ -305,7 +314,8 @@ class JobRegistry:
     def _reap_locked(self) -> int:
         cutoff = datetime.now(timezone.utc) - self.ttl
         stale = [
-            job_id for job_id, job in self._jobs.items()
+            job_id
+            for job_id, job in self._jobs.items()
             if job.done and job.finished_at is not None and job.finished_at < cutoff
         ]
         for job_id in stale:

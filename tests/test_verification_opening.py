@@ -1,4 +1,5 @@
 """Clicking Verify must open a recorded challenge without running another scrape."""
+
 import threading
 import unittest
 from unittest import mock
@@ -21,13 +22,20 @@ class VerificationOpening(unittest.TestCase):
             return {"solved": False, "cookies": 0}
 
         try:
-            with mock.patch("flight_scraper.challenge.probe_challenge", side_effect=slow_probe) as probe, \
-                 mock.patch("flight_scraper.challenge.solve", side_effect=browser):
+            with (
+                mock.patch(
+                    "flight_scraper.challenge.probe_challenge", side_effect=slow_probe
+                ) as probe,
+                mock.patch("flight_scraper.challenge.solve", side_effect=browser),
+            ):
                 self.assertTrue(control.start_recovery("momondo"))
                 opened_promptly = opened.wait(0.1)
                 release.set()
                 control.close()
-                self.assertTrue(opened_promptly, "Verify should open the known URL without waiting for a new flight search")
+                self.assertTrue(
+                    opened_promptly,
+                    "Verify should open the known URL without waiting for a new flight search",
+                )
                 probe.assert_not_called()
         finally:
             release.set()
@@ -37,17 +45,26 @@ class VerificationOpening(unittest.TestCase):
         control = ChallengeCoordinator()
         control.record("momondo", "https://example.test/security/check")
         entered = threading.Event()
+
         def fail_browser(*args, **kwargs):
             entered.set()
             raise RuntimeError("Browser executable is missing")
+
         try:
-            with mock.patch("flight_scraper.challenge.probe_challenge", return_value=("https://example.test/security/check", "challenged")), \
-                 mock.patch("flight_scraper.challenge.solve", side_effect=fail_browser), \
-                 mock.patch("logging.Logger.exception"):
+            with (
+                mock.patch(
+                    "flight_scraper.challenge.probe_challenge",
+                    return_value=("https://example.test/security/check", "challenged"),
+                ),
+                mock.patch("flight_scraper.challenge.solve", side_effect=fail_browser),
+                mock.patch("logging.Logger.exception"),
+            ):
                 control.start_recovery("momondo")
                 self.assertTrue(entered.wait(1))
                 control.close()
-            self.assertEqual(control.recovery_errors().get("momondo"), "Browser executable is missing")
+            self.assertEqual(
+                control.recovery_errors().get("momondo"), "Browser executable is missing"
+            )
         finally:
             control.close()
 
