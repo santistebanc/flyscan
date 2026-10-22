@@ -1,15 +1,8 @@
 name: Windows installer
 
 on:
+  # Manual only: Windows minutes cost double. Run it from the Actions tab when a PR needs an installer.
   workflow_dispatch:
-  pull_request:
-    paths:
-      - "desktop/**"
-      - "flight_scraper/**"
-      - "packaging/**"
-      - "tests/**"
-      - "pyproject.toml"
-      - ".github/workflows/windows-installer.yml"
 
 permissions:
   contents: read
