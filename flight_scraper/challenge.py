@@ -27,12 +27,15 @@ from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 
-from .challenge_page import check_page_script
+from .challenge_page import CHECK_PAGE_TWEAKS, check_page_script
 
 DEFAULT_DIR = Path(".challenges")
 
 #: How long a cleared challenge is assumed to hold before it is worth redoing.
 DEFAULT_TTL = timedelta(hours=12)
+
+#: The size the check window is given (the factory's virtual screen is the same size).
+SCREEN = (1280, 900)
 
 #: Nothing about this page means "solved" as reliably as leaving it does.
 CHECK_MARKER = "/security/check"
@@ -460,13 +463,21 @@ def solve(
         # address (about:blank would leave Playwright holding a second, ordinary window); the
         # goto below then reloads it with the tidy script installed.
         args.append(f"--app={url}")
+        # Zoom the whole browser (not the page: the captcha's image grid lives outside it) and
+        # shrink the window to match, so it still fills the same screen.
+        scale = CHECK_PAGE_TWEAKS[source].scale
+        args += [
+            f"--force-device-scale-factor={scale}",
+            f"--window-size={round(SCREEN[0] / scale)},{round(SCREEN[1] / scale)}",
+            "--window-position=0,0",
+        ]
 
     with sync_playwright() as driver:
         context = driver.chromium.launch_persistent_context(
             str(profile),
             headless=headless,
             locale="en-GB",
-            viewport={"width": 1280, "height": 900},
+            viewport=None if tidy else {"width": SCREEN[0], "height": SCREEN[1]},
             args=args,
         )
         try:
