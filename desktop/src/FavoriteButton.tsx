@@ -4,6 +4,7 @@ import { Icon } from "./Icon";
 
 type Motion = "favorite" | "unfavorite";
 
+/** Star toggle that animates only on a user toggle, never on first render or remount, and never under reduced motion. */
 export function FavoriteButton({ row, favorite, onToggle }: {
   row: FlightRow; favorite: boolean; onToggle: (key: string) => void;
 }) {
