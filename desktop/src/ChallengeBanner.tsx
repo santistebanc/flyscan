@@ -3,16 +3,20 @@ import type { FlightScraperApi, PendingChallenge } from "./api";
 import { isDesktop, openChallenge } from "./platform";
 import { Icon, Spinner } from "./Icon";
 import { sourceLabel } from "./queueModel";
+import { showsViewerPanel } from "./challengeViewer";
 
 /** Each source owns its verification request; other sources remain available. */
-export function ChallengeBanner({ api, pending, canSolveHere, onCleared }: {
+export function ChallengeBanner({ api, pending, canSolveHere, viewerUrl, onCleared }: {
   api: FlightScraperApi | null;
   pending: PendingChallenge[];
   canSolveHere: boolean;
+  /** Where the server's display can be watched; lets a browser tab show the check inline. */
+  viewerUrl?: string | null;
   onCleared: () => void | Promise<void>;
 }) {
   const [busy, setBusy] = useState(new Set<string>());
   const [errors, setErrors] = useState<Record<string, string>>({});
+  const [collapsed, setCollapsed] = useState(new Set<string>());
   const opening = useRef(new Set<string>());
   const available = Boolean(api && (isDesktop || canSolveHere));
 
@@ -43,6 +47,12 @@ export function ChallengeBanner({ api, pending, canSolveHere, onCleared }: {
     }
   };
 
+  const toggleViewer = (source: string) => setCollapsed((was) => {
+    const next = new Set(was);
+    if (!next.delete(source)) next.add(source);
+    return next;
+  });
+
   if (!pending.length) return null;
   return <div className="challenges" role="group" aria-label="Verification requests">
     {pending.map((challenge) => {
@@ -51,6 +61,8 @@ export function ChallengeBanner({ api, pending, canSolveHere, onCleared }: {
       const error = errors[challenge.source] || challenge.error;
       const title = working ? "Complete verification in the open window"
         : available ? `Verify ${name}` : "Open the desktop app to verify";
+      const viewing = showsViewerPanel({ isDesktop, viewerUrl, challenge });
+      const expanded = !collapsed.has(challenge.source);
       return <div key={challenge.source} className="challenge">
         <div className="challenge-row">
           <span className="challenge-source">{name}</span>
@@ -61,6 +73,14 @@ export function ChallengeBanner({ api, pending, canSolveHere, onCleared }: {
             {working ? "Verifying" : "Verify"}
           </button>
         </div>
+        {viewing && <div className="challenge-viewer">
+          <div className="challenge-viewer-bar">
+            <button type="button" aria-expanded={expanded} aria-label={`${expanded ? "Collapse" : "Expand"} ${name} verification view`}
+              onClick={() => toggleViewer(challenge.source)}>{expanded ? "Hide view" : "Show view"}</button>
+            <a href={viewerUrl!} target="_blank" rel="noopener noreferrer">Open in a new tab</a>
+          </div>
+          {expanded && <iframe className="challenge-viewer-frame" src={viewerUrl!} title={`${name} verification`} />}
+        </div>}
         {!working && error && <div className="challenge-error" role="alert">{error}</div>}
       </div>;
     })}
