@@ -421,6 +421,19 @@ def fresh_challenge_url(source_name: str) -> Optional[str]:
     return url
 
 
+def _fit_window(context, page, bounds: Dict[str, int]) -> None:
+    """Put the window at ``bounds``: Chromium restores an app window's last size over the flags."""
+    try:
+        session = context.new_cdp_session(page)
+        window_id = session.send("Browser.getWindowForTarget")["windowId"]
+        session.send(
+            "Browser.setWindowBounds",
+            {"windowId": window_id, "bounds": {**bounds, "windowState": "normal"}},
+        )
+    except Exception:
+        logging.getLogger(__name__).warning("could not size the check window", exc_info=True)
+
+
 def solve(
     source: str,
     url: str,
@@ -466,9 +479,15 @@ def solve(
         # Zoom the whole browser (not the page: the captcha's image grid lives outside it) and
         # shrink the window to match, so it still fills the same screen.
         scale = CHECK_PAGE_TWEAKS[source].scale
+        window = {
+            "left": 0,
+            "top": 0,
+            "width": round(SCREEN[0] / scale),
+            "height": round(SCREEN[1] / scale),
+        }
         args += [
             f"--force-device-scale-factor={scale}",
-            f"--window-size={round(SCREEN[0] / scale)},{round(SCREEN[1] / scale)}",
+            f"--window-size={window['width']},{window['height']}",
             "--window-position=0,0",
         ]
 
@@ -486,6 +505,8 @@ def solve(
             if tidy:
                 context.add_init_script(tidy)
             page = context.pages[0] if context.pages else context.new_page()
+            if tidy:
+                _fit_window(context, page, window)
             page.goto(url, wait_until="domcontentloaded", timeout=60_000)
 
             deadline = time.monotonic() + wait_seconds
