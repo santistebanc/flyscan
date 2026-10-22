@@ -1,0 +1,34 @@
+# Rust/Tauri compile check, only when the shell's Rust side changes. Not a required check,
+# because it doesn't run on every PR.
+name: CI (Tauri)
+
+on:
+  pull_request:
+    paths: ["desktop/src-tauri/**"]
+
+concurrency:
+  group: ci-tauri-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  cargo-check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - name: System libraries for Tauri
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: desktop/src-tauri
+      - name: Placeholders tauri-build expects (web build + Python sidecar)
+        run: |
+          mkdir -p desktop/dist desktop/src-tauri/binaries
+          touch "desktop/src-tauri/binaries/flight-scraper-sidecar-$(rustc -vV | sed -n 's/^host: //p')"
+      - run: cargo check --locked
+        working-directory: desktop/src-tauri

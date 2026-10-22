@@ -1,0 +1,33 @@
+# Runs on every commit (install once per clone: uv run pre-commit install).
+# CI runs the same hooks, so `git commit --no-verify` doesn't get anything past.
+repos:
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v6.0.0
+    hooks:
+      - id: check-merge-conflict
+      - id: check-yaml
+      - id: check-toml
+      - id: check-added-large-files
+        args: ["--maxkb=1024"]
+        exclude: ^tests/(recordings|fixtures)/
+
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.17.1
+    hooks:
+      - id: ruff-check
+        args: ["--fix"]
+      - id: ruff-format
+
+  - repo: https://github.com/gitleaks/gitleaks
+    rev: v8.30.0
+    hooks:
+      - id: gitleaks
+
+  - repo: local
+    hooks:
+      - id: desktop-typecheck
+        name: desktop typecheck (tsc)
+        entry: bash -c 'cd desktop && npx --no-install tsc --noEmit'
+        language: system
+        files: ^desktop/.*\.(ts|tsx)$
+        pass_filenames: false

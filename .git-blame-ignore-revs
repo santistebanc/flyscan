@@ -1,0 +1,3 @@
+# Mechanical reformat commits; git blame skips them (git config blame.ignoreRevsFile .git-blame-ignore-revs).
+# Format Python with ruff
+266628f34e782609c5f878a693f9dbd41da69f74

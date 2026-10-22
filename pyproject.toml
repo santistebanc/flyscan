@@ -30,3 +30,6 @@ target-version = "py310"
 # it would rewrite ~400 annotations for no behaviour change.
 select = ["E4", "E7", "E9", "F", "I", "B"]
 
+
+[dependency-groups]
+dev = ["pytest", "ruff==0.17.1", "pre-commit"]
