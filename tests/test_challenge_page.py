@@ -36,7 +36,10 @@ def test_solve_installs_the_script_before_opening_the_check(tmp_path):
     args = playwright.__enter__.return_value.chromium.launch_persistent_context.call_args.kwargs[
         "args"
     ]
-    assert "--app=about:blank" in args and "--hide-crash-restore-bubble" in args
+    assert (
+        "--app=https://www.momondo.ie/security/check" in args
+        and "--hide-crash-restore-bubble" in args
+    )
 
 
 def test_script_accepts_consent_and_hides_all_but_the_captcha():

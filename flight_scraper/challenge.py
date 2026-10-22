@@ -456,7 +456,10 @@ def solve(
     # The profile outlives a killed browser: don't greet the person with "Restore pages?".
     args = ["--hide-crash-restore-bubble", "--noerrdialogs"]
     if tidy:
-        args.append("--app=about:blank")  # a bare window: no tabs or address bar around the check
+        # A bare window: no tabs or address bar around the check. It has to be the app's own
+        # address (about:blank would leave Playwright holding a second, ordinary window); the
+        # goto below then reloads it with the tidy script installed.
+        args.append(f"--app={url}")
 
     with sync_playwright() as driver:
         context = driver.chromium.launch_persistent_context(
