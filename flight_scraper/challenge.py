@@ -25,7 +25,7 @@ import threading
 import time
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, Iterable, List, Optional, Tuple
 
 from .challenge_page import CHECK_PAGE_TWEAKS, check_page_script
 
@@ -62,13 +62,22 @@ class ChallengeStore:
 
     # -- reading and writing -----------------------------------------------
 
-    def save(self, source: str, cookies: Dict[str, str], url: str = "") -> None:
+    def save(
+        self,
+        source: str,
+        cookies: Dict[str, str],
+        url: str = "",
+        durable: Optional[Iterable[str]] = None,
+    ) -> None:
+        """Keep the cookies; ``durable`` names those that outlive a browser session."""
         record = {
             "source": source,
             "cookies": cookies,
             "url": url,
             "solved_at": datetime.now(timezone.utc).isoformat(timespec="seconds"),
         }
+        if durable is not None:
+            record["durable"] = sorted(durable)
         self.path.mkdir(parents=True, exist_ok=True)
         with self._lock:
             temporary = None
@@ -94,6 +103,41 @@ class ChallengeStore:
             return {}
         cookies = record.get("cookies")
         return dict(cookies) if isinstance(cookies, dict) else {}
+
+    def narrow_to_durable(self, source: str) -> bool:
+        """Keep only the cookies that outlive a browser session; False if that changes nothing.
+
+        A session cookie belongs to the session that earned it: replayed in a new one it can
+        make the source ask again. The full set is kept aside for ``restore_full``.
+        """
+        return self._rewrite(source, narrow=True)
+
+    def restore_full(self, source: str) -> bool:
+        return self._rewrite(source, narrow=False)
+
+    def _rewrite(self, source: str, narrow: bool) -> bool:
+        with self._lock:
+            try:
+                record = json.loads(self._file(source).read_text(encoding="utf-8"))
+            except (OSError, json.JSONDecodeError):
+                return False
+            if not isinstance(record, dict) or not isinstance(record.get("cookies"), dict):
+                return False
+            if narrow:
+                keep = record.get("durable")
+                if keep is None or "full" in record:
+                    return False
+                kept = {k: v for k, v in record["cookies"].items() if k in set(keep)}
+                if len(kept) == len(record["cookies"]):
+                    return False
+                record["full"], record["cookies"] = record["cookies"], kept
+            else:
+                if "full" not in record:
+                    return False
+                record["cookies"] = record.pop("full")
+            self.path.mkdir(parents=True, exist_ok=True)
+            self._file(source).write_text(json.dumps(record, indent=1), encoding="utf-8")
+            return True
 
     def clear(self, source: str) -> None:
         with self._lock:
@@ -300,8 +344,27 @@ class ChallengeCoordinator:
         if self._stopped.is_set():
             return self._cancelled(source)
         if report.get("solved"):
+            self._keep_cookies_that_clear(source)
             self.clear(source)
         return report
+
+    def _keep_cookies_that_clear(self, source):
+        """Make sure the cookies a person just earned are ones the source accepts.
+
+        The browser's whole jar is the natural thing to keep, but replaying a session's own
+        cookies in a new session can get the source to ask again (Momondo does, with its session
+        id), and the check would reappear as soon as the waiting work resumed. So if the source
+        still challenges, try the cookies that outlive a browser session instead.
+        """
+        store = self.cookies
+        if not hasattr(store, "narrow_to_durable"):
+            return
+        _, outcome = probe_challenge(source)
+        if outcome != "challenged" or not store.narrow_to_durable(source):
+            return
+        _, outcome = probe_challenge(source)
+        if outcome == "challenged":
+            store.restore_full(source)
 
     def solving(self):
         with self._lock:
@@ -521,14 +584,17 @@ def solve(
                 page.wait_for_timeout(2500)
                 if was_cancelled():
                     return report
-                cookies = {
-                    c["name"]: c["value"]
+                earned = [
+                    c
                     for c in context.cookies()
                     if "flightsfinder" in c.get("domain", "")
                     or "kayak" in c.get("domain", "")
                     or "momondo" in c.get("domain", "")
-                }
-                store.save(source, cookies, url)
+                ]
+                cookies = {c["name"]: c["value"] for c in earned}
+                # A session cookie has no expiry (Playwright reports -1).
+                durable = {c["name"] for c in earned if c.get("expires", -1) not in (-1, None)}
+                store.save(source, cookies, url, durable=durable)
                 report["cookies"] = len(cookies)
                 report["landed_on"] = page.url
         finally:
