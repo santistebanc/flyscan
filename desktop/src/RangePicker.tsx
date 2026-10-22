@@ -28,6 +28,14 @@ function key(day: Date): string {
 
 const at = (iso: string) => new Date(`${iso}T12:00:00`);
 
+export function initialCalendarView(from: string, to: string, min: string, selectionSide: "left" | "right" = "left") {
+  const showOnRight = selectionSide === "right" && Boolean(from || to);
+  const cursor = selectionSide === "right" ? (to || from || min) : (from || min);
+  const selected = at(cursor);
+  const first = new Date(selected.getFullYear(), selected.getMonth() - (showOnRight ? 1 : 0), 1, 12);
+  return { cursor, month: { year: first.getFullYear(), month: first.getMonth() } };
+}
+
 const shift = (iso: string, days: number) => {
   const day = at(iso);
   day.setDate(day.getDate() + days);
@@ -143,7 +151,7 @@ function Month(
 }
 
 export function RangePicker(
-  { label, from, to, min, optional, empty, hint, relatedRange, onChange }:
+  { label, from, to, min, optional, empty, hint, relatedRange, selectionSide = "left", onChange }:
   {
     label: string;
     from: string;
@@ -158,6 +166,8 @@ export function RangePicker(
     /** A word on what this range costs, shown in the footer. */
     hint?: string;
     relatedRange?: RelatedRange;
+    /** Which month contains the selection on opening; empty ranges put `min` on the left. */
+    selectionSide?: "left" | "right";
     onChange: (from: string, to: string) => void;
   },
 ) {
@@ -165,24 +175,18 @@ export function RangePicker(
   /** True once one end is down and the other is being chosen. */
   const [drawing, setDrawing] = useState(false);
   const [hover, setHover] = useState("");
-  const [cursor, setCursor] = useState(from || min);
-  const [month, setMonth] = useState(() => {
-    const start = at(from || min);
-    return { year: start.getFullYear(), month: start.getMonth() };
-  });
+  const openingView = initialCalendarView(from, to, min, selectionSide);
+  const [cursor, setCursor] = useState(openingView.cursor);
+  const [month, setMonth] = useState(openingView.month);
 
   const box = useRef<HTMLDivElement | null>(null);
   const popup = useRef<HTMLDivElement | null>(null);
   /** Hung from the right edge instead, when hanging left would run off screen. */
   const [flip, setFlip] = useState(false);
 
-  // Opening lands on the range being edited rather than wherever it was left.
+  // Focus and position the popup once the preferred month pair is on screen.
   useEffect(() => {
     if (!open) return;
-    const start = at(from || min);
-    setMonth({ year: start.getFullYear(), month: start.getMonth() });
-    setCursor(from || min);
-    setDrawing(false);
     popup.current?.focus();
 
     // Two months is wider than the field it hangs from, and the second of
@@ -233,7 +237,6 @@ export function RangePicker(
     } else {
       onChange(from, day);
       setDrawing(false);
-      setOpen(false);
     }
     setCursor(day);
   };
@@ -258,7 +261,14 @@ export function RangePicker(
           type="button"
           className={open ? "cal-trigger open" : "cal-trigger"}
           aria-expanded={open}
-          onClick={() => setOpen((was) => !was)}
+          onClick={() => {
+            if (!open) {
+              setMonth(openingView.month);
+              setCursor(openingView.cursor);
+              setDrawing(false);
+            }
+            setOpen((was) => !was);
+          }}
         >
           <span className={from ? "" : "muted"}>{trigger}</span>
           {span > 1 && <span className="cal-span">{span} days</span>}

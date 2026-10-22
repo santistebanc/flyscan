@@ -6,6 +6,8 @@
  * rather than assumed, because the shell picks a free port at launch.
  */
 
+import { AirportCities } from "./airportCities";
+
 export type SourceName =
   | "ff-kayak"
   | "ff-sky"
@@ -294,6 +296,8 @@ export interface PendingChallenge {
 }
 
 export class FlightScraperApi {
+  readonly airportCities = new AirportCities((code) => this.places(code));
+  private placeQueries = new Map<string, { until: number; promise: Promise<PlaceSuggestion[]> }>();
   constructor(private readonly base: string, private readonly apiKey?: string) {}
 
   private async json<T>(path: string, init?: RequestInit): Promise<T> {
@@ -422,9 +426,21 @@ export class FlightScraperApi {
   }
 
   places(term: string) {
-    return this.json<PlaceSuggestion[]>(
-      `/places?q=${encodeURIComponent(term)}`,
-    );
+    const query = term.trim(), key = query.toLowerCase(), cached = this.placeQueries.get(key);
+    if (!query) return Promise.resolve([]);
+    if (cached && cached.until > Date.now()) return cached.promise;
+    const entry = { until: Infinity, promise: Promise.resolve([] as PlaceSuggestion[]) };
+    entry.promise = this.json<PlaceSuggestion[]>(`/places?q=${encodeURIComponent(query)}`).then((matches) => {
+      this.airportCities.remember(matches);
+      entry.until = Date.now() + 5 * 60_000;
+      // Keep pending requests deduplicated even while pruning old query results.
+      for (const [oldKey, old] of this.placeQueries) {
+        if (old.until !== Infinity && (old.until <= Date.now() || this.placeQueries.size > 128)) this.placeQueries.delete(oldKey);
+      }
+      return matches;
+    }).catch((error) => { this.placeQueries.delete(key); throw error; });
+    this.placeQueries.set(key, entry);
+    return entry.promise;
   }
 
   /**

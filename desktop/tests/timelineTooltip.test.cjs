@@ -35,6 +35,7 @@ function host() {
   };
   const mod = { exports: {} };
   vm.runInNewContext(bundle, { module: mod, exports: mod.exports, document, window, innerWidth: 1280, innerHeight: 800,
+    ResizeObserver: class { observe() {} disconnect() {} },
     require: (name) => name === "react" ? hooks : name === "react-dom" ? { createPortal: (node) => node } : require(name) });
   const anchor = { isConnected: true, hovered: true, matches: () => anchor.hovered,
     contains: (target) => target === anchor, getBoundingClientRect: () => ({ left: 100, top: 100, width: 100, bottom: 124 }) };

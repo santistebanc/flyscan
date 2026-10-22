@@ -50,6 +50,7 @@ import { useFlightArrivals, useSelectedFlightAnchor } from "./useFlightListEffec
 import { AirportNamesProvider } from "./AirportLabel";
 import { useOfferPrices } from "./useOfferPrices";
 import { connectionRatings } from "./connectionRatings";
+import { useFareColumnWidth } from "./useFareColumnWidth";
 
 /** Default to a couple of weeks out: today's flights are mostly gone. */
 function defaultDate(): string {
@@ -144,11 +145,11 @@ function rememberedForm(): Partial<RememberedForm> {
   }
 }
 
-/** "2026-09-05" → "Sep 5". Parsed as local noon so no timezone shifts the day. */
+/** "2026-09-05" → "5 Sept". Parsed as local noon so no timezone shifts the day. */
 function readableDay(iso: string): string {
   const day = new Date(`${iso}T12:00:00`);
   if (Number.isNaN(day.getTime())) return iso;
-  return day.toLocaleDateString(undefined, { month: "short", day: "numeric" });
+  return day.toLocaleDateString("en-GB", { month: "short", day: "numeric" });
 }
 
 /**
@@ -173,6 +174,16 @@ function Results(
 ) {
   const { money } = useCurrency();
   const list = useRef<HTMLDivElement | null>(null);
+  const fareContent = useMemo(() => rows.map((row) => {
+    const returnDate = row.return_date || row.inbound?.departure.slice(0, 10) || "";
+    const hasWarning = (leg: FlightRow["outbound"]) => Boolean(timelines.journeys.get(leg)?.durationDifference);
+    return { price: money(row.best?.price_base), origin: row.outbound.origin_airport,
+      destination: row.outbound.destination_airport,
+      dates: readableDay(row.depart_date) + (returnDate ? ` - ${readableDay(returnDate)}` : ""),
+      outbound: row.outbound.duration || "", inbound: row.inbound?.duration || "",
+      warnings: Number(hasWarning(row.outbound)) + Number(Boolean(row.inbound && hasWarning(row.inbound))) };
+  }), [rows, money, timelines.journeys]);
+  useFareColumnWidth(list, fareContent);
   const index = openKey ? rows.findIndex((row) => row.trip_key === openKey) : -1;
   const isAnchored = useSelectedFlightAnchor(list, openKey);
   /**
@@ -257,7 +268,7 @@ function Results(
       role="grid"
       aria-label="Flights"
       aria-rowcount={rows.length}
-      aria-colcount={2}
+      aria-colcount={3}
       ref={list}
       // The full height stands in for the rows that are not there, so the
       // scrollbar means what it says.
@@ -268,7 +279,7 @@ function Results(
         const isOpen = row.trip_key === openKey;
         const rating = ratings.get(row.trip_key);
         const favorite = favorites.has(row.trip_key);
-        const oneWay = !row.return_date && !row.inbound;
+        const returnDate = row.return_date || row.inbound?.departure.slice(0, 10) || "";
         return (
           <div
             key={item.key}
@@ -286,29 +297,30 @@ function Results(
               transform: `translateY(${item.start - virtual.options.scrollMargin}px)`,
             }}
           >
+            <span className="favorite-cell" role="gridcell">
+              <FavoriteButton row={row} favorite={favorite} onToggle={onToggleFavorite} />
+            </span>
             <span className="fare-cell" role="gridcell">
               <span className="fare-header">
-                <FavoriteButton row={row} favorite={favorite} onToggle={onToggleFavorite} />
                 <span className="price" data-rating={rating?.price?.level} title={rating?.price?.description}>{money(row.best?.price_base)}</span>
               </span>
               <span className="flight-dates">
-                <span className={oneWay ? "fare-journey fare-journey--one-way" : "fare-journey"}>
-                  <span className="fare-journey-label">
-                    <span className="fare-route">
-                      <strong>{row.outbound.origin_airport}</strong>
-                      {oneWay && <><Icon name="arrow-right" /><strong>{row.outbound.destination_airport}</strong></>}
-                    </span>
-                    <time className="fare-journey-date" dateTime={row.depart_date} title={`Departure: ${row.depart_date}`}>{readableDay(row.depart_date)}</time>
-                  </span>
-                  <LegDuration leg={row.outbound} timing={timelines.journeys.get(row.outbound)} rating={rating?.outbound} />
+                <span className="fare-route">
+                  <strong>{row.outbound.origin_airport}</strong><Icon name="arrow-right" /><strong>{row.outbound.destination_airport}</strong>
                 </span>
-                {row.return_date && <span className="fare-journey">
-                  <span className="fare-journey-label">
-                    <strong>{row.inbound?.origin_airport || row.outbound.destination_airport}</strong>
-                    <time className="fare-journey-date" dateTime={row.return_date} title={`Return: ${row.return_date}`}>{readableDay(row.return_date)}</time>
+                <span className="fare-date-range">
+                  <time className="fare-journey-date" dateTime={row.depart_date} title={`Departure: ${row.depart_date}`}>{readableDay(row.depart_date)}</time>
+                  {returnDate && <> - <time className="fare-journey-date" dateTime={returnDate} title={`Return: ${returnDate}`}>{readableDay(returnDate)}</time></>}
+                </span>
+                <span className="fare-durations">
+                  <span aria-label={`Outbound duration: ${row.outbound.duration}`}>
+                    <LegDuration leg={row.outbound} timing={timelines.journeys.get(row.outbound)} rating={rating?.outbound} />
                   </span>
-                  {row.inbound && <LegDuration leg={row.inbound} timing={timelines.journeys.get(row.inbound)} rating={rating?.inbound} />}
-                </span>}
+                  {row.inbound && <span aria-label={`Return duration: ${row.inbound.duration}`}>
+                      <span className="fare-duration-separator" aria-hidden="true">/</span>
+                      <LegDuration leg={row.inbound} timing={timelines.journeys.get(row.inbound)} rating={rating?.inbound} />
+                  </span>}
+                </span>
               </span>
             </span>
             <span className="trip" role="gridcell">
@@ -706,6 +718,7 @@ function Shell() {
           />
           <RangePicker
             label="Return"
+            selectionSide="right"
             from={ret}
             to={retEnd || ret}
             min={start || todayISO()}
@@ -748,27 +761,6 @@ function Shell() {
       <main className="results-pane">
         {/* These display controls do not request new results from a source. */}
         <div className="results-bar">
-          <FlightFiltersBar filters={filters} onChange={setFilters} shown={shown.length} total={engine.rows.length} roundTrip={Boolean(ret)} suggestions={suggestions} connectionOptions={connectionOptions} />
-          <div className="results-view-controls">
-            <label className="inline">
-              Timeline
-              <select value={timelineMode} onChange={(e) => setTimelineMode(normalizeTimelineMode(e.target.value))}
-                title="Midnight-based ranges start at 24 hours and extend in three-hour steps. Shared scale aligns all filtered flights.">
-                <option value="days">Fixed ranges</option>
-                <option value="shared">Shared scale</option>
-              </select>
-            </label>
-            <label className="inline">
-              Sort by
-              <select value={sort} onChange={(e) => setSort(e.target.value as SortKey)}
-                title={sort === "best" ? "Balances price and total travel time, including the return and layovers" : undefined}>
-                {(Object.keys(SORT_LABELS) as SortKey[]).map((key) => (
-                  <option key={key} value={key}>{SORT_LABELS[key]}</option>
-                ))}
-              </select>
-            </label>
-            <CurrencyInput />
-          </div>
           {advanced && (
             <div className="advanced" id="advanced-search-options">
               <label>Adults
@@ -795,6 +787,27 @@ function Shell() {
               </label>
             </div>
           )}
+          <FlightFiltersBar filters={filters} onChange={setFilters} shown={shown.length} total={engine.rows.length} roundTrip={Boolean(ret)} suggestions={suggestions} connectionOptions={connectionOptions} />
+          <div className="results-view-controls">
+            <label className="inline">
+              Timeline
+              <select value={timelineMode} onChange={(e) => setTimelineMode(normalizeTimelineMode(e.target.value))}
+                title="Midnight-based ranges start at 24 hours and extend in three-hour steps. Shared scale aligns all filtered flights.">
+                <option value="days">Fixed ranges</option>
+                <option value="shared">Shared scale</option>
+              </select>
+            </label>
+            <label className="inline">
+              Sort by
+              <select value={sort} onChange={(e) => setSort(e.target.value as SortKey)}
+                title={sort === "best" ? "Balances price and total travel time, including the return and layovers" : undefined}>
+                {(Object.keys(SORT_LABELS) as SortKey[]).map((key) => (
+                  <option key={key} value={key}>{SORT_LABELS[key]}</option>
+                ))}
+              </select>
+            </label>
+            <CurrencyInput />
+          </div>
         </div>
 
         <Results

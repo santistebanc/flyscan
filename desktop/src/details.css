@@ -3,13 +3,14 @@
 .detail-summary { padding: 12px 16px 16px; border-bottom: 1px solid var(--line-soft); }
 .detail-route-heading { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
 .detail-route-heading > span { display: inline-flex; align-items: center; gap: 8px; font-size: 14px; font-weight: 600; color: var(--accent); }
+.detail-summary-date { margin-top: 4px; color: var(--muted); font-size: 12px; line-height: 16px; font-variant-numeric: tabular-nums; }
 .detail-fare { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 12px; margin-top: 4px; }
 .detail .detail-price { margin: 0; font: 600 30px/36px "Geist Mono", monospace; letter-spacing: -.04em; }
 .detail-fare > span { color: var(--muted); font-size: 12px; line-height: 16px; }
 .detail-journey { padding: 16px; border-bottom: 1px solid var(--line-soft); }
 .detail-journey-head { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; }
 .detail .detail-leg-title { margin: 0; color: var(--ink); font-size: 14px; line-height: 20px; font-weight: 600; letter-spacing: 0; text-transform: none; }
-.detail-leg-duration { font: 12px/16px "Geist Mono", monospace; white-space: nowrap; }
+.detail-leg-duration { font: 400 12px/16px Geist, sans-serif; white-space: nowrap; }
 .detail [data-rating="1"] { color: var(--rating-1); }
 .detail [data-rating="2"] { color: var(--rating-2); }
 .detail [data-rating="3"] { color: var(--rating-3); }
@@ -19,27 +20,28 @@
 .detail-segments { padding: 0; margin: 0; list-style: none; }
 .detail-flight { position: relative; }
 .detail-endpoint, .detail-flight-info, .detail-connection { display: grid; grid-template-columns: 56px 16px minmax(0, 1fr); column-gap: 8px; align-items: center; }
-.detail-endpoint { position: relative; min-height: 20px; }
-.detail-endpoint time { font: 14px/20px "Geist Mono", monospace; }
+.detail-endpoint { position: relative; min-height: 24px; }
+.detail-endpoint time { font: 600 16px/24px "Geist Mono", monospace; }
 .detail-node { width: 8px; height: 8px; justify-self: center; border: 2px solid var(--airline); border-radius: 50%; background: var(--panel); }
 .detail-airport { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: baseline; gap: 8px; min-width: 0; }
 .detail-endpoint-date { white-space: nowrap; }
 .detail-route-heading > span { min-width: 0; flex: 1; }
-.detail-airport strong { color: var(--accent); font-size: 14px; line-height: 20px; font-weight: 600; }
+.detail .airport-label > strong { color: var(--accent); font: 600 16px/24px Geist, sans-serif; }
 .detail-airport > span { color: var(--muted); font-size: 12px; line-height: 16px; }
+.detail .airport-city { white-space: normal; overflow: visible; overflow-wrap: anywhere; }
+.detail .airport-label { align-items: center; }
 .detail-flight-rail { position: absolute; top: 10px; bottom: 10px; left: 71px; width: 2px; background: var(--airline); }
 .detail-flight-info { min-height: 32px; padding-block: 4px; }
-.detail-flight-duration { grid-column: 1; color: var(--muted); font: 12px/16px "Geist Mono", monospace; white-space: nowrap; }
-.detail-carrier { grid-column: 3; display: flex; flex-wrap: wrap; gap: 0 8px; color: var(--airline); font-size: 12px; line-height: 16px; min-width: 0; overflow-wrap: anywhere; }
+.detail-flight-duration { grid-column: 1; padding-right: 4px; text-align: right; color: var(--muted); font: 400 12px/16px Geist, sans-serif; white-space: nowrap; }
+.detail-carrier { grid-column: 3; display: flex; flex-wrap: wrap; gap: 4px 8px; padding-left: 4px; color: color-mix(in srgb, var(--airline) 45%, var(--muted)); font: 400 12px/16px Geist, sans-serif; min-width: 0; overflow-wrap: anywhere; }
 .detail-flight-number { color: var(--muted); }
 .detail-flight-summary .detail-flight-rail { width: 0; background: transparent; border-left: 2px dashed var(--muted); }
 .detail-connection { position: relative; min-height: 32px; padding-block: 8px; color: var(--muted); }
-.detail-connection-duration { font: 12px/16px "Geist Mono", monospace; white-space: nowrap; }
+.detail-connection-duration { padding-right: 4px; text-align: right; font: 400 12px/16px Geist, sans-serif; white-space: nowrap; }
 .detail-connection-rail { position: absolute; top: -10px; bottom: -10px; left: 71px; border-left: 2px dotted var(--muted); opacity: .6; }
 .detail-connection-info { grid-column: 3; display: flex; flex-direction: column; gap: 4px; font-size: 12px; line-height: 16px; }
 .detail-connection-info > span { display: flex; align-items: center; gap: 4px; }
 .detail-transfer { color: var(--warn); }
-.detail-transfer-route { color: var(--accent); }
 .detail-overnight { display: inline-flex; align-items: center; color: var(--muted); }
 .detail-bookings { padding: 16px; }
 .detail-bookings .detail-leg-title { display: flex; align-items: center; gap: 8px; margin-bottom: 4px; }
@@ -51,6 +53,8 @@
 .detail-booking-meta, .detail-missing-return { color: var(--muted); font-size: 12px; line-height: 16px; }
 .detail-missing-return { margin: 16px; }
 .detail-booking-error { color: var(--bad); font-size: 12px; line-height: 16px; }
+.detail-booking-prices { display: inline-flex; align-items: baseline; gap: 8px; flex: none; }
+.detail-booking-original { color: var(--muted); opacity: .6; font: 12px/16px "Geist Mono", monospace; white-space: nowrap; }
 .detail-booking-price { font: 14px/20px "Geist Mono", monospace; white-space: nowrap; }
 .detail-booking-price[data-cheapest] { color: var(--ok); }
 .detail-booking-link, .detail-no-link, .detail-price-edit { display: inline-flex; align-items: center; justify-content: center; flex: none; width: 32px; height: 32px; padding: 8px; border: 0; background: transparent; color: var(--accent); }

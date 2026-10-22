@@ -2,6 +2,7 @@ import { createContext, useCallback, useContext, useEffect, useLayoutEffect, use
 import type { CSSProperties, ReactNode } from "react";
 import { createPortal } from "react-dom";
 import { airlineColor, clock, dayOffset, elapsed, partLabel, type TimelinePart } from "./flightTimeline";
+import { AirportLabel } from "./AirportLabel";
 
 type Open = { part: TimelinePart; anchor: HTMLButtonElement; id: string; note?: string };
 const TipContext = createContext<{ open: (tip: Open) => void; update: (tip: Open) => void; leave: () => void; active: string | undefined; close: () => void } | null>(null);
@@ -70,10 +71,18 @@ export function TimelineTooltipProvider({ children, resetKey: resultsVersion }: 
     if (!tip) return;
     if (!tip.anchor.isConnected) { close(); return; }
     if (!bubble.current) return;
-    const a = tip.anchor.getBoundingClientRect(), b = bubble.current.getBoundingClientRect();
-    const left = Math.max(12, Math.min(innerWidth - b.width - 12, a.left + a.width / 2 - b.width / 2));
-    const top = a.bottom + b.height + 12 < innerHeight ? a.bottom + 6 : Math.max(8, a.top - b.height - 6);
-    setPosition((was) => was.left === left && was.top === top ? was : { left, top });
+    const node = bubble.current;
+    const measure = () => {
+      const a = tip.anchor.getBoundingClientRect(), b = node.getBoundingClientRect();
+      const left = Math.max(12, Math.min(innerWidth - b.width - 12, a.left + a.width / 2 - b.width / 2));
+      const top = a.bottom + b.height + 12 < innerHeight ? a.bottom + 6 : Math.max(8, a.top - b.height - 6);
+      setPosition((was) => was.left === left && was.top === top ? was : { left, top });
+    };
+    measure();
+    // City lookups can complete while the tooltip is already open.
+    const observer = new ResizeObserver(measure);
+    observer.observe(node);
+    return () => observer.disconnect();
   }, [tip, resultsVersion, close]);
   const controls = useMemo(() => ({ open, update, leave, active: tip?.id, close }), [open, update, leave, tip?.id, close]);
   const part = tip?.part;
@@ -86,7 +95,9 @@ export function TimelineTooltipProvider({ children, resetKey: resultsVersion }: 
     {tip && part && createPortal(<div ref={bubble} id="flight-timeline-tooltip" role="tooltip" className="timeline-tooltip"
       style={position} onPointerEnter={keep} onPointerLeave={leave} onMouseDown={(e) => e.stopPropagation()}>
       <div className="tip-heading">{segment ? <><i style={{ background: airlineColor(segment.carrier) }}/>{part.kind === "flight" && !part.detailed ? `Journey summary${segment.carrier_name ? ` · ${segment.carrier_name}` : ""}` : segment.carrier_name || segment.carrier || "Airline unavailable"}</> : part.kind === "layover" && (part.transfer ? "Airport transfer" : `Layover in ${part.before.destination}`)}</div>
-      <div className="tip-route">{segment ? `${segment.origin} → ${segment.destination}` : part.kind === "layover" && (part.transfer ? `${part.before.destination} → ${part.after.origin}` : part.before.destination)}<b>{segment?.duration || elapsed(part.minutes)}</b></div>
+      <div className="tip-route"><span className="tip-airports">{segment ? <><AirportLabel code={segment.origin} /> → <AirportLabel code={segment.destination} /></>
+        : part.kind === "layover" && <><AirportLabel code={part.before.destination} />{part.transfer && <> → <AirportLabel code={part.after.origin} /></>}</>}
+      </span><b>{segment?.duration || elapsed(part.minutes)}</b></div>
       <div className="tip-times">{clock(from)} → {clock(to)}{shift > 0 ? ` (+${shift} day${shift > 1 ? "s" : ""})` : ""}<span>{segment?.flight_number}</span></div>
       <div className="tip-foot">{from.slice(0, 10)}{from.slice(0, 10) !== to.slice(0, 10) ? ` → ${to.slice(0, 10)}` : ""} · Local airport times{part.kind === "flight" && !part.detailed ? " · Segment times unavailable" : ""}</div>
       {part.kind === "layover" && part.fromJourneyDuration && <div className="tip-timing-note">Connection time from the total journey duration, including the airport change.</div>}

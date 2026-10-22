@@ -141,27 +141,63 @@ exists. Use the desktop app when a source actually asks for a human.
 
 ## Notes
 
-- Flight rows default to fixed ranges anchored at midnight at the departure
-  airport. Each direction uses the smallest fitting 24-hour, 27-hour, 30-hour
-  (or longer, in three-hour increments) range,
-  advancing by elapsed travel time. The row displays its range; compare bar
+- Flight rows use six-hour intervals starting at any 00:00, 06:00, 12:00, or
+  18:00 checkpoint, with one hour of padding before the starting checkpoint
+  and after the ending checkpoint (for example, 08:00–14:00 uses 05:00–19:00),
+  advancing by elapsed travel time. Compare bar
   lengths within the same range. Other results cannot stretch that row's scale.
   Timeline > Shared scale instead aligns all filtered results per direction,
-  from the earliest departure to the latest elapsed-time arrival. The display
+  from the earliest departure to the latest elapsed-time arrival, using the same
+  padded six-hour boundaries. The display
   choice is remembered separately from result filters. Departure dates align
   on day zero; endpoint labels, midnight dates and tooltips retain airport-local
   clocks, including timezone changes.
-  Midnight date indicators have a reserved row above the flight bars. Their
+  Departure and arrival times and airport codes share the line below the
+  flight bars with the connection labels. Departure sits left, connections in
+  the middle and arrival right; the line wraps when space is limited.
+  The starting date appears only when the left edge shares the flight's departure
+  date; a previous padding day has no starting label. It and later midnight
+  indicators have a reserved row above the flight bars. Their
   measured widths keep them inside the plot; collisions add date rows, and the
   plot grows to preserve spacing from flight times and connection labels.
-  Rounded-hour dividers use the departure-clock reference, with labels below
-  the bars. Their intervals adapt to the plot's measured width and time span:
-  wider plots show more hours; narrow or multi-day plots use fewer markers.
-- Airport codes show resolved city names beside them in the timeline and details.
-  Names are cached locally; unresolved names leave the airport code visible.
+  Short divider ticks adapt independently from the quieter checkpoint labels
+  above the bars, so there are more marks than labels. Date indicators occupy
+  their own rows above the clock labels. Wider plots show finer
+  intervals; narrow or multi-day plots use fewer marks and labels. Checkpoints
+  use one tick interval and one label interval across the entire timeline,
+  including flights and connections; time zone compression does not skip ticks.
+  Overlapping clock labels may be hidden while their marks remain visible. They
+  follow airport-local clocks, interpolated between each segment's timestamps
+  across timezone changes. Empty range space continues the departure clock
+  before takeoff and the destination clock after landing. Flight bars retain
+  their elapsed durations; ticks do not claim geographic timezone boundaries.
+- Timeline labels show airport codes, with city names in their hover titles and
+  flight, layover and transfer tooltips. Details show “city, country” beside the
+  codes and wrap long names. Countries share the city cache; older city-only
+  entries are enriched when details need them, and missing countries retry
+  after ten minutes while the labels remain visible.
+  The details header keeps just the route codes, with the departure date or
+  departure–return date range beneath them; segment endpoints retain city and country.
+  From/To also show the resolved city beside the code in quieter text, using the
+  same cache. Focusing a field gives its full width to the editable search text.
+  Missing names use the same autocomplete API as From/To. Every useful match
+  from either field seeds the shared city cache, and identical queries share
+  requests and a five-minute query cache. City names persist locally for 180
+  days, with stale names still visible while refreshing. Empty matches expire
+  after ten minutes within the current session and clear on reload, so a backend
+  update can fill previously missing names. Temporary failures retry with backoff while labels remain
+  mounted. Background name lookups use at most three requests at once, writes
+  are batched, and the persistent cache is capped at 2,048 entries. Existing
+  saved names migrate automatically. Unresolved names leave the code visible.
   Departure and return calendars mark the other calendar's range with a warm
-  underline and keep the current calendar's selection blue. Advanced search
-  fields expand below the result filters within the results pane, keeping the
+  underline and keep the current calendar's selection blue. The return picker
+  opens with its range's ending month on the right and the previous month on
+  the left. Without a return selection, it puts the departure month on the left
+  instead; the departure picker keeps its selected starting month on the left.
+  Completing a date range keeps either picker open for further adjustments;
+  clicking outside, toggling its trigger, or pressing Escape dismisses it.
+  Advanced search
+  fields expand above the result filters within the results pane, keeping the
   sidebar in place. Endpoint dates share the airport row in the details panel.
 - Booking options offer a price correction button. Enter the corrected total
   in the current display currency; it updates the cheapest offer, sorting,
@@ -172,8 +208,13 @@ exists. Use the desktop app when a source actually asks for a human.
 - Timeline bounds and per-leg positions are memoized on the results dataset,
   including offscreen rows. Bounds follow the filtered results; segment timings
   are reused from the full dataset. Sorting and favorites do not rescan it.
-  Rows remain virtualized. Dates sit below the price; journey durations sit
-  inside the timeline, leaving most of the width for comparison.
+  Rows remain virtualized. Favorites occupy a separate column sized to the star
+  button. The price and route column shares the width of its widest content
+  across all filtered results, including offscreen rows, so scrolling cannot
+  shift its alignment. The compact column below the price shows route codes
+  on the first line, departure and return dates on the second, and outbound and
+  return durations on the third. One-way trips use the same layout with one
+  date and duration, leaving most of the width for the timeline.
 - Colored segments use reported flight durations and same-airport connection
   times. Missing segment timing produces a neutral summary interval. Complete
   details stay visible when their sum disagrees with the reported total; a
@@ -207,11 +248,12 @@ exists. Use the desktop app when a source actually asks for a human.
   stay mounted outside the virtual range; the rest of the list remains virtual.
   New visible arrivals fade in for 160 ms without moving their geometry.
   Initial loads, sorting, filtering and virtual remounts do not replay that fade;
-  reduced-motion preferences skip it. Hover uses a light tint, while selection
-  has a stronger fill and a persistent accent edge.
+  reduced-motion preferences skip it. Hover uses a thin border highlight;
+  selection uses a stronger inset accent border. These do not affect row sizes
+  or replace the alternating backgrounds.
   Alternating backgrounds use the full results index, so virtual scrolling
-  cannot change a flight's stripe. Timeline dividers gain contrast on hovered
-  and selected rows. Sorting offers Best, Cheapest, Departure and Shortest.
+  cannot change a flight's stripe. Timeline markings keep the same colors and
+  opacity on hovered and selected rows. Sorting offers Best, Cheapest, Departure and Shortest.
 
 - `open_challenge` is an **async** command on purpose. Reading webview cookies
   deadlocks on Windows from a synchronous command or an event handler.

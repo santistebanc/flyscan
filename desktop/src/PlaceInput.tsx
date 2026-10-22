@@ -12,6 +12,7 @@ import {
 } from "react";
 import { createPortal } from "react-dom";
 import type { FlightScraperApi, PlaceSuggestion } from "./api";
+import { useAirportCity } from "./AirportLabel";
 import {
   filterRecentPlaces, placeLabel, readRecentPlaces, rememberPlace,
   type RecentPlace,
@@ -61,6 +62,8 @@ export function PlaceInput({
   required?: boolean;
 }) {
   const listId = useId();
+  const city = useAirportCity(value);
+  const cityId = `${listId}-city`;
   const wrap = useRef<HTMLLabelElement>(null);
   const input = useRef<HTMLInputElement>(null);
   const list = useRef<HTMLUListElement>(null);
@@ -221,6 +224,7 @@ export function PlaceInput({
   return (
     <label className={`place-field${open ? " place-field--open" : ""}`} ref={wrap}>
       {label}
+      <span className={`place-value${city ? " place-value--with-city" : ""}`} title={city ? `${value.trim().toUpperCase()} · ${city}` : undefined}>
       <input
         ref={input}
         value={value}
@@ -229,6 +233,8 @@ export function PlaceInput({
         autoCapitalize="characters"
         spellCheck={false}
         role="combobox"
+        aria-label={label}
+        aria-describedby={city ? cityId : undefined}
         aria-expanded={show}
         aria-controls={listId}
         aria-autocomplete="list"
@@ -259,6 +265,8 @@ export function PlaceInput({
         }}
         onKeyDown={onKeyDown}
       />
+      {city && <span className="place-selected-city" id={cityId}>{city}</span>}
+      </span>
       {dropdown}
     </label>
   );

@@ -66,7 +66,7 @@ export const TIMELINE_MODE_KEY = "flight-scraper.timeline-mode";
 export function normalizeTimelineMode(value: unknown): TimelineMode {
   return value === "shared" ? "shared" : "days";
 }
-/** Midnight-based ranges: at least 24 hours, then extend in three-hour steps.
+/** Six-hour ranges, with an extra hour before and after the checkpoints.
  * A row's range depends only on its own timing, so streaming, sorting and
  * filtering other flights cannot change its scale. Keep detailed arrivals
  * in range even when the source's reported total is shorter.
@@ -74,14 +74,17 @@ export function normalizeTimelineMode(value: unknown): TimelineMode {
 export function timelineScaleFor(timing: JourneyTiming | null | undefined, shared: TimelineScale | null,
   mode: TimelineMode): TimelineScale | null {
   if (!timing) return null;
-  if (mode === "shared") return shared;
+  if (mode === "shared" && !shared) return null;
   const end = Math.max(timing.end, timing.parts[timing.parts.length - 1]?.end ?? timing.end);
-  return { min: 0, max: Math.max(1440, Math.ceil(end / 180) * 180), airports: shared?.airports ?? [] };
+  const min = mode === "shared" ? shared!.min : timing.start;
+  const max = mode === "shared" ? shared!.max : end;
+  const start = Math.floor(min / 360) * 360;
+  return { min: start - 60, max: Math.max(start + 360, Math.ceil(max / 360) * 360) + 60,
+    airports: shared?.airports ?? [] };
 }
 export function timelineScaleLabel(scale: TimelineScale, mode: TimelineMode): string {
   if (mode === "shared") return "Shared scale";
-  const hours = (scale.max - scale.min) / 60;
-  return `${hours}h · ${String((scale.max / 60) % 24).padStart(2, "0")}:00 +${Math.floor(scale.max / 1440)}`;
+  return `${scaleClock(scale.min)} – ${scaleClock(scale.max)}`;
 }
 export interface FlightTimelines {
   outbound: TimelineScale | null;
@@ -183,15 +186,23 @@ export function flightTimelines(rows: FlightRow[], cached?: ReadonlyMap<Leg, Jou
  */
 export interface Midnight { at: number; label: string }
 const monthNames = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
-export function localMidnights(timing: JourneyTiming, scale?: Pick<TimelineScale, "min" | "max">): Midnight[] {
-  const marks: Midnight[] = [];
+/** Label the left edge only when it belongs to the departure airport's departure date. */
+export function timelineStartDate(timing: JourneyTiming, scale: Pick<TimelineScale, "min">, departure: string): Midnight | null {
+  const wall = wallStamp(departure);
+  if (wall === null || !Number.isFinite(scale.min)) return null;
+  const startWall = wall + scale.min - timing.start;
+  if (Math.floor(startWall / 1440) !== Math.floor(wall / 1440)) return null;
+  const day = new Date(startWall * 60000);
+  return { at: scale.min, label: `${monthNames[day.getUTCMonth()]} ${day.getUTCDate()}` };
+}
+export interface LocalClockSpan { from: number; to: number; start: number; end: number }
+/** Airport-local clocks mapped onto elapsed positions, including empty range space.
+ * In-flight clocks interpolate between airport timestamps, not geographic zone borders.
+ */
+export function localClockSpans(timing: JourneyTiming, scale?: Pick<TimelineScale, "min" | "max">): LocalClockSpan[] {
+  const spans: LocalClockSpan[] = [];
   const append = (from: number | null, to: number | null, start: number, end: number) => {
-    if (from === null || to === null || to <= from || end <= start) return;
-    for (let midnight = Math.floor(from / 1440) * 1440 + 1440; midnight <= to; midnight += 1440) {
-      const day = new Date(midnight * 60000);
-      marks.push({ at: start + (midnight - from) / (to - from) * (end - start),
-        label: `${monthNames[day.getUTCMonth()]} ${day.getUTCDate()}` });
-    }
+    if (from !== null && to !== null && end > start) spans.push({ from, to, start, end });
   };
   const fromWall = (part: TimelinePart) => wallStamp(part.kind === "flight" ? part.segment.departure : part.before.arrival);
   const toWall = (part: TimelinePart) => wallStamp(part.kind === "flight" ? part.segment.arrival : part.after.departure);
@@ -211,7 +222,20 @@ export function localMidnights(timing: JourneyTiming, scale?: Pick<TimelineScale
     const wall = toWall(last.part);
     if (wall !== null) append(wall, wall + range.max - last.end, last.end, range.max);
   }
-  return range ? marks.filter(({ at }) => at > range.min && at <= range.max) : marks;
+  return spans;
+}
+export function localMidnights(timing: JourneyTiming, scale?: Pick<TimelineScale, "min" | "max">): Midnight[] {
+  const marks = localClockSpans(timing, scale).flatMap(({ from, to, start, end }) => {
+    const found: Midnight[] = [];
+    if (to <= from) return found;
+    for (let midnight = Math.floor(from / 1440) * 1440 + 1440; midnight <= to; midnight += 1440) {
+      const day = new Date(midnight * 60000);
+      found.push({ at: start + (midnight - from) / (to - from) * (end - start),
+        label: `${monthNames[day.getUTCMonth()]} ${day.getUTCDate()}` });
+    }
+    return found;
+  });
+  return scale ? marks.filter(({ at }) => at > scale.min && at <= scale.max) : marks;
 }
 /** A wait whose local clock passes 00:00, by the rule `localMidnights` draws. */
 export function isOvernight(part: TimelinePart): boolean {
@@ -228,9 +252,9 @@ export function percent(minute: number, scale: TimelineScale) {
   return (minute - scale.min) / (scale.max - scale.min) * 100;
 }
 export function scaleClock(minute: number) {
-  const day = Math.floor(minute / 1440), within = minute % 1440;
+  const day = Math.floor(minute / 1440), within = ((minute % 1440) + 1440) % 1440;
   const h = Math.floor(within / 60), m = Math.round(within % 60);
-  return `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}${day ? ` +${day}` : ""}`;
+  return `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}${day ? ` ${day > 0 ? "+" : ""}${day}` : ""}`;
 }
 export function partLabel(part: TimelinePart) {
   if (part.kind === "flight") {
