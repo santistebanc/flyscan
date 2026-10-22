@@ -40,6 +40,7 @@ _SCRIPT = r"""
 (() => {
   const cfg = __CONFIG__;
   const HIDDEN = "data-fs-hidden";
+  const FILLED = "data-fs-filled";
   const consent = new RegExp("^\\s*(" + cfg.consent_buttons.join("|") + ")\\s*$", "i");
   const cont = new RegExp("^\\s*" + cfg.continue_button + "\\s*$", "i");
   const clicked = new WeakSet();
@@ -103,6 +104,25 @@ _SCRIPT = r"""
         sibling.style.setProperty("display", "none", "important");
       }
     }
+    fill(keeper);
+  };
+
+  // What is left is small: centre it on a plain page, enlarged, rather than leave it in the corner
+  // of the site's own layout (a purple page with a white content block).
+  const fill = (keeper) => {
+    if (keeper.hasAttribute(FILLED)) return;
+    keeper.setAttribute(FILLED, "");
+    for (const el of [document.documentElement, document.body]) {
+      el.style.setProperty("background", "#fff", "important");
+      el.style.setProperty("margin", "0", "important");
+    }
+    const style = {
+      position: "fixed", inset: "0", display: "flex", "flex-direction": "column",
+      "align-items": "center", "justify-content": "center", margin: "0", padding: "16px",
+      width: "auto", height: "auto", "max-width": "none", "min-height": "0",
+      background: "#fff", zoom: "1.5", "z-index": "1",
+    };
+    for (const [name, value] of Object.entries(style)) keeper.style.setProperty(name, value, "important");
   };
 
   const run = () => { try { acceptConsent(); tidy(); } catch (_) {} };

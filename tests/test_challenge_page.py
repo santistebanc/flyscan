@@ -58,5 +58,10 @@ def test_script_accepts_consent_and_hides_all_but_the_captcha():
             for name in ("chrome", "side", "promo", "foot", "check", "captcha", "robot", "go")
         }
         assert page.evaluate("window.accepted") == 1
+        box = page.locator("#check").bounding_box()
+        size = page.viewport_size
+        # Centred on the page rather than stuck in the corner of the site's layout.
+        assert abs((box["x"] + box["width"] / 2) - size["width"] / 2) < 2
+        assert abs((box["y"] + box["height"] / 2) - size["height"] / 2) < 2
         browser.close()
     assert [k for k, v in visible.items() if v] == ["check", "captcha", "robot", "go"]
