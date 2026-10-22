@@ -4,7 +4,7 @@ import type { FlightScraperApi, PendingChallenge } from "./api";
 import { isDesktop, openChallenge } from "./platform";
 import { Icon, Spinner } from "./Icon";
 import { sourceLabel } from "./queueModel";
-import { showsViewerPanel } from "./challengeViewer";
+import { embedViewerUrl, showsViewerPanel } from "./challengeViewer";
 
 /** The modal must escape the side panel's stacking context to sit above the header; without a DOM (static render) it stays inline. */
 const inBody = (node: ReactNode) => typeof document === "undefined" ? node : createPortal(node, document.body);
@@ -85,7 +85,7 @@ export function ChallengeBanner({ api, pending, canSolveHere, viewerUrl, onClear
               onClick={() => toggleViewer(challenge.source)}>{expanded ? "Hide view" : "Show view"}</button>
             <a href={viewerUrl!} target="_blank" rel="noopener noreferrer">Open in a new tab</a>
           </div>
-          {expanded && <iframe className="challenge-viewer-frame" src={viewerUrl!} title={`${name} verification`} />}
+          {expanded && <iframe className="challenge-viewer-frame" src={embedViewerUrl(viewerUrl!)} title={`${name} verification`} />}
         </div>)}
         {!working && error && <div className="challenge-error" role="alert">{error}</div>}
       </div>;

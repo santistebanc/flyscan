@@ -30,3 +30,11 @@ test("without a viewer address there is no panel", () => {
 test("the desktop shell never shows the panel", () => {
   assert.equal(showsViewerPanel({ isDesktop: true, viewerUrl: viewer, challenge: solving }), false);
 });
+
+test("noVNC's full page is embedded as its control-free lite page, other viewers as given", () => {
+  const { embedViewerUrl } = module_.exports;
+  assert.equal(embedViewerUrl("http://beelink.test:6080/vnc.html?autoconnect=1&resize=scale"),
+    "http://beelink.test:6080/vnc_lite.html?scale=true");
+  assert.equal(embedViewerUrl("http://viewer.test/screen"), "http://viewer.test/screen");
+  assert.equal(embedViewerUrl("not a url"), "not a url");
+});
