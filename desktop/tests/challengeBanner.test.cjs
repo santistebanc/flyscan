@@ -99,7 +99,7 @@ test("a solving source on the web embeds the viewer with a link to open it in a 
   const viewerUrl = "http://beelink.test:6080/vnc.html";
   const render = host({ isDesktop: false });
   const markup = renderToStaticMarkup(render({ viewerUrl, pending: [{ ...requests[0], solving: true }, requests[1]] }));
-  assert.match(markup, /<iframe[^>]*src="http:\/\/beelink\.test:6080\/vnc\.html"/);
+  assert.match(markup, /<iframe[^>]*src="http:\/\/beelink\.test:6080\/vnc_lite\.html\?scale=true"/);
   assert.match(markup, /<a [^>]*href="http:\/\/beelink\.test:6080\/vnc\.html"[^>]*target="_blank"[^>]*rel="noopener noreferrer"[^>]*>Open in a new tab/);
   assert.equal(markup.match(/<iframe/g).length, 1);
   assert.match(markup, /role="dialog"[^>]*aria-modal="true"/);
