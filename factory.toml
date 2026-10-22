@@ -11,3 +11,8 @@ heavy = ["desktop/src-tauri/**"]        # Rust/Tauri: build in CI, not on the Be
 
 [rules]
 live_network = false                    # a brief can allow it per ticket (sets FACTORY_ALLOW_LIVE=1)
+
+[protection]
+# Applied to the default branch by santistebanc/factory scripts/protect-branch.
+required_checks = ["checks (pre-commit)", "python tests", "desktop tests + build"]
+required_approvals = 1
