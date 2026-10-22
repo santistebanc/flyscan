@@ -33,6 +33,10 @@ def test_solve_installs_the_script_before_opening_the_check(tmp_path):
             wait_seconds=1,
         )
     assert events[:2] == ["script", "goto"]
+    args = playwright.__enter__.return_value.chromium.launch_persistent_context.call_args.kwargs[
+        "args"
+    ]
+    assert "--app=about:blank" in args and "--hide-crash-restore-bubble" in args
 
 
 def test_script_accepts_consent_and_hides_all_but_the_captcha():

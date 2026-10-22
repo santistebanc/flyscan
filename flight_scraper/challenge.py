@@ -452,6 +452,11 @@ def solve(
         ) from exc
 
     profile = store.profile_dir(source)
+    tidy = check_page_script(source)
+    # The profile outlives a killed browser: don't greet the person with "Restore pages?".
+    args = ["--hide-crash-restore-bubble", "--noerrdialogs"]
+    if tidy:
+        args.append("--app=about:blank")  # a bare window: no tabs or address bar around the check
 
     with sync_playwright() as driver:
         context = driver.chromium.launch_persistent_context(
@@ -459,11 +464,11 @@ def solve(
             headless=headless,
             locale="en-GB",
             viewport={"width": 1280, "height": 900},
+            args=args,
         )
         try:
             if was_cancelled():
                 return report
-            tidy = check_page_script(source)
             if tidy:
                 context.add_init_script(tidy)
             page = context.pages[0] if context.pages else context.new_page()
