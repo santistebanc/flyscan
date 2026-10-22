@@ -4,7 +4,7 @@ import { durationMinutes } from "./flightRatings";
 export type SortKey = "best" | "price" | "depart" | "duration";
 export const DEFAULT_SORT: SortKey = "best";
 export const SORT_LABELS: Record<SortKey, string> = {
-  best: "Best",
+  best: "Recommended",
   price: "Cheapest",
   depart: "Departure",
   duration: "Shortest",
