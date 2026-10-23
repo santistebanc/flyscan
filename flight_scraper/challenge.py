@@ -78,19 +78,23 @@ class ChallengeStore:
         }
         if durable is not None:
             record["durable"] = sorted(durable)
-        self.path.mkdir(parents=True, exist_ok=True)
         with self._lock:
-            temporary = None
-            try:
-                with tempfile.NamedTemporaryFile(
-                    mode="w", encoding="utf-8", dir=self.path, suffix=".tmp", delete=False
-                ) as stream:
-                    temporary = stream.name
-                    json.dump(record, stream, indent=1)
-                os.replace(temporary, self._file(source))
-            finally:
-                if temporary and os.path.exists(temporary):
-                    os.unlink(temporary)
+            self._write(source, record)
+
+    def _write(self, source: str, record: Dict[str, Any]) -> None:
+        """Replace the record whole: another process may be reading it at any moment."""
+        self.path.mkdir(parents=True, exist_ok=True)
+        temporary = None
+        try:
+            with tempfile.NamedTemporaryFile(
+                mode="w", encoding="utf-8", dir=self.path, suffix=".tmp", delete=False
+            ) as stream:
+                temporary = stream.name
+                json.dump(record, stream, indent=1)
+            os.replace(temporary, self._file(source))
+        finally:
+            if temporary and os.path.exists(temporary):
+                os.unlink(temporary)
 
     def load(self, source: str) -> Dict[str, str]:
         """Read the latest clearance on every session, including another process's write."""
@@ -135,8 +139,7 @@ class ChallengeStore:
                 if "full" not in record:
                     return False
                 record["cookies"] = record.pop("full")
-            self.path.mkdir(parents=True, exist_ok=True)
-            self._file(source).write_text(json.dumps(record, indent=1), encoding="utf-8")
+            self._write(source, record)
             return True
 
     def clear(self, source: str) -> None:
