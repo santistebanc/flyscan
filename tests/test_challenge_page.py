@@ -95,3 +95,62 @@ def test_nothing_is_hidden_until_the_continue_button_has_rendered(tmp_path):
         browser.close()
     assert early == (True, True)
     assert late == {"#intro": True, "#robot": True, "#go": True, "footer": False, "header": False}
+
+
+def test_tidied_check_opens_zoomed_in_a_bare_window_of_an_explicit_size(tmp_path):
+    page = mock.Mock(url="https://www.momondo.ie/home")
+    context = mock.Mock(pages=[page], cookies=lambda: [])
+    cdp = context.new_cdp_session.return_value
+    cdp.send.side_effect = lambda method, params=None: {"windowId": 7} if "get" in method else {}
+    playwright = mock.MagicMock()
+    launch = playwright.__enter__.return_value.chromium.launch_persistent_context
+    launch.return_value = context
+    module = mock.Mock(sync_playwright=lambda: playwright)
+    with mock.patch.dict("sys.modules", {"playwright": mock.Mock(), "playwright.sync_api": module}):
+        challenge.solve(
+            "ff-kayak",
+            "https://www.flightsfinder.com/security/check",
+            store=challenge.ChallengeStore(tmp_path),
+            wait_seconds=1,
+        )
+    kwargs = launch.call_args.kwargs
+    width, height = round(1280 / 1.3), round(900 / 1.3)
+    assert "--app=https://www.flightsfinder.com/security/check" in kwargs["args"]
+    assert "--force-device-scale-factor=1.3" in kwargs["args"]
+    assert f"--window-size={width},{height}" in kwargs["args"]
+    # The window, not an emulated viewport, sets the page size, so the zoom applies.
+    assert kwargs.get("no_viewport") is True and "viewport" not in kwargs
+    # Chromium's remembered app-window size is overridden explicitly.
+    cdp.send.assert_any_call(
+        "Browser.setWindowBounds",
+        {
+            "windowId": 7,
+            "bounds": {
+                "left": 0,
+                "top": 0,
+                "width": width,
+                "height": height,
+                "windowState": "normal",
+            },
+        },
+    )
+
+
+def test_an_untidied_check_keeps_an_ordinary_window(tmp_path):
+    page = mock.Mock(url="https://x.test/home")
+    context = mock.Mock(pages=[page], cookies=lambda: [])
+    playwright = mock.MagicMock()
+    launch = playwright.__enter__.return_value.chromium.launch_persistent_context
+    launch.return_value = context
+    module = mock.Mock(sync_playwright=lambda: playwright)
+    with mock.patch.dict("sys.modules", {"playwright": mock.Mock(), "playwright.sync_api": module}):
+        challenge.solve(
+            "ff-sky",
+            "https://x.test/security/check",
+            store=challenge.ChallengeStore(tmp_path),
+            wait_seconds=1,
+        )
+    kwargs = launch.call_args.kwargs
+    assert not [a for a in kwargs["args"] if a.startswith(("--app=", "--force-device-scale"))]
+    assert kwargs["viewport"] == {"width": 1280, "height": 900}
+    context.new_cdp_session.assert_not_called()
