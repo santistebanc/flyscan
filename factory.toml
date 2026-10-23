@@ -15,4 +15,4 @@ live_network = false                    # a brief can allow it per ticket (sets 
 [protection]
 # Applied to the default branch by santistebanc/factory scripts/protect-branch.
 required_checks = ["checks (pre-commit)", "python tests", "desktop tests + build"]
-required_approvals = 1
+required_approvals = 0
