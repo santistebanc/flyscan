@@ -1,26 +1,18 @@
-import { useRef, useState, type ReactNode } from "react";
-import { createPortal } from "react-dom";
+import { useRef, useState } from "react";
 import type { FlightScraperApi, PendingChallenge } from "./api";
 import { isDesktop, openChallenge } from "./platform";
 import { Icon, Spinner } from "./Icon";
 import { sourceLabel } from "./queueModel";
-import { embedViewerUrl, showsViewerPanel } from "./challengeViewer";
-
-/** The modal must escape the side panel's stacking context to sit above the header; without a DOM (static render) it stays inline. */
-const inBody = (node: ReactNode) => typeof document === "undefined" ? node : createPortal(node, document.body);
 
 /** Each source owns its verification request; other sources remain available. */
-export function ChallengeBanner({ api, pending, canSolveHere, viewerUrl, onCleared }: {
+export function ChallengeBanner({ api, pending, canSolveHere, onCleared }: {
   api: FlightScraperApi | null;
   pending: PendingChallenge[];
   canSolveHere: boolean;
-  /** Where the server's display can be watched; lets a browser tab show the check inline. */
-  viewerUrl?: string | null;
   onCleared: () => void | Promise<void>;
 }) {
   const [busy, setBusy] = useState(new Set<string>());
   const [errors, setErrors] = useState<Record<string, string>>({});
-  const [collapsed, setCollapsed] = useState(new Set<string>());
   const opening = useRef(new Set<string>());
   const available = Boolean(api && (isDesktop || canSolveHere));
 
@@ -51,12 +43,6 @@ export function ChallengeBanner({ api, pending, canSolveHere, viewerUrl, onClear
     }
   };
 
-  const toggleViewer = (source: string) => setCollapsed((was) => {
-    const next = new Set(was);
-    if (!next.delete(source)) next.add(source);
-    return next;
-  });
-
   if (!pending.length) return null;
   return <div className="challenges" role="group" aria-label="Verification requests">
     {pending.map((challenge) => {
@@ -65,8 +51,6 @@ export function ChallengeBanner({ api, pending, canSolveHere, viewerUrl, onClear
       const error = errors[challenge.source] || challenge.error;
       const title = working ? "Complete verification in the open window"
         : available ? `Verify ${name}` : "Open the desktop app to verify";
-      const viewing = showsViewerPanel({ isDesktop, viewerUrl, challenge });
-      const expanded = !collapsed.has(challenge.source);
       return <div key={challenge.source} className="challenge">
         <div className="challenge-row">
           <span className="challenge-source">{name}</span>
@@ -77,16 +61,6 @@ export function ChallengeBanner({ api, pending, canSolveHere, viewerUrl, onClear
             {working ? "Verifying" : "Verify"}
           </button>
         </div>
-        {viewing && inBody(<div className={expanded ? "challenge-viewer open" : "challenge-viewer"}
-          role="dialog" aria-modal={expanded} aria-label={`${name} verification`}>
-          <div className="challenge-viewer-bar">
-            <span className="challenge-viewer-title">{name} security check</span>
-            <button type="button" aria-expanded={expanded} aria-label={`${expanded ? "Collapse" : "Expand"} ${name} verification view`}
-              onClick={() => toggleViewer(challenge.source)}>{expanded ? "Hide view" : "Show view"}</button>
-            <a href={viewerUrl!} target="_blank" rel="noopener noreferrer">Open in a new tab</a>
-          </div>
-          {expanded && <iframe className="challenge-viewer-frame" src={embedViewerUrl(viewerUrl!)} title={`${name} verification`} />}
-        </div>)}
         {!working && error && <div className="challenge-error" role="alert">{error}</div>}
       </div>;
     })}

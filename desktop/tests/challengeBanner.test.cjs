@@ -7,7 +7,7 @@ const { buildSync } = require("esbuild");
 const React = require("react");
 const { renderToStaticMarkup } = require("react-dom/server");
 const bundle = buildSync({ entryPoints: [path.join(__dirname, "../src/ChallengeBanner.tsx")],
-  bundle: true, external: ["react", "react-dom", "./platform"], write: false, format: "cjs", platform: "node", jsx: "automatic" }).outputFiles[0].text;
+  bundle: true, external: ["react", "./platform"], write: false, format: "cjs", platform: "node", jsx: "automatic" }).outputFiles[0].text;
 const requests = [{ source: "ff-kayak", url: "https://example.test/one" },
   { source: "ff-sky", url: "https://example.test/two" }];
 function deferred() { let resolve; const promise = new Promise((yes) => { resolve = yes; }); return { resolve, promise }; }
@@ -20,7 +20,7 @@ function host(platform) {
     useRef(initial) { const i = cursor++; return slots[i] ??= { current: initial }; },
   };
   const module = { exports: {} };
-  vm.runInNewContext(bundle, { module, exports: module.exports, Error, URL,
+  vm.runInNewContext(bundle, { module, exports: module.exports, Error,
     require: (name) => name === "react" ? hooks : name === "./platform" ? platform : require(name) });
   return (overrides = {}) => { cursor = 0; return module.exports.ChallengeBanner({ api: {},
     pending: requests, canSolveHere: true, onCleared() {}, ...overrides }); };
@@ -93,40 +93,4 @@ test("asynchronous server launch errors appear beside the affected source", () =
   const tree = render({ pending: [{ ...requests[0], error: "Browser executable is missing" }, requests[1]] });
   assert.match(renderToStaticMarkup(tree), /Browser executable is missing/);
   assert.equal(buttons(tree).every((button) => !button.props.disabled), true);
-});
-
-test("a solving source on the web embeds the viewer with a link to open it in a new tab", () => {
-  const viewerUrl = "http://beelink.test:6080/vnc.html";
-  const render = host({ isDesktop: false });
-  const markup = renderToStaticMarkup(render({ viewerUrl, pending: [{ ...requests[0], solving: true }, requests[1]] }));
-  assert.match(markup, /<iframe[^>]*src="http:\/\/beelink\.test:6080\/vnc_lite\.html\?scale=true"/);
-  assert.match(markup, /<a [^>]*href="http:\/\/beelink\.test:6080\/vnc\.html"[^>]*target="_blank"[^>]*rel="noopener noreferrer"[^>]*>Open in a new tab/);
-  assert.equal(markup.match(/<iframe/g).length, 1);
-  assert.match(markup, /role="dialog"[^>]*aria-modal="true"/);
-});
-
-test("no viewer panel without a viewer address, when not solving, or in the desktop shell", () => {
-  const viewerUrl = "http://beelink.test:6080/vnc.html";
-  const solving = [{ ...requests[0], solving: true }];
-  assert.doesNotMatch(renderToStaticMarkup(host({ isDesktop: false })({ pending: solving })), /iframe/);
-  assert.doesNotMatch(renderToStaticMarkup(host({ isDesktop: false })({ viewerUrl, pending: requests })), /iframe/);
-  assert.doesNotMatch(renderToStaticMarkup(host({ isDesktop: true })({ viewerUrl, pending: solving })), /iframe/);
-});
-
-test("the viewer panel can be collapsed and expanded, and goes with the row", () => {
-  const viewerUrl = "http://beelink.test:6080/vnc.html";
-  const render = host({ isDesktop: false });
-  const props = { viewerUrl, pending: [{ ...requests[0], solving: true }] };
-  const toggle = (node) => {
-    if (!React.isValidElement(node)) return [];
-    return [...(node.props["aria-expanded"] !== undefined ? [node] : []), ...React.Children.toArray(node.props.children).flatMap(toggle)];
-  };
-  const [button] = toggle(render(props));
-  assert.equal(button.props["aria-expanded"], true);
-  button.props.onClick();
-  assert.doesNotMatch(renderToStaticMarkup(render(props)), /<iframe/);
-  assert.match(renderToStaticMarkup(render(props)), /Open in a new tab/);
-  toggle(render(props))[0].props.onClick();
-  assert.match(renderToStaticMarkup(render(props)), /<iframe/);
-  assert.doesNotMatch(renderToStaticMarkup(render({ ...props, pending: [] }) ?? ""), /iframe/);
 });

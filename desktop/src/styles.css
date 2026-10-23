@@ -590,14 +590,6 @@ label.inline select {
 .challenge-row { display: flex; align-items: center; gap: 8px; }
 .challenge-source { flex: 1; min-width: 0; }
 .challenge button { display: inline-flex; align-items: center; gap: 4px; padding: 4px 8px; font-size: 12px; }
-/* The check opens as a large modal; collapsed, it shrinks to a bar in the corner. */
-.challenge-viewer { position: fixed; right: 16px; bottom: 16px; z-index: 100; padding: 8px 10px; background: var(--panel); border: 1px solid var(--line); border-radius: 6px; box-shadow: 0 8px 32px rgba(0,0,0,.5); }
-/* Sized to the server's 1280x900 screen (plus noVNC's 36px status strip) so there are no empty bands, and capped so it isn't huge on big monitors. */
-.challenge-viewer.open { top: 50%; left: 50%; right: auto; bottom: auto; transform: translate(-50%, -50%); display: flex; flex-direction: column; padding: 12px; width: min(92vw, 900px, calc((92vh - 80px) * 1.367 + 24px)); box-shadow: 0 0 0 100vmax rgba(0,0,0,.65); }
-.challenge-viewer-bar { display: flex; align-items: center; gap: 12px; }
-.challenge-viewer-title { flex: 1; font-weight: 600; }
-.challenge-viewer-bar a { font-size: 12px; }
-.challenge-viewer-frame { display: block; flex: none; width: 100%; aspect-ratio: 1280 / 936; margin-top: 8px; border: 1px solid var(--line); border-radius: 4px; background: #000; }
 .challenge-error { color: var(--bad); font-size: 12px; line-height: 16px; overflow-wrap: anywhere; margin-top: 4px; }
 
 /* -- the picked flight --------------------------------------------------- */

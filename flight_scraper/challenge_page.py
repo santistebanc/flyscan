@@ -22,8 +22,8 @@ class CheckPageTweak:
     captcha_selectors: Tuple[str, ...] = ()
     #: Label of the button that submits the check, kept visible with the captcha.
     continue_button: str = "continue"
-    #: Browser zoom for the check window. The check is shown scaled down in a viewer, so it is
-    #: drawn larger here (the captcha's own image grid included).
+    #: Browser zoom for the check window. The captcha's own image grid is drawn larger here
+    #: so it is easier to read.
     scale: float = 1.3
 
 

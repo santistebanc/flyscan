@@ -504,8 +504,6 @@ export class FlightScraperApi {
       pending: PendingChallenge[];
       /** Whether the server can open a browser itself. */
       can_solve_here: boolean;
-      /** Where to watch the check the server opened; absent when none is configured. */
-      viewer_url?: string | null;
     }>("/challenges");
   }
 
