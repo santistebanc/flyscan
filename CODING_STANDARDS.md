@@ -19,10 +19,10 @@ Read at review time (the `factory-review` standards axis). Each rule describes w
 ## Tests (`tests/`, `desktop/tests/`)
 
 9. **Test names are behaviour sentences**, e.g. `test_cancelling_during_admission_does_not_leave_later_work`. A test class docstring states the contract it guards.
-10. **Through the public interface**, at the seams the ticket's brief names. Tests survive refactors of internals.
+10. **Through the public interface**, at the public seams the ticket's requirements name. Tests survive refactors of internals.
 11. **Offline only.** Tests use fixtures and recordings; the replay player fails loudly on an unrecorded URL, and tests rely on that. A parser change that alters a recording's offer digest explains why in the PR.
 12. **Time is controlled.** Timing-sensitive tests use injected clocks or explicit tolerances; tests that sleep for real time stay short and say why.
-13. **Tests keep their strength.** A PR keeps every existing assertion at least as strict as before; loosening one needs the owner's agreement in the ticket.
+13. **Tests keep their strength.** A PR keeps every existing assertion at least as strict as before; loosening one needs the owner's explicit agreement.
 
 ## Desktop (`desktop/src/`)
 
