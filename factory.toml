@@ -1,7 +1,0 @@
-# Factory settings for this repo. Global settings: santistebanc/factory config/factory.toml.
-# Development previews come from factory config/development.toml unless a [development] table is added here.
-
-[protection]
-# Applied to the default branch by santistebanc/factory scripts/protect-branch.
-required_checks = ["checks (pre-commit)", "python tests", "desktop tests + build"]
-required_approvals = 0

@@ -1,6 +1,6 @@
 # Coding standards
 
-Read at review time (the `factory-review` standards axis). Each rule describes what the code already does; new code matches it. Where a rule and a nearby file disagree, follow the rule and mention the mismatch in the PR. Formatting and lint are enforced by ruff, tsc and pre-commit, so they're not listed here.
+Read at review time. Each rule describes what the code already does; new code matches it. Where a rule and a nearby file disagree, follow the rule and mention the mismatch in the PR. Formatting and lint are enforced by ruff, tsc and pre-commit, so they're not listed here.
 
 ## Everywhere
 
