@@ -366,7 +366,7 @@ class ChallengeCoordinator:
         if outcome != "challenged" or not store.narrow_to_durable(source):
             return
         _, outcome = probe_challenge(source)
-        if outcome == "challenged":
+        if outcome != "clear":
             store.restore_full(source)
 
     def solving(self):

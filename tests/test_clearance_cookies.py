@@ -98,6 +98,10 @@ class RecoveryKeepsCookiesTheSourceAccepts(unittest.TestCase):
         kept, probes, _ = self.recover(["challenged", "challenged"])
         self.assertEqual((kept, probes), (set(JAR), 2))
 
+    def test_everything_is_kept_when_the_narrowed_probe_errors(self):
+        kept, probes, _ = self.recover(["challenged", "error"])
+        self.assertEqual((kept, probes), (set(JAR), 2))
+
     def test_an_unreadable_probe_changes_nothing(self):
         kept, probes, _ = self.recover(["error"])
         self.assertEqual((kept, probes), (set(JAR), 1))
