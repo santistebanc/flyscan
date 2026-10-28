@@ -347,9 +347,16 @@ def _date_segments(segments: List[Segment], base_day: str) -> None:
     """Give the modal's clock-only times a date, in place.
 
     The result cards show a segment as ``21:45`` with no date, which is fine on
-    screen and useless to anything computing a layover. Walking the segments in
-    order and rolling the date forward whenever the clock goes backwards
-    recovers it — a connection never departs before the flight that fed it.
+    screen and useless to anything computing a layover. Every time is local to
+    its airport, so the two kinds of step are dated differently:
+
+    *A wait* runs on one airport's clock: a connection never departs before the
+    flight that fed it, so a clock that goes backwards is the next day.
+
+    *A flight* crosses clocks. Westbound, the local arrival can read earlier
+    than the departure on the same day — SAW 17:55 to TIA 17:50 is a 1h 55m
+    flight two time zones west — so its arrival is dated from its duration
+    instead, see `_arrival_day`.
     """
     try:
         current = date.fromisoformat(base_day)
@@ -357,14 +364,47 @@ def _date_segments(segments: List[Segment], base_day: str) -> None:
         return
     previous = ""
     for segment in segments:
-        for field in ("departure", "arrival"):
-            clock = getattr(segment, field)
-            if not clock or "T" in clock:
-                continue  # already dated, or missing entirely
-            if previous and clock < previous:
+        departure = segment.departure
+        if departure and "T" not in departure:
+            if previous and departure < previous:
                 current += timedelta(days=1)
-            previous = clock
-            setattr(segment, field, _iso(current.isoformat(), clock))
+            segment.departure = _iso(current.isoformat(), departure)
+            previous = departure
+        elif departure:
+            current, previous = date.fromisoformat(departure[:10]), departure[11:16]
+
+        arrival = segment.arrival
+        if arrival and "T" not in arrival:
+            current = _arrival_day(current, previous, arrival, segment.duration_minutes)
+            segment.arrival = _iso(current.isoformat(), arrival)
+            previous = arrival
+        elif arrival:
+            current, previous = date.fromisoformat(arrival[:10]), arrival[11:16]
+
+
+def _clock_minutes(clock: str) -> Optional[int]:
+    match = re.fullmatch(r"(\d{1,2}):(\d{2})", clock or "")
+    return int(match.group(1)) * 60 + int(match.group(2)) if match else None
+
+
+def _arrival_day(departed: date, departure: str, arrival: str, duration: Optional[int]) -> date:
+    """The local date a flight lands, from its local clocks and its duration.
+
+    Each candidate date implies a time-zone difference between the two
+    airports (local gap minus time in the air); the smallest one wins. Real
+    differences are hours, while the wrong date is off by a whole day — 17:55
+    to 17:50 in 1h 55m is two hours west on the same day, not 22 hours east on
+    the next. Without both clocks and a duration there is nothing to weigh,
+    and a clock that goes backwards is taken as the next day.
+    """
+    start, end = _clock_minutes(departure), _clock_minutes(arrival)
+    if start is None or end is None:
+        return departed + timedelta(days=1 if departure and arrival < departure else 0)
+    gap = end - start
+    if duration is None:
+        return departed + timedelta(days=1 if gap < 0 else 0)
+    days = min((-1, 0, 1, 2), key=lambda d: abs(gap + d * 1440 - duration))
+    return departed + timedelta(days=days)
 
 
 _CLOCK_RE = re.compile(r"^(\d{1,2}):(\d{2})(?:\+(\d))?$")

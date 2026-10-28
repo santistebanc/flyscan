@@ -9,8 +9,8 @@ from datetime import date
 from pathlib import Path
 
 from flight_scraper.capture import trim_cffi_payload
-from flight_scraper.models import SearchQuery
-from flight_scraper.sources.flightsfinder import _CFFLiveParser, _split_flight
+from flight_scraper.models import SearchQuery, Segment
+from flight_scraper.sources.flightsfinder import _CFFLiveParser, _date_segments, _split_flight
 
 
 class ModalReferences(unittest.TestCase):
@@ -92,6 +92,48 @@ class SplitFlight(unittest.TestCase):
         self.assertEqual(
             _split_flight("Xiamen Airlines MF9328"),
             ("Xiamen Airlines", "MF", "MF9328"),
+        )
+
+
+class SegmentDates(unittest.TestCase):
+    """The modal gives clock-only, airport-local times; the dates are ours."""
+
+    @staticmethod
+    def dated(*segments, day="2026-11-22"):
+        legs = [
+            Segment(origin=o, destination=d, departure=dep, arrival=arr, duration_minutes=minutes)
+            for o, d, dep, arr, minutes in segments
+        ]
+        _date_segments(legs, day)
+        return [(s.departure, s.arrival) for s in legs]
+
+    def test_westbound_arrival_reading_earlier_stays_on_the_same_day(self):
+        """IST→LON via Tirana: SAW is UTC+3, TIA UTC+1, so 17:55 lands at 17:50."""
+        self.assertEqual(
+            self.dated(
+                ("SAW", "TIA", "17:55", "17:50", 115), ("TIA", "LTN", "00:25", "02:50", 205)
+            ),
+            [("2026-11-22T17:55", "2026-11-22T17:50"), ("2026-11-23T00:25", "2026-11-23T02:50")],
+        )
+
+    def test_eastbound_overnight_flight_lands_the_next_day(self):
+        self.assertEqual(
+            self.dated(("LHR", "IST", "21:00", "03:00", 240)),
+            [("2026-11-22T21:00", "2026-11-23T03:00")],
+        )
+
+    def test_a_wait_past_midnight_departs_the_next_day(self):
+        self.assertEqual(
+            self.dated(
+                ("BER", "MAD", "19:00", "22:10", 190), ("MAD", "SLP", "01:15", "06:30", 795)
+            ),
+            [("2026-11-22T19:00", "2026-11-22T22:10"), ("2026-11-23T01:15", "2026-11-23T06:30")],
+        )
+
+    def test_without_a_duration_a_backwards_clock_is_the_next_day(self):
+        self.assertEqual(
+            self.dated(("SAW", "TIA", "23:30", "00:40", None)),
+            [("2026-11-22T23:30", "2026-11-23T00:40")],
         )
 
 
