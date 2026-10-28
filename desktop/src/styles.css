@@ -385,7 +385,7 @@ button.primary:hover:not(:disabled) { background: var(--accent-strong); }
 .leg-midnight { position: absolute; top: 2px; width: 1px; height: 22px; background: var(--line); }
 .leg-part { position: absolute; }
 .leg-part.airborne { top: 10px; height: 7px; border-radius: 2px; background: var(--airline); }
-.leg-part.layover { top: 13px; border-top: 1px dashed #6b7c96; }
+.leg-part.layover { top: 12px; border-top: 2px dashed #6b7c96; }
 .leg-part.layover.transfer { border-top-color: var(--warn); }
 .leg-part.summary { top: 12px; border-top: 3px dashed var(--muted); }
 .leg-connections { display: flex; flex-wrap: wrap; justify-content: center; gap: 2px 12px; font: 11px/14px var(--mono); color: var(--ink-soft); }
