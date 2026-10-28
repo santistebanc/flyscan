@@ -27,8 +27,7 @@ export function FlightTimeline({ label, leg, scale: sharedScale, timing, mode = 
           const left = percent(at, scale);
           return <span key={at}>
             <span className="leg-midnight" title={day} style={{ left: `${left}%` }} />
-            {/* Beside the line, on whichever side has room before the plot's edge. */}
-            <span className={`leg-date${left > 85 ? " before" : ""}`} aria-hidden="true" style={{ left: `${left}%` }}>{day}</span>
+            <span className="leg-date" aria-hidden="true" style={{ left: `${left}%` }}>{day}</span>
           </span>;
         })}
         {timing.parts.filter((p) => p.end > p.start).map(({ part, start, end }, i) => <span key={i}

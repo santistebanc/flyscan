@@ -385,7 +385,6 @@ button.primary:hover:not(:disabled) { background: var(--accent-strong); }
 .leg-midnight { position: absolute; top: 2px; width: 1px; height: 26px; background: var(--line); }
 /* In the strip above the bars, which start 14px down. */
 .leg-date { position: absolute; top: 0; margin-left: 4px; font: 10px/10px var(--mono); color: var(--muted); white-space: nowrap; pointer-events: none; }
-.leg-date.before { margin-left: -4px; transform: translateX(-100%); }
 .leg-part { position: absolute; }
 .leg-part.airborne { top: 14px; height: 7px; border-radius: 2px; background: var(--airline); }
 .leg-part.layover { top: 16px; border-top: 2px dashed #6b7c96; }
