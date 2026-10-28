@@ -141,14 +141,15 @@ exists. Use the desktop app when a source actually asks for a human.
 
 ## Notes
 
-- Flight rows use six-hour intervals starting at any 00:00, 06:00, 12:00, or
-  18:00 checkpoint, with one hour of padding before the starting checkpoint
-  and after the ending checkpoint (for example, 08:00–14:00 uses 05:00–19:00),
-  advancing by elapsed travel time. Compare bar
+- Flight rows span whole days from 05:00 to 05:00, advancing by elapsed travel
+  time: from the last 05:00 at or before departure on the departure clock to
+  the first 05:00 at or after arrival on the destination clock, and at least
+  one day. BER 06:00 → LGW 07:05 reads 05:00–05:00 +1; a 03:00 departure starts
+  at 05:00 the day before. Compare bar
   lengths within the same range. Other results cannot stretch that row's scale.
   Timeline > Shared scale instead aligns all filtered results per direction,
   from the earliest departure to the latest elapsed-time arrival, using the same
-  padded six-hour boundaries. The display
+  05:00 boundaries on the departure clock. The display
   choice is remembered separately from result filters. Departure dates align
   on day zero; endpoint labels, midnight dates and tooltips retain airport-local
   clocks, including timezone changes.

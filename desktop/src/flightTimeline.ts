@@ -60,13 +60,17 @@ export interface JourneyTiming {
   durationDifference: number;
   parts: PositionedPart[];
 }
-export interface TimelineScale { min: number; max: number; airports: string[] }
+/** `arrivalShift`: minutes the destination clock runs ahead of the departure clock. */
+export interface TimelineScale { min: number; max: number; airports: string[]; arrivalShift?: number }
 export type TimelineMode = "days" | "shared";
 export const TIMELINE_MODE_KEY = "flight-scraper.timeline-mode";
 export function normalizeTimelineMode(value: unknown): TimelineMode {
   return value === "shared" ? "shared" : "days";
 }
-/** Six-hour ranges, with an extra hour before and after the checkpoints.
+const DAY = 1440, DAY_START = 5 * 60;
+/** Whole-day ranges from 05:00 to 05:00: the last 05:00 at or before departure on
+ * the departure clock, to the first 05:00 at or after arrival on the destination
+ * clock, because the axis reads each airport's clock beyond the journey.
  * A row's range depends only on its own timing, so streaming, sorting and
  * filtering other flights cannot change its scale. Keep detailed arrivals
  * in range even when the source's reported total is shorter.
@@ -78,13 +82,24 @@ export function timelineScaleFor(timing: JourneyTiming | null | undefined, share
   const end = Math.max(timing.end, timing.parts[timing.parts.length - 1]?.end ?? timing.end);
   const min = mode === "shared" ? shared!.min : timing.start;
   const max = mode === "shared" ? shared!.max : end;
-  const start = Math.floor(min / 360) * 360;
-  return { min: start - 60, max: Math.max(start + 360, Math.ceil(max / 360) * 360) + 60,
-    airports: shared?.airports ?? [] };
+  const start = Math.floor((min - DAY_START) / DAY) * DAY + DAY_START;
+  // A shared scale spans many destinations, so it has no single arrival clock.
+  const shift = mode === "shared" ? 0 : arrivalShift(timing);
+  // At least one whole day by the clocks, even when a westbound arrival reads earlier.
+  const finish = Math.max(start + DAY, Math.ceil((max + shift - DAY_START) / DAY) * DAY + DAY_START);
+  return { min: start, max: finish - shift,
+    airports: shared?.airports ?? [], ...(shift ? { arrivalShift: shift } : {}) };
+}
+/** Destination clock minus departure clock at the same moment, from the airport timestamps. */
+function arrivalShift(timing: JourneyTiming): number {
+  const first = timing.parts[0], last = timing.parts[timing.parts.length - 1];
+  if (first?.part.kind !== "flight" || last?.part.kind !== "flight") return 0;
+  const departed = wallStamp(first.part.segment.departure), arrived = wallStamp(last.part.segment.arrival);
+  return departed === null || arrived === null ? 0 : (arrived - departed) - (last.end - first.start);
 }
 export function timelineScaleLabel(scale: TimelineScale, mode: TimelineMode): string {
   if (mode === "shared") return "Shared scale";
-  return `${scaleClock(scale.min)} – ${scaleClock(scale.max)}`;
+  return `${scaleClock(scale.min)} – ${scaleClock(scale.max + (scale.arrivalShift ?? 0))}`;
 }
 export interface FlightTimelines {
   outbound: TimelineScale | null;

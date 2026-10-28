@@ -34,13 +34,13 @@ export function FlightTimeline({ leg, scale: sharedScale, timing, mode = "shared
     </span> : <span className="timeline-unavailable">Schedule unavailable</span>}
     <span className="timeline-footer">
       <span className="timeline-endpoint departure"><b>{clock(leg.departure)}</b><AirportLabel code={leg.origin_airport} showCity={false} /></span>
-      <span className="timeline-stops">{timing && !timing.detailed ? <span className="timeline-summary-hint" title="Segment times unavailable. The total journey is placed on the timeline; open flight details for the itinerary.">{leg.stops === 0 ? "Nonstop" : leg.stops ? `${leg.stops} stop${leg.stops === 1 ? "" : "s"}` : ""}<Icon name="input" /></span>
+      <span className="timeline-stops">{timing && !timing.detailed && leg.stops !== 0 ? <span className="timeline-summary-hint" title="Segment times unavailable. The total journey is placed on the timeline; open flight details for the itinerary.">{leg.stops ? `${leg.stops} stop${leg.stops === 1 ? "" : "s"}` : ""}<Icon name="input" /></span>
         : waits.length ? waits.map(({ part }, i) => part.kind === "layover" && <span key={i} className="timeline-connection">
           <AirportLabel code={part.before.destination} showCity={false} />{part.transfer && <> → <AirportLabel code={part.after.origin} showCity={false} /></>}
           <span className="timeline-connection-duration" data-rating={part.minutes === null ? undefined : layoverRatings?.get(part.minutes)?.level}
             title={part.minutes === null ? undefined : layoverRatings?.get(part.minutes)?.description}>{elapsed(part.minutes)}</span>
           {isOvernight(part) && <span className="layover-night" title="Overnight layover"><Icon name="moon" /></span>}</span>)
-        : leg.stops === 0 ? "Nonstop" : leg.stops ? `${leg.stops} stops` : ""}</span>
+        : leg.stops ? `${leg.stops} stops` : ""}</span>
       <span className="timeline-endpoint arrival"><AirportLabel code={leg.destination_airport} showCity={false} /><b>{clock(leg.arrival)}{shift > 0 && <sup>+{shift}</sup>}</b></span>
     </span>
   </span>;

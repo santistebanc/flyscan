@@ -31,6 +31,21 @@ test("a Jan 7 departure hides the Jan 6 padding label but retains Jan 7 and Jan 
   assert.match(html, /Jan 8/);
 });
 
+test("a nonstop row has no stops label, with or without segment details", () => {
+  const segment = { origin: "BER", destination: "LGW", departure: "2026-11-10T06:00", arrival: "2026-11-10T07:05",
+    duration: "2h 5m", carrier: "U2" };
+  for (const segments of [[], [segment]]) {
+    const leg = { origin_airport: "BER", destination_airport: "LGW", departure: "2026-11-10T06:00",
+      arrival: "2026-11-10T07:05", duration: "2h 5m", stops: 0, segments };
+    const timelines = flightTimelines([{ outbound: leg }]);
+    const html = renderToStaticMarkup(React.createElement(TimelineTooltipProvider, { resetKey: leg },
+      React.createElement(FlightTimeline, { leg, scale: timelines.outbound,
+        timing: timelines.journeys.get(leg), mode: "days" })));
+    assert.doesNotMatch(html, /Nonstop/);
+    assert.doesNotMatch(html, /timeline-summary-hint/);
+  }
+});
+
 test("a short flight renders midnight divisions in the empty remainder of its shared timeline", () => {
   const short = { origin_airport: "BER", destination_airport: "MAD", departure: "2026-12-10T08:00",
     arrival: "2026-12-10T10:00", duration: "2h", stops: 0, segments: [] };
@@ -38,11 +53,13 @@ test("a short flight renders midnight divisions in the empty remainder of its sh
   const timelines = flightTimelines([{ outbound: short }, { outbound: long }]);
   const html = renderToStaticMarkup(React.createElement(TimelineTooltipProvider, { resetKey: short },
     React.createElement(FlightTimeline, { leg: short, scale: timelines.outbound, timing: timelines.journeys.get(short) })));
-  assert.equal((html.match(/class="timeline-guide"/g) || []).length, 2);
-  assert.equal((html.match(/class="timeline-midnight"/g) || []).length, 3);
+  // 05:00 Dec 10 to 05:00 Dec 13 passes three midnights.
+  assert.equal((html.match(/class="timeline-guide"/g) || []).length, 3);
+  assert.equal((html.match(/class="timeline-midnight"/g) || []).length, 4);
   assert.match(html, /Dec 10/);
   assert.match(html, /Dec 11/);
   assert.match(html, /Dec 12/);
+  assert.match(html, /Dec 13/);
   assert.equal((html.match(/timeline-part summary/g) || []).length, 1, "guides do not add flight segments");
 });
 
