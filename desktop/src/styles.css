@@ -380,14 +380,17 @@ button.primary:hover:not(:disabled) { background: var(--accent-strong); }
 .leg-end sup { margin-left: 1px; font-size: 10px; color: var(--warn); }
 .leg-end .airport-label strong { font: 500 11px var(--mono); color: var(--muted); }
 .leg-track { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
-.leg-plot { position: relative; display: block; height: 26px; }
-.leg-plot::before { content: ""; position: absolute; left: 0; right: 0; top: 13px; border-top: 1px solid var(--line-soft); }
-.leg-midnight { position: absolute; top: 2px; width: 1px; height: 22px; background: var(--line); }
+.leg-plot { position: relative; display: block; height: 30px; }
+.leg-plot::before { content: ""; position: absolute; left: 0; right: 0; top: 17px; border-top: 1px solid var(--line-soft); }
+.leg-midnight { position: absolute; top: 2px; width: 1px; height: 26px; background: var(--line); }
+/* In the strip above the bars, which start 14px down. */
+.leg-date { position: absolute; top: 0; margin-left: 4px; font: 10px/10px var(--mono); color: var(--muted); white-space: nowrap; pointer-events: none; }
+.leg-date.before { margin-left: -4px; transform: translateX(-100%); }
 .leg-part { position: absolute; }
-.leg-part.airborne { top: 10px; height: 7px; border-radius: 2px; background: var(--airline); }
-.leg-part.layover { top: 12px; border-top: 2px dashed #6b7c96; }
+.leg-part.airborne { top: 14px; height: 7px; border-radius: 2px; background: var(--airline); }
+.leg-part.layover { top: 16px; border-top: 2px dashed #6b7c96; }
 .leg-part.layover.transfer { border-top-color: var(--warn); }
-.leg-part.summary { top: 12px; border-top: 3px dashed var(--muted); }
+.leg-part.summary { top: 16px; border-top: 3px dashed var(--muted); }
 .leg-connections { display: flex; flex-wrap: wrap; justify-content: center; gap: 2px 12px; font: 11px/14px var(--mono); color: var(--ink-soft); }
 .leg-connections > span { white-space: nowrap; }
 .leg-connections .transfer { color: var(--warn); }

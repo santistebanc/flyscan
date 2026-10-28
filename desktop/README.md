@@ -152,7 +152,8 @@ exists. Use the desktop app when a source actually asks for a human.
   choice is remembered separately from result filters.
   The plot carries no clock labels: departure and arrival times flank the bars,
   with `+1` when the local arrival date is later, and a faint line marks each
-  local midnight (its date is the line's hover title). Midnights follow
+  local midnight, labelled with the date that begins in a strip above the bars
+  (before the line when it is close to the right edge). Midnights follow
   airport-local clocks, interpolated between each segment's timestamps across
   timezone changes; empty range space continues the departure clock before
   takeoff and the destination clock after landing. Connection codes and

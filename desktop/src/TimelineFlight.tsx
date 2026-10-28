@@ -23,8 +23,14 @@ export function FlightTimeline({ label, leg, scale: sharedScale, timing, mode = 
     <span className="leg-track">
       {timing && scale ? <span className="leg-plot" role="img"
         aria-label={`${timelineScaleLabel(scale, mode)} timeline`}>
-        {midnights.map(({ at, label: day }) => <span key={at} className="leg-midnight" title={day}
-          style={{ left: `${percent(at, scale)}%` }} />)}
+        {midnights.map(({ at, label: day }) => {
+          const left = percent(at, scale);
+          return <span key={at}>
+            <span className="leg-midnight" title={day} style={{ left: `${left}%` }} />
+            {/* Beside the line, on whichever side has room before the plot's edge. */}
+            <span className={`leg-date${left > 85 ? " before" : ""}`} aria-hidden="true" style={{ left: `${left}%` }}>{day}</span>
+          </span>;
+        })}
         {timing.parts.filter((p) => p.end > p.start).map(({ part, start, end }, i) => <span key={i}
           title={partLabel(part)}
           className={`leg-part ${part.kind === "flight" ? part.detailed ? "airborne" : "summary" : part.transfer ? "layover transfer" : "layover"}`}

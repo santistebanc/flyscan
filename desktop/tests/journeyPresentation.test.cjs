@@ -27,6 +27,8 @@ test("midnight lines mark only the local days a range crosses", () => {
   const html = render(leg, timelines.outbound, timelines.journeys.get(leg), "days");
   // 05:00 Jan 7 to 05:00 Jan 9: midnights begin Jan 8 and Jan 9.
   assert.deepEqual([...html.matchAll(/class="leg-midnight" title="([^"]+)"/g)].map((m) => m[1]), ["Jan 8", "Jan 9"]);
+  assert.deepEqual([...html.matchAll(/class="leg-date[^"]*"[^>]*>([^<]+)</g)].map((m) => m[1]), ["Jan 8", "Jan 9"]);
+  assert.match(html, /class="leg-date before"[^>]*>Jan 9</, "a label near the right edge sits before its line");
   assert.doesNotMatch(html, /Jan 6/);
 });
 
