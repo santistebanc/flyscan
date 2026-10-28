@@ -1,18 +1,16 @@
 /**
- * From/To field with a suggestions dropdown.
+ * From/To segment with a search popover.
  *
  * Looks up places through the sidecar's `/places` endpoint (Travelpayouts
  * autocomplete — the same source `resolve()` uses when scraping). Recent picks
- * sit above remote matches, matching the flyscan pattern.
+ * sit above remote matches, matching the flyscan pattern. Typing a three-letter
+ * code and pressing Enter takes it as written.
  */
 
-import {
-  useEffect, useId, useLayoutEffect, useMemo, useRef, useState,
-  type KeyboardEvent,
-} from "react";
-import { createPortal } from "react-dom";
+import { useCallback, useEffect, useId, useMemo, useRef, useState, type KeyboardEvent } from "react";
 import type { FlightScraperApi, PlaceSuggestion } from "./api";
 import { useAirportCity } from "./AirportLabel";
+import { SearchSegment, useDismiss, useKeepInView } from "./Popover";
 import {
   filterRecentPlaces, placeLabel, readRecentPlaces, rememberPlace,
   type RecentPlace,
@@ -20,9 +18,9 @@ import {
 
 interface SuggestRow {
   code: string;
-  label: string;
+  name: string;
+  place?: string;
   kind?: string;
-  recent?: boolean;
 }
 
 function mergeSuggestions(recent: SuggestRow[], remote: SuggestRow[]): SuggestRow[] {
@@ -36,58 +34,47 @@ function mergeSuggestions(recent: SuggestRow[], remote: SuggestRow[]): SuggestRo
   return out;
 }
 
-function toRemoteRows(matches: PlaceSuggestion[]): SuggestRow[] {
-  return matches.map((p) => ({
-    code: p.code,
-    label: placeLabel(p.name, p.country),
-    kind: p.kind,
-  }));
-}
+const toRemoteRows = (matches: PlaceSuggestion[]): SuggestRow[] => matches.map((p) => ({
+  code: p.code, name: p.name, kind: p.kind,
+  place: p.city && p.city !== p.name ? placeLabel(p.city, p.country) : p.country,
+}));
 
-function toRecentRows(matches: RecentPlace[]): SuggestRow[] {
-  return matches.map((r) => ({
-    code: r.code,
-    label: r.label || r.code,
-    recent: true,
-  }));
-}
+const toRecentRows = (matches: RecentPlace[]): SuggestRow[] =>
+  matches.map((r) => ({ code: r.code, name: r.label || r.code }));
 
-export function PlaceInput({
-  label, value, onChange, api, required,
-}: {
+export function PlaceInput({ label, value, onChange, api, open, onToggle }: {
   label: string;
   value: string;
   onChange: (next: string) => void;
   api: FlightScraperApi | null;
-  required?: boolean;
+  open: boolean;
+  onToggle: (open: boolean) => void;
 }) {
   const listId = useId();
   const city = useAirportCity(value);
-  const cityId = `${listId}-city`;
-  const wrap = useRef<HTMLLabelElement>(null);
-  const input = useRef<HTMLInputElement>(null);
-  const list = useRef<HTMLUListElement>(null);
-  const picking = useRef(false);
-
-  const [open, setOpen] = useState(false);
+  const root = useRef<HTMLDivElement>(null);
+  const panel = useRef<HTMLDivElement>(null);
+  const [query, setQuery] = useState("");
   const [remote, setRemote] = useState<SuggestRow[]>([]);
   const [loading, setLoading] = useState(false);
   const [active, setActive] = useState(-1);
   const [recents, setRecents] = useState<RecentPlace[]>(() => readRecentPlaces());
-  const [position, setPosition] = useState({ left: 0, top: 0, width: 280 });
-
-  const recentRows = useMemo(
-    () => toRecentRows(filterRecentPlaces(recents, value)),
-    [recents, value],
-  );
-  const suggestions = useMemo(
-    () => mergeSuggestions(recentRows, remote),
-    [recentRows, remote],
-  );
-  const show = open && (loading || suggestions.length > 0);
+  const close = useCallback(() => onToggle(false), [onToggle]);
+  useDismiss(open, close, root);
+  useKeepInView(open, panel);
 
   useEffect(() => {
-    const term = value.trim();
+    if (!open) return;
+    setQuery("");
+    setActive(-1);
+    setRecents(readRecentPlaces());
+  }, [open]);
+
+  const term = query.trim();
+  const suggestions = useMemo(() => mergeSuggestions(toRecentRows(filterRecentPlaces(recents, term)), remote),
+    [recents, term, remote]);
+
+  useEffect(() => {
     if (!open || !api || term.length < 2) {
       setRemote([]);
       setLoading(false);
@@ -109,165 +96,53 @@ export function PlaceInput({
       ctrl.abort();
       window.clearTimeout(timer);
     };
-  }, [api, open, value]);
+  }, [api, open, term]);
 
-  useLayoutEffect(() => {
-    if (!show || !wrap.current) return;
-    const place = () => {
-      const box = wrap.current?.getBoundingClientRect();
-      if (!box) return;
-      const width = Math.max(280, box.width);
-      const left = Math.max(8, Math.min(box.left, window.innerWidth - width - 8));
-      setPosition({ left, top: box.bottom + 6, width });
-    };
-    place();
-    window.addEventListener("resize", place);
-    window.addEventListener("scroll", place, true);
-    return () => {
-      window.removeEventListener("resize", place);
-      window.removeEventListener("scroll", place, true);
-    };
-  }, [show, suggestions.length, loading]);
-
-  useEffect(() => {
-    if (!show) return;
-    const away = (event: MouseEvent) => {
-      const target = event.target as Node | null;
-      if (wrap.current?.contains(target) || list.current?.contains(target)) return;
-      setOpen(false);
-      setActive(-1);
-    };
-    document.addEventListener("mousedown", away);
-    return () => document.removeEventListener("mousedown", away);
-  }, [show]);
-
-  const pick = (row: SuggestRow) => {
-    picking.current = true;
-    onChange(row.code);
-    rememberPlace(row.code, row.label);
-    setRecents(readRecentPlaces());
-    setRemote([]);
-    setOpen(false);
-    setActive(-1);
-    input.current?.blur();
+  const pick = (code: string, name = "") => {
+    onChange(code);
+    rememberPlace(code, name);
+    close();
   };
 
   const onKeyDown = (event: KeyboardEvent<HTMLInputElement>) => {
-    if (event.key === "Escape") {
-      if (show) {
-        event.preventDefault();
-        event.stopPropagation();
-        setOpen(false);
-        setActive(-1);
-      }
-      return;
-    }
-    if (!show || suggestions.length === 0) return;
-    if (event.key === "ArrowDown") {
+    if (event.key === "ArrowDown" || event.key === "ArrowUp") {
       event.preventDefault();
-      setActive((i) => (i + 1) % suggestions.length);
-    } else if (event.key === "ArrowUp") {
+      if (!suggestions.length) return;
+      setActive((i) => event.key === "ArrowDown" ? (i + 1) % suggestions.length
+        : i <= 0 ? suggestions.length - 1 : i - 1);
+    } else if (event.key === "Enter") {
       event.preventDefault();
-      setActive((i) => (i <= 0 ? suggestions.length - 1 : i - 1));
-    } else if (event.key === "Enter" && active >= 0) {
       const row = suggestions[active];
-      if (!row) return;
-      event.preventDefault();
-      pick(row);
+      if (row) pick(row.code, row.place ? `${row.name}, ${row.place}` : row.name);
+      else if (/^[A-Za-z]{3}$/.test(term)) pick(term.toUpperCase());
+      else if (suggestions[0]) pick(suggestions[0].code, suggestions[0].name);
     }
   };
 
-  const dropdown = show ? createPortal(
-    <ul
-      ref={list}
-      id={listId}
-      className="place-suggest"
-      role="listbox"
-      style={{ left: position.left, top: position.top, width: position.width }}
-    >
-      {suggestions.map((row, index) => (
-        <li key={`${row.code}-${row.label}`} role="presentation">
-          <button
-            type="button"
-            role="option"
-            aria-selected={index === active}
-            className={[
-              "place-suggest-item",
-              row.recent ? "place-suggest-item--recent" : "",
-              index === active ? "place-suggest-item--active" : "",
-            ].filter(Boolean).join(" ")}
-            onMouseDown={(event) => {
-              event.preventDefault();
-              pick(row);
-            }}
-            onMouseEnter={() => setActive(index)}
-          >
-            <span className="place-suggest-code">{row.code}</span>
-            <span className="place-suggest-label">
-              <span className="place-suggest-name">{row.label}</span>
-              {row.kind === "city" && <span className="place-suggest-kind">city</span>}
-              {row.kind === "airport" && <span className="place-suggest-kind">airport</span>}
-              {row.recent && !row.kind && <span className="place-suggest-kind">recent</span>}
-            </span>
-          </button>
-        </li>
-      ))}
-      {loading && value.trim().length >= 2 && (
-        <li className="place-suggest-item place-suggest-item--hint" role="presentation">
-          Searching…
-        </li>
-      )}
-    </ul>,
-    document.body,
-  ) : null;
-
-  return (
-    <label className={`place-field${open ? " place-field--open" : ""}`} ref={wrap}>
-      {label}
-      <span className={`place-value${city ? " place-value--with-city" : ""}`} title={city ? `${value.trim().toUpperCase()} · ${city}` : undefined}>
-      <input
-        ref={input}
-        value={value}
-        required={required}
-        autoComplete="off"
-        autoCapitalize="characters"
-        spellCheck={false}
-        role="combobox"
-        aria-label={label}
-        aria-describedby={city ? cityId : undefined}
-        aria-expanded={show}
-        aria-controls={listId}
-        aria-autocomplete="list"
-        onChange={(event) => {
-          onChange(event.target.value);
-          setOpen(true);
-          setActive(-1);
-        }}
-        onFocus={(event) => {
-          setRecents(readRecentPlaces());
-          setOpen(true);
-          event.target.select();
-        }}
-        onBlur={() => {
-          if (picking.current) {
-            picking.current = false;
-            return;
-          }
-          setOpen(false);
-          setActive(-1);
-          const raw = value.trim();
-          if (/^[A-Za-z]{3}$/.test(raw)) {
-            const code = raw.toUpperCase();
-            onChange(code);
-            rememberPlace(code);
-            setRecents(readRecentPlaces());
-          }
-        }}
-        onKeyDown={onKeyDown}
-      />
-      {city && <span className="place-selected-city" id={cityId}>{city}</span>}
-      </span>
-      {dropdown}
-    </label>
-  );
+  const code = value.trim().toUpperCase();
+  return <SearchSegment label={label} value={code || "—"} hint={city} open={open} root={root}
+    onToggle={() => onToggle(!open)}>
+    <div className="popover place-popover" ref={panel} role="dialog" aria-label={`Choose ${label}`}>
+      <div className="place-search">
+        <input autoFocus value={query} placeholder="City or airport code" role="combobox"
+          aria-label={`${label} airport`} aria-expanded={suggestions.length > 0} aria-controls={listId}
+          aria-autocomplete="list" autoComplete="off" spellCheck={false}
+          aria-activedescendant={active >= 0 ? `${listId}-${active}` : undefined}
+          onChange={(event) => { setQuery(event.target.value); setActive(-1); }} onKeyDown={onKeyDown} />
+      </div>
+      {!term && suggestions.length > 0 && <div className="popover-caption">Recent</div>}
+      <ul className="place-list" id={listId} role="listbox" aria-label={`${label} suggestions`}>
+        {suggestions.map((row, index) => <li key={row.code} id={`${listId}-${index}`} role="option"
+          aria-selected={index === active} className={!term ? "recent" : undefined}
+          onMouseEnter={() => setActive(index)} onMouseDown={(event) => event.preventDefault()}
+          onClick={() => pick(row.code, row.place ? `${row.name}, ${row.place}` : row.name)}>
+          <b>{row.code}</b>
+          <span className="place-name">{row.name}{row.place && <span> {row.place}</span>}</span>
+          {row.kind && <span className="place-kind">{row.kind}</span>}
+        </li>)}
+        {loading && <li className="place-hint" role="presentation">Searching…</li>}
+        {!loading && term.length >= 2 && !suggestions.length && <li className="place-hint" role="presentation">No matching airports</li>}
+      </ul>
+    </div>
+  </SearchSegment>;
 }

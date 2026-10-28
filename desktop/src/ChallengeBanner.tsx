@@ -52,14 +52,18 @@ export function ChallengeBanner({ api, pending, canSolveHere, onCleared }: {
       const title = working ? "Complete verification in the open window"
         : available ? `Verify ${name}` : "Open the desktop app to verify";
       return <div key={challenge.source} className="challenge">
+        <span className="challenge-source"><b>{name}</b> wants to check you’re human.</span>
+        <span className="challenge-note">{available
+          ? "It opens in a window this app owns. Solve it there and the search continues. Other sources keep running."
+          : "Open the desktop app to verify: a browser tab can’t hand the clearance back to the search."}</span>
         <div className="challenge-row">
-          <span className="challenge-source">{name}</span>
           <button type="button" disabled={!available || working}
             aria-label={`${working ? "Verifying" : "Verify"} ${name}`}
             aria-busy={working || undefined} title={title} onClick={() => verify(challenge)}>
             {working ? <Spinner /> : <Icon name="input" />}
             {working ? "Verifying" : "Verify"}
           </button>
+          {working && <span className="challenge-hint">Complete it in the open window</span>}
         </div>
         {!working && error && <div className="challenge-error" role="alert">{error}</div>}
       </div>;

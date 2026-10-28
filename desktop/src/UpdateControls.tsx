@@ -72,13 +72,16 @@ export function UpdateControls({ busy, manager = desktopUpdates }: { busy: boole
     if (state.status === "installing" && dialog.current && !dialog.current.open) dialog.current.showModal();
   }, [state.status]);
   if (!isDesktop) return null;
+  // Quiet until there is something to install; then it asks for attention.
+  const pill = state.status === "ready" ? "Update ready"
+    : state.status === "available" || state.status === "downloading" ? "Update available" : "";
   return <>
-    <button type="button" className="queue-icon-button update-trigger" aria-label="App updates"
-      aria-haspopup="dialog" title={state.status === "ready" ? "Update ready" : "App updates"}
-      onClick={() => dialog.current?.showModal()}>
-      <Icon name="retry" />
-      {state.status === "ready" && <span>Update ready</span>}
-    </button>
+    {pill ? <button type="button" className="update-pill" aria-haspopup="dialog"
+      onClick={() => dialog.current?.showModal()}><span aria-hidden="true" />{pill}</button>
+      : <button type="button" className="queue-icon-button update-trigger" aria-label="App updates"
+        aria-haspopup="dialog" title="App updates" onClick={() => dialog.current?.showModal()}>
+        <Icon name="retry" />
+      </button>}
     <dialog ref={dialog} className="update-panel" aria-labelledby="app-updates-title"
       aria-busy={state.status === "installing" || undefined}
       onKeyDown={(event) => { if (event.key === "Escape") event.stopPropagation(); }}

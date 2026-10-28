@@ -1,56 +1,53 @@
 import type { CSSProperties } from "react";
 import type { Leg } from "./api";
 import type { Rating } from "./flightRatings";
-import { Icon } from "./Icon";
-import { TimelineHotspot } from "./TimelineTooltip";
-import { TimelineDates } from "./TimelineDates";
-import { TimelineHours } from "./TimelineHours";
 import { AirportLabel } from "./AirportLabel";
-import { airlineColor, clock, dayOffset, elapsed, isOvernight, localMidnights, percent, timingNote, timelineScaleFor, timelineScaleLabel, timelineStartDate,
-  type JourneyTiming, type TimelineMode, type TimelineScale } from "./flightTimeline";
+import { airlineColor, clock, dayOffset, elapsed, isOvernight, localMidnights, partLabel, percent, timingNote,
+  timelineScaleFor, timelineScaleLabel, type JourneyTiming, type TimelineMode, type TimelineScale } from "./flightTimeline";
 
-export function FlightTimeline({ leg, scale: sharedScale, timing, mode = "shared", layoverRatings }: { leg: Leg | null; scale: TimelineScale | null;
-  timing: JourneyTiming | null | undefined; mode?: TimelineMode; layoverRatings?: ReadonlyMap<number, Rating> }) {
+/** One direction of a row: times flank the bars, duration and stops on the right. */
+export function FlightTimeline({ label, leg, scale: sharedScale, timing, mode = "shared", rating, layoverRatings }: {
+  label: string; leg: Leg | null; scale: TimelineScale | null; timing: JourneyTiming | null | undefined;
+  mode?: TimelineMode; rating?: Rating; layoverRatings?: ReadonlyMap<number, Rating>;
+}) {
   if (!leg) return null;
   const scale = timelineScaleFor(timing, sharedScale, mode);
-  const scaleLabel = scale ? timelineScaleLabel(scale, mode) : "";
-  const shift = dayOffset(leg.departure, leg.arrival);
+  const later = dayOffset(leg.departure, leg.arrival);
   const note = timing ? timingNote(timing) : undefined;
-  const midnights = timing ? localMidnights(timing, scale ?? undefined) : [];
-  const startDate = timing && scale ? timelineStartDate(timing, scale, leg.departure) : null;
+  const midnights = timing && scale ? localMidnights(timing, scale) : [];
   const waits = timing?.detailed ? timing.parts.filter(({ part }) => part.kind === "layover") : [];
-  return <span className="flight-timeline" aria-label={`${leg.origin_airport} to ${leg.destination_airport}, ${leg.duration}`}>
-    {timing && scale ? <span className="timeline-plot" aria-label={`${scaleLabel} timeline`}>
-      <TimelineHours scale={scale} timing={timing} />
-      {midnights.map(({ at }) => <span key={at} className="timeline-guide" aria-hidden="true" style={{ left: `${percent(at, scale)}%` }} />)}
-      {timing.parts.filter((p) => p.end > p.start).map(({ part, start, end }, i) => <TimelineHotspot key={i} part={part}
-        note={note}
-        className={`timeline-part ${part.kind === "flight" ? part.detailed ? "airborne" : "summary" : "layover"}`}
-        style={{ left: `${percent(start, scale)}%`, width: `${(end - start) / (scale.max - scale.min) * 100}%`,
-          "--airline": part.kind === "flight" ? airlineColor(part.segment.carrier) : undefined } as CSSProperties}>
-        <span className="timeline-ink" aria-hidden="true" />
-      </TimelineHotspot>)}
-      <TimelineDates dates={startDate ? [startDate, ...midnights] : midnights} scale={scale} />
-    </span> : <span className="timeline-unavailable">Schedule unavailable</span>}
-    <span className="timeline-footer">
-      <span className="timeline-endpoint departure"><b>{clock(leg.departure)}</b><AirportLabel code={leg.origin_airport} showCity={false} /></span>
-      <span className="timeline-stops">{timing && !timing.detailed && leg.stops !== 0 ? <span className="timeline-summary-hint" title="Segment times unavailable. The total journey is placed on the timeline; open flight details for the itinerary.">{leg.stops ? `${leg.stops} stop${leg.stops === 1 ? "" : "s"}` : ""}<Icon name="input" /></span>
-        : waits.length ? waits.map(({ part }, i) => part.kind === "layover" && <span key={i} className="timeline-connection">
-          <AirportLabel code={part.before.destination} showCity={false} />{part.transfer && <> → <AirportLabel code={part.after.origin} showCity={false} /></>}
-          <span className="timeline-connection-duration" data-rating={part.minutes === null ? undefined : layoverRatings?.get(part.minutes)?.level}
-            title={part.minutes === null ? undefined : layoverRatings?.get(part.minutes)?.description}>{elapsed(part.minutes)}</span>
-          {isOvernight(part) && <span className="layover-night" title="Overnight layover"><Icon name="moon" /></span>}</span>)
-        : leg.stops ? `${leg.stops} stops` : ""}</span>
-      <span className="timeline-endpoint arrival"><AirportLabel code={leg.destination_airport} showCity={false} /><b>{clock(leg.arrival)}{shift > 0 && <sup>+{shift}</sup>}</b></span>
+  const stops = leg.stops ? `${leg.stops} stop${leg.stops === 1 ? "" : "s"}` : "";
+  return <span className="leg" aria-label={`${label}: ${leg.origin_airport} to ${leg.destination_airport}, ${leg.duration}`}>
+    <span className="leg-label" aria-hidden="true">{label === "Outbound" ? "Out" : "Ret"}</span>
+    <span className="leg-end"><b className="clock">{clock(leg.departure)}</b><AirportLabel code={leg.origin_airport} showCity={false} /></span>
+    <span className="leg-track">
+      {timing && scale ? <span className="leg-plot" role="img"
+        aria-label={`${timelineScaleLabel(scale, mode)} timeline`}>
+        {midnights.map(({ at, label: day }) => <span key={at} className="leg-midnight" title={day}
+          style={{ left: `${percent(at, scale)}%` }} />)}
+        {timing.parts.filter((p) => p.end > p.start).map(({ part, start, end }, i) => <span key={i}
+          title={partLabel(part)}
+          className={`leg-part ${part.kind === "flight" ? part.detailed ? "airborne" : "summary" : part.transfer ? "layover transfer" : "layover"}`}
+          style={{ left: `${percent(start, scale)}%`, width: `${(end - start) / (scale.max - scale.min) * 100}%`,
+            "--airline": part.kind === "flight" ? airlineColor(part.segment.carrier) : undefined } as CSSProperties} />)}
+      </span> : <span className="leg-unavailable">Schedule unavailable</span>}
+      <span className="leg-connections">
+        {waits.map(({ part }, i) => part.kind === "layover" && <span key={i} className={part.transfer ? "transfer" : undefined}
+          title={partLabel(part)}>
+          {part.transfer ? `${part.before.destination}→${part.after.origin}` : part.before.destination}{" "}
+          <span data-rating={part.minutes === null ? undefined : layoverRatings?.get(part.minutes)?.level}>{elapsed(part.minutes)}</span>
+          {isOvernight(part) && <span className="leg-night" title="Overnight connection"> ☾</span>}
+        </span>)}
+        {timing && !timing.detailed && leg.stops !== 0 && <span className="leg-summary-hint"
+          title="Segment times unavailable. The total journey is placed on the timeline; open flight details for the itinerary.">Schedule not detailed</span>}
+      </span>
     </span>
-  </span>;
-}
-
-export function LegDuration({ leg, timing, rating }: { leg: Leg | null; timing: JourneyTiming | null | undefined; rating?: Rating }) {
-  if (!leg?.duration) return null;
-  const note = timing ? timingNote(timing) : undefined;
-  return <span className="timeline-duration" data-rating={rating?.level} title={rating?.description}>
-    {note && <span className="timeline-timing-warning" role="img" aria-label={note} title={note}><Icon name="failed" /></span>}
-    {leg.duration}
+    <span className="leg-end arrival"><b className="clock">{clock(leg.arrival)}{later > 0 && <sup>+{later}</sup>}</b>
+      <AirportLabel code={leg.destination_airport} showCity={false} /></span>
+    <span className="leg-duration">
+      {note && <span className="leg-warning" role="img" aria-label={note} title={note}>⚠</span>}
+      <span data-rating={rating?.level} title={rating?.description}>{leg.duration}</span>
+      {stops && <span className="leg-stops">{stops}</span>}
+    </span>
   </span>;
 }

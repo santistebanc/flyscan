@@ -22,11 +22,11 @@ export function OfferPriceEditor({ trip, offer, onSave, onClose }: {
     if (!amount.trim() || !Number.isFinite(value) || value <= 0) { setError("Enter a price greater than zero."); return; }
     save(editing.convert(value));
   }}>
-    <label>Price in {editing.currency}<input type="number" min="0.01" step="0.01" required autoFocus
+    <label>Corrected total in {editing.currency}<input type="number" min="0.01" step="0.01" required autoFocus
       value={amount} onChange={(event) => { setAmount(event.target.value); setError(""); }} /></label>
-    <p>Saved for this offer until you restore the source price.</p>
+    <p>Saved for this offer, party and cabin until you restore the source price. Survives source refreshes.</p>
     {error && <p role="alert" className="detail-booking-error">{error}</p>}
-    <div className="detail-price-actions"><button type="submit">Save price</button>
+    <div className="detail-price-actions"><button type="submit" className="primary">Save price</button>
       <button type="button" onClick={onClose}>Cancel</button>
       {offer.manual_price && <button type="button" onClick={() => save(null)}>Restore source price</button>}
     </div>

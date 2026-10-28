@@ -4,14 +4,14 @@ const { buildSync } = require("esbuild");
 const vm = require("node:vm");
 const path = require("node:path");
 const code = buildSync({ stdin: { contents: `
-  export { connectionFilterOptions, filterRanges, rangePresets, roundLimitPresets, timePresets } from './src/filterSuggestions';
+  export { connectionFilterOptions, filterRanges, roundLimitPresets } from './src/filterSuggestions';
   export { OPEN_FILTERS } from './src/flightFilters';
   export { flightTimelines } from './src/flightTimeline';
 `, resolveDir: path.join(__dirname, "..") },
   bundle: true, write: false, format: "cjs", platform: "node" }).outputFiles[0].text;
 const mod = { exports: {} };
 vm.runInNewContext(code, { module: mod, exports: mod.exports });
-const { connectionFilterOptions, OPEN_FILTERS, filterRanges, rangePresets, roundLimitPresets, timePresets, flightTimelines } = mod.exports;
+const { connectionFilterOptions, OPEN_FILTERS, filterRanges, roundLimitPresets, flightTimelines } = mod.exports;
 const plain = (value) => JSON.parse(JSON.stringify(value));
 const leg = (duration, departure = "2026-11-03T06:15", arrival = "2026-11-03T07:20") => ({
   origin_airport: "BER", destination_airport: "LHR", duration, departure, arrival, stops: 0, segments: [],
@@ -65,7 +65,6 @@ test("short-haul suggestions use actual price and duration extremes with only ob
   assert.deepEqual(plain(ranges.priceEur), { min: 54, max: 207 });
   assert.deepEqual(plain(ranges.durationMinutes), { min: 105, max: 125 });
   assert.deepEqual(plain(ranges.limits), { priceEur: [100], durationMinutes: [110], layoverMinutes: [] });
-  assert.deepEqual(plain(rangePresets(ranges.durationMinutes, 5)), [105, 115, 125]);
   assert.deepEqual(plain(ranges.stops), [0]);
   assert.equal(ranges.layoverMinutes, null);
 });
@@ -83,25 +82,12 @@ test("round-trip caps use the longest direction and the actual airport-transfer 
 
 test("new offscreen extrema update suggestions while sorting cannot change them", () => {
   const rows = Array.from({ length: 350 }, () => row(100, "2h"));
-  assert.deepEqual(plain(rangePresets(filterRanges(rows).priceEur)), [100]);
+  assert.deepEqual(plain(filterRanges(rows).priceEur), { min: 100, max: 100 });
   rows.push(row(900, "30h"));
   const ranges = filterRanges(rows);
-  assert.deepEqual(plain(rangePresets(ranges.priceEur)), [100, 500, 900]);
+  assert.deepEqual(plain(ranges.priceEur), { min: 100, max: 900 });
   assert.deepEqual(plain(ranges.limits.priceEur), [100], "a tied minimum can be useful when it keeps 350 flights");
   assert.deepEqual(plain(filterRanges([...rows].reverse())), plain(ranges));
-});
-
-test("time suggestions use local clocks and round in the useful direction", () => {
-  const rows = [row(100, "2h", { outbound: leg("2h", "2026-11-03T06:15+09:00", "2026-11-04T07:05-10:00") }),
-    row(200, "3h", { outbound: leg("3h", "2026-11-19T18:20", "2026-11-20T23:50") })];
-  const ranges = filterRanges(rows);
-  const departure = timePresets(ranges.outbound.depart, true);
-  const arrival = timePresets(ranges.outbound.arrive, false);
-  assert.equal(departure[0], 360);
-  assert.equal(departure.at(-1), 1080);
-  assert.equal(arrival[0], 450);
-  assert.equal(arrival.at(-1), 1440);
-  for (const minutes of [...departure, ...arrival]) assert.equal(minutes % 30, 0);
 });
 
 test("empty, missing, and invalid data produce no invented suggestions", () => {
@@ -109,14 +95,7 @@ test("empty, missing, and invalid data produce no invented suggestions", () => {
   const missing = filterRanges([{ best: { price_base: NaN }, duration: "unknown", inbound: null,
     outbound: { duration: "", departure: "bad", arrival: "", stops: null, segments: [] } }]);
   assert.deepEqual(plain(missing), plain(empty));
-  assert.deepEqual(plain(rangePresets(empty.priceEur)), []);
-  assert.deepEqual(plain(timePresets(empty.outbound.depart, true)), []);
-});
-
-test("tight and equal ranges have unique suggestions within their actual bounds", () => {
-  assert.deepEqual(plain(rangePresets({ min: 2, max: 2 })), [2]);
-  assert.deepEqual(plain(rangePresets({ min: 105, max: 106 }, 30)), [105, 106]);
-  for (const n of rangePresets({ min: 54, max: 207 }, 10)) assert.ok(n >= 54 && n <= 207);
+  assert.equal(empty.priceEur, null);
 });
 
 test("small or identical datasets do not invent useful limits", () => {

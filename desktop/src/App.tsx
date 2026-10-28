@@ -1,12 +1,12 @@
 /**
- * The whole UI: a fixed header of search controls, one list of every flight
- * found, and a side panel showing either the queue or the selected flight.
+ * The whole UI: one search bar across the top, the list of every flight found,
+ * and a side panel with two tabs — the selected flight and the queue.
  *
- * One rule shapes it: editing the form reads the **database** and never contacts
- * a source; only the scrape button contacts one. That holds for the party and
+ * One rule shapes it: editing the search reads the **database** and never
+ * contacts a source; only Fetch contacts one. That holds for the party and
  * cabin too — changing them re-reads stored prices for exactly that party, and
- * the source panel is where you find out whether anything has been scraped for
- * it yet.
+ * the status beside the search is where you find out whether anything has been
+ * scraped for it yet.
  */
 
 import {
@@ -23,27 +23,27 @@ import {
 } from "./api";
 import { apiConnection } from "./platform";
 import { CURRENCIES, CurrencyProvider, useCurrency } from "./currency";
-import { RangePicker, daysBetween, todayISO } from "./RangePicker";
+import { RangePicker, daysBetween, readableRange, todayISO } from "./RangePicker";
 import { Details } from "./Details";
 import { ChallengeBanner } from "./ChallengeBanner";
 import { Queue } from "./Queue";
 import { useFlights } from "./useFlights";
 import { useQueue } from "./useQueue";
 import { UpdateControls } from "./UpdateControls";
-import { RangeStatus } from "./RangeStatus";
-import { rangeStats } from "./queueModel";
-import { Icon, Spinner } from "./Icon";
+import { FetchButton, RangeStatus, rangeComplete } from "./RangeStatus";
+import { rangeStats, splitQueueGroups } from "./queueModel";
+import { Spinner } from "./Icon";
 import { flightRatings } from "./flightRatings";
 import { DEFAULT_SORT, SORT_LABELS, sortFlightRows, type SortKey } from "./flightSort";
 import { useFavorites } from "./useFavorites";
 import { FavoriteButton } from "./FavoriteButton";
-import { FlightTimeline, LegDuration } from "./TimelineFlight";
-import { TimelineTooltipProvider } from "./TimelineTooltip";
-import { flightTimelines, normalizeTimelineMode, TIMELINE_MODE_KEY, type FlightTimelines, type TimelineMode } from "./flightTimeline";
+import { FlightTimeline } from "./TimelineFlight";
+import { elapsed, flightTimelines, normalizeTimelineMode, TIMELINE_MODE_KEY, type FlightTimelines, type TimelineMode } from "./flightTimeline";
 import { FILTERS_KEY, FlightFiltersBar } from "./FilterBar";
-import { FILTERS_VERSION, filtersActive, matchesFlight, sanitizeFilters, type ListFilters } from "./flightFilters";
+import { DEFAULT_FILTERS, FILTERS_VERSION, matchesFlight, sanitizeFilters, type ListFilters } from "./flightFilters";
 import { connectionFilterOptions, filterRanges } from "./filterSuggestions";
 import { PlaceInput } from "./PlaceInput";
+import { TravellersPicker, CABIN_LABELS } from "./TravellersPicker";
 import { CurrencyInput } from "./CurrencyInput";
 import { rememberPlace } from "./recentPlaces";
 import { useFlightArrivals, useSelectedFlightAnchor } from "./useFlightListEffects";
@@ -60,14 +60,6 @@ function defaultDate(): string {
 }
 
 const today = () => new Date().toISOString().slice(0, 10);
-
-const CABINS: Cabin[] = ["economy", "premiumeconomy", "business", "first"];
-const CABIN_LABELS: Record<Cabin, string> = {
-  economy: "Economy",
-  premiumeconomy: "Premium economy",
-  business: "Business",
-  first: "First",
-};
 
 /** "2 adults + 1 child, business" — what the prices on screen are actually for. */
 function describeParty(
@@ -145,44 +137,43 @@ function rememberedForm(): Partial<RememberedForm> {
   }
 }
 
-/** "2026-09-05" → "5 Sept". Parsed as local noon so no timezone shifts the day. */
+/** "2026-09-05" → "Sep 5". Parsed as local noon so no timezone shifts the day. */
 function readableDay(iso: string): string {
   const day = new Date(`${iso}T12:00:00`);
   if (Number.isNaN(day.getTime())) return iso;
-  return day.toLocaleDateString("en-GB", { month: "short", day: "numeric" });
+  return day.toLocaleDateString("en-US", { month: "short", day: "numeric" });
 }
+
+const returnDateOf = (row: FlightRow) => row.return_date || row.inbound?.departure.slice(0, 10) || "";
+
+type EmptyState = { title: string; body?: string; action?: { label: string; onClick: () => void } };
 
 /**
  * The results, as a list rather than a table.
  *
  * There are no headers because none are needed: a price, a date, an itinerary
- * and a duration each announce themselves. Airlines, stop counts and every
- * seller's price live in the side panel, which is what keeps a row scannable.
+ * and a duration each announce themselves. Airlines and every seller's price
+ * live in the side panel, which is what keeps a row scannable.
  */
 function Results(
-  { rows, dataset, total, limited, loading, openKey, onOpen, favorites, onToggleFavorite, ratings, timelines, timelineMode, layoverRatings, connectionRecovery }:
+  { rows, dataset, loading, empty, openKey, onOpen, favorites, onToggleFavorite, ratings, timelines, timelineMode, layoverRatings }:
   {
-    rows: FlightRow[]; dataset: FlightRow[]; total: number; limited: boolean; loading: boolean; openKey: string | null;
+    rows: FlightRow[]; dataset: FlightRow[]; loading: string | null; empty: EmptyState; openKey: string | null;
     onOpen: (key: string) => void;
     favorites: ReadonlySet<string>; onToggleFavorite: (key: string) => void;
     ratings: ReturnType<typeof flightRatings>;
     timelines: FlightTimelines;
     timelineMode: TimelineMode;
     layoverRatings: ReturnType<typeof connectionRatings>;
-    connectionRecovery: { label: string; onClick: () => void } | null;
   },
 ) {
   const { money } = useCurrency();
   const list = useRef<HTMLDivElement | null>(null);
   const fareContent = useMemo(() => rows.map((row) => {
-    const returnDate = row.return_date || row.inbound?.departure.slice(0, 10) || "";
-    const hasWarning = (leg: FlightRow["outbound"]) => Boolean(timelines.journeys.get(leg)?.durationDifference);
-    return { price: money(row.best?.price_base), origin: row.outbound.origin_airport,
-      destination: row.outbound.destination_airport,
-      dates: readableDay(row.depart_date) + (returnDate ? ` - ${readableDay(returnDate)}` : ""),
-      outbound: row.outbound.duration || "", inbound: row.inbound?.duration || "",
-      warnings: Number(hasWarning(row.outbound)) + Number(Boolean(row.inbound && hasWarning(row.inbound))) };
-  }), [rows, money, timelines.journeys]);
+    const returnDate = returnDateOf(row);
+    return { price: money(row.best?.price_base),
+      dates: readableDay(row.depart_date) + (returnDate ? ` – ${readableDay(returnDate)}` : "") };
+  }), [rows, money]);
   useFareColumnWidth(list, fareContent);
   const index = openKey ? rows.findIndex((row) => row.trip_key === openKey) : -1;
   const isAnchored = useSelectedFlightAnchor(list, openKey);
@@ -191,8 +182,8 @@ function Results(
    *
    * Held in state rather than read from the ref while rendering: during the
    * first render the ref is still null, and a value of zero puts every row a
-   * header's height out of place. It moves when the header does — opening
-   * Advanced gives it another line — so it is measured again on a resize.
+   * header's height out of place. It moves when the header does, so it is
+   * measured again on a resize.
    */
   const [listTop, setListTop] = useState(0);
   useLayoutEffect(() => {
@@ -219,7 +210,7 @@ function Results(
    */
   const virtual = useWindowVirtualizer({
     count: rows.length,
-    estimateSize: (i) => rows[i]?.inbound || rows[i]?.return_date ? 156 : 84,
+    estimateSize: (i) => rows[i]?.inbound || rows[i]?.return_date ? 125 : 72,
     overscan: 10,
     scrollMargin: listTop,
     getItemKey: (index) => rows[index]?.trip_key ?? index,
@@ -250,20 +241,18 @@ function Results(
   }, [openKey]);
 
   if (rows.length === 0) {
-    if (loading && total === 0) return <div className="results-loading" role="status">
-      <Spinner /><span>Loading flights…</span>
-    </div>;
+    if (loading) return <div className="results-loading" role="status"><Spinner /><span>{loading}</span></div>;
     return <div className="empty-results">
-      <p className="muted">{connectionRecovery ? "No flights match your connection preferences."
-        : limited && total > 0 ? "Nothing matches these limits." : "No flights to show."}</p>
-      {connectionRecovery && <button type="button" onClick={connectionRecovery.onClick}>{connectionRecovery.label}</button>}
+      <b>{empty.title}</b>
+      {empty.body && <p>{empty.body}</p>}
+      {empty.action && <button type="button" className="primary" onClick={empty.action.onClick}>{empty.action.label}</button>}
     </div>;
   }
 
   const items = virtual.getVirtualItems();
 
   return (
-    <TimelineTooltipProvider resetKey={rows}><div
+    <div
       className="results"
       role="grid"
       aria-label="Flights"
@@ -278,13 +267,11 @@ function Results(
         const row = rows[item.index]!;
         const isOpen = row.trip_key === openKey;
         const rating = ratings.get(row.trip_key);
-        const favorite = favorites.has(row.trip_key);
-        const returnDate = row.return_date || row.inbound?.departure.slice(0, 10) || "";
+        const returnDate = returnDateOf(row);
         return (
           <div
             key={item.key}
             data-index={item.index}
-            data-stripe={item.index % 2 ? "alternate" : "base"}
             data-flight-key={row.trip_key}
             ref={virtual.measureElement}
             role="row"
@@ -298,51 +285,42 @@ function Results(
             }}
           >
             <span className="favorite-cell" role="gridcell">
-              <FavoriteButton row={row} favorite={favorite} onToggle={onToggleFavorite} />
+              <FavoriteButton row={row} favorite={favorites.has(row.trip_key)} onToggle={onToggleFavorite} />
             </span>
             <span className="fare-cell" role="gridcell">
-              <span className="fare-header">
-                <span className="price" data-rating={rating?.price?.level} title={rating?.price?.description}>{money(row.best?.price_base)}</span>
+              <span className="price" data-rating={rating?.price?.level} title={rating?.price?.description}>{money(row.best?.price_base)}</span>
+              <span className="fare-dates">
+                <time dateTime={row.depart_date} title={`Departure: ${row.depart_date}`}>{readableDay(row.depart_date)}</time>
+                {returnDate && <> – <time dateTime={returnDate} title={`Return: ${returnDate}`}>{readableDay(returnDate)}</time></>}
               </span>
-              <span className="flight-dates">
-                <span className="fare-route">
-                  <strong>{row.outbound.origin_airport}</strong><Icon name="arrow-right" /><strong>{row.outbound.destination_airport}</strong>
-                </span>
-                <span className="fare-date-range">
-                  <time className="fare-journey-date" dateTime={row.depart_date} title={`Departure: ${row.depart_date}`}>{readableDay(row.depart_date)}</time>
-                  {returnDate && <> - <time className="fare-journey-date" dateTime={returnDate} title={`Return: ${returnDate}`}>{readableDay(returnDate)}</time></>}
-                </span>
-                <span className="fare-durations">
-                  <span aria-label={`Outbound duration: ${row.outbound.duration}`}>
-                    <LegDuration leg={row.outbound} timing={timelines.journeys.get(row.outbound)} rating={rating?.outbound} />
-                  </span>
-                  {row.inbound && <span aria-label={`Return duration: ${row.inbound.duration}`}>
-                      <span className="fare-duration-separator" aria-hidden="true">/</span>
-                      <LegDuration leg={row.inbound} timing={timelines.journeys.get(row.inbound)} rating={rating?.inbound} />
-                  </span>}
-                </span>
-              </span>
+              {row.best?.manual_price && <span className="fare-corrected">Corrected price</span>}
             </span>
             <span className="trip" role="gridcell">
-              <FlightTimeline leg={row.outbound} scale={timelines.outbound} timing={timelines.journeys.get(row.outbound)} mode={timelineMode} layoverRatings={layoverRatings} />
-              {/* A round trip is half-described by its outbound alone. */}
+              <FlightTimeline label="Outbound" leg={row.outbound} scale={timelines.outbound} timing={timelines.journeys.get(row.outbound)}
+                mode={timelineMode} rating={rating?.outbound} layoverRatings={layoverRatings} />
               {row.inbound ? (
-                <div className="back">
-                  <FlightTimeline leg={row.inbound} scale={timelines.inbound} timing={timelines.journeys.get(row.inbound)} mode={timelineMode} layoverRatings={layoverRatings} />
-                </div>
+                <FlightTimeline label="Return" leg={row.inbound} scale={timelines.inbound} timing={timelines.journeys.get(row.inbound)}
+                  mode={timelineMode} rating={rating?.inbound} layoverRatings={layoverRatings} />
               ) : row.return_date && (
                 // The seller priced the round trip without saying which flight
                 // comes back. Saying so beats a row that reads as a cheaper
-                // one-way — and the return date above still says when.
-                <div className="back no-detail">return not detailed</div>
+                // one-way — and the return date still says when.
+                <span className="leg no-detail">
+                  <span className="leg-label" aria-hidden="true">Ret</span>
+                  <span title="The seller priced the round trip without saying which flight comes back.">
+                    Return not detailed · {readableDay(row.return_date)}</span>
+                </span>
               )}
             </span>
           </div>
         );
       })}
-    </div></TimelineTooltipProvider>
+    </div>
   );
 }
+
+type PopoverName = "from" | "to" | "depart" | "return" | "travellers";
+const POPOVERS: PopoverName[] = ["from", "to", "depart", "return", "travellers"];
 
 function Shell() {
   const [api, setApi] = useState<FlightScraperApi | null>(null);
@@ -362,15 +340,23 @@ function Shell() {
   const [cabin, setCabin] = useState<Cabin>(remembered.cabin ?? "economy");
   const [askCurrency, setAskCurrency] = useState(remembered.currency ?? "EUR");
 
-  const [advanced, setAdvanced] = useState(
-    // Open it if it is holding anything other than the default, so a party set
-    // last time is visible rather than hidden behind a closed fold.
-    () => (remembered.adults ?? 1) !== 1 || (remembered.children ?? 0) !== 0
-      || (remembered.infants ?? 0) !== 0 || (remembered.cabin ?? "economy") !== "economy"
-      || (remembered.currency ?? "EUR") !== "EUR",
-  );
+  /** One popover of the search bar at a time. */
+  const [popover, setPopover] = useState<PopoverName | null>(null);
+  const toggles = useMemo(() => Object.fromEntries(POPOVERS.map((name) => [name,
+    (open: boolean) => setPopover((was) => open ? name : was === name ? null : was)])) as Record<PopoverName, (open: boolean) => void>, []);
 
   const [openKey, setOpenKey] = useState<string | null>(null);
+  const [tab, setTab] = useState<"flight" | "queue">("queue");
+  const pickFlight = useCallback((key: string | null) => {
+    setOpenKey(key);
+    setTab(key ? "flight" : "queue");
+  }, []);
+  const [toast, setToast] = useState("");
+  useEffect(() => {
+    if (!toast) return;
+    const timer = window.setTimeout(() => setToast(""), 2200);
+    return () => window.clearTimeout(timer);
+  }, [toast]);
   const { favorites, toggleFavorite } = useFavorites();
   const [sort, setSort] = useState<SortKey>(DEFAULT_SORT);
   const [timelineMode, setTimelineMode] = useState<TimelineMode>(() => {
@@ -427,7 +413,7 @@ function Shell() {
   }, [refreshChallenges]);
   const engine = useFlights(api, refreshChallengesInBackground);
   const { rows: priceRows, correctPrice } = useOfferPrices(engine.rows, JSON.stringify([adults, children, infants, cabin]));
-  const { roundedIn } = useCurrency();
+  const { roundedIn, money } = useCurrency();
 
   const limits = useMemo(() => ({
     maxPrice: filters.maxPriceEur == null ? null : roundedIn(filters.maxPriceEur),
@@ -504,12 +490,13 @@ function Shell() {
     if (request && trips > 0 && !engine.running && !queue.busy) {
       rememberPlace(request.origin);
       rememberPlace(request.destination);
+      setPopover(null);
       void engine.runSearch({ ...request, refresh });
     }
   }, [request, trips, engine.running, engine.runSearch, queue.busy]);
 
   // Wait for the sidecar to come up. Nothing announces the wait: until it
-  // answers there are no sources, and the source panel says so in the one
+  // answers there are no sources, and the queue panel says so in the one
   // place that is already about them.
   useEffect(() => {
     let live = true;
@@ -592,10 +579,10 @@ function Shell() {
    *
    * The header and the side panel are pinned; the results are the page itself
    * and scroll with it. That only lines up if the rest of the layout knows how
-   * much room the pinned parts take — and both of them move. The header grows
-   * a second row when Advanced opens; the panel, once it is stacked across the
-   * top on a narrow window, is as tall as whatever it is holding. CSS cannot
-   * measure either, so this does.
+   * much room the pinned parts take — and both of them move. The header wraps
+   * onto a second line on a narrow window; the panel, once it is stacked
+   * across the top, is as tall as whatever it is holding. CSS cannot measure
+   * either, so this does.
    */
   const header = useRef<HTMLElement | null>(null);
   const side = useRef<HTMLElement | null>(null);
@@ -613,10 +600,10 @@ function Shell() {
   }, []);
 
   // Three ways in, because a stale number here is a visible seam. Every React
-  // render is measured before it paints, which covers the fold opening and a
-  // flight being picked. A resize covers the layout changing shape underneath
-  // us — at the breakpoint the panel goes from full-height column to a capped
-  // band, and React is never told. The observer catches the rest.
+  // render is measured before it paints, which covers a flight being picked.
+  // A resize covers the layout changing shape underneath us — at the
+  // breakpoint the panel goes from full-height column to a capped band, and
+  // React is never told. The observer catches the rest.
   useLayoutEffect(measure);
   useEffect(() => {
     const observer = new ResizeObserver(measure);
@@ -633,7 +620,8 @@ function Shell() {
    *
    * Bound to the window rather than to the list so it works without clicking
    * in first — but not while a field has focus, where ↑ on a number input or
-   * Escape on a date picker means something else entirely.
+   * Escape on a date picker means something else entirely. Open popovers take
+   * Escape for themselves before it gets here.
    */
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
@@ -644,9 +632,8 @@ function Shell() {
       if (focused === "INPUT" || focused === "SELECT" || focused === "TEXTAREA") return;
 
       if (event.key === "Escape") {
-        if (document.querySelector(".time-popup")) return;
         event.preventDefault();
-        setOpenKey(null);      // return to the queue
+        pickFlight(null);      // back to the queue
         return;
       }
       if (!shown.length) return;
@@ -658,11 +645,11 @@ function Shell() {
         : at < 0 ? 0                                  // nothing picked yet: start at the top
         : event.key === "ArrowDown" ? Math.min(shown.length - 1, at + 1)
         : Math.max(0, at - 1);
-      setOpenKey(shown[to]!.trip_key);
+      pickFlight(shown[to]!.trip_key);
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [shown, openKey]);
+  }, [shown, openKey, pickFlight]);
 
   const openRow = shown.find((row) => row.trip_key === openKey) ?? null;
 
@@ -685,35 +672,60 @@ function Shell() {
       const target = event.target as HTMLElement | null;
       if (!target) return;
       if (target.closest(".results, .side")) return;
-      if (target.closest("input, select, button, label, a, .cal-popup, .time-popup, .flight-filter-panel, .place-suggest, .currency-suggest")) return;
-      setOpenKey(null);
+      if (target.closest("input, select, button, label, a, .popover, .flight-filter-panel")) return;
+      pickFlight(null);
     };
     document.addEventListener("mousedown", away);
     return () => document.removeEventListener("mousedown", away);
-  }, [openKey]);
+  }, [openKey, pickFlight]);
+
+  const party = describeParty(adults, children, infants, cabin);
+  const stats = rangeStats(queue.selected);
+  const loading = !request ? null
+    : engine.running ? "Searching every source…"
+    : !api || engine.loadingStored ? "Loading flights…" : null;
+  const tripWord = `${trips} trip${trips === 1 ? "" : "s"}`;
+  const empty: EmptyState = connectionRecovery ? {
+    title: "No flights match your connection preferences.",
+    body: filters.maxLayoverMinutes !== null
+      ? `Every stored flight has a connection longer than ${elapsed(filters.maxLayoverMinutes)}, or revisits an airport.`
+      : "Every stored flight revisits an airport on the way.",
+    action: connectionRecovery,
+  } : priceRows.length ? {
+    title: "Nothing matches these limits.",
+    body: "Relax a filter or reset them all. Filters never delete stored results.",
+    action: { label: "Reset filters", onClick: () => setFilters(DEFAULT_FILTERS) },
+  } : request && queue.state && !stats.groups ? {
+    title: "Nothing stored for this search yet",
+    body: `No source has been asked about ${request.origin.toUpperCase()} → ${request.destination.toUpperCase()}, `
+      + `${readableRange(start, end || start)}${ret ? ` / ${readableRange(ret, retEnd || ret)}` : ", one way"} for ${party}. `
+      + (trips === 1 ? "Fetch asks every source for it." : `Fetch asks every source for each of the ${tripWord}.`),
+    action: trips > 0 ? { label: `Fetch ${tripWord}`, onClick: () => fetchRange(false) } : undefined,
+  } : request && rangeComplete(queue, trips) ? {
+    title: "No flights found",
+    body: "Every source answered for these dates, and none of them had a flight.",
+  } : { title: "No flights to show." };
+
+  const cheapest = shown.reduce<number | null>((low, row) => row.best?.price_base == null ? low
+    : low === null ? row.best.price_base : Math.min(low, row.best.price_base), null);
+  const activeSearches = splitQueueGroups(queue.groups, queue.busy?.groupIds).active.length;
 
   return (
     <AirportNamesProvider api={api}><div className="app">
       <header className="topbar" ref={header}>
-        <form
-          className="params"
-          id="flight-search"
-          onSubmit={(e) => {
-            e.preventDefault();
-            const selected = rangeStats(queue.selected);
-            fetchRange(selected.groups === trips && selected.total > 0 && selected.done === selected.total);
-          }}
-        >
-          <PlaceInput label="From" value={origin} onChange={setOrigin} api={api} required />
-          <PlaceInput label="To" value={destination} onChange={setDestination} api={api} required />
+        <div className="search-bar" role="search" aria-label="Flight search">
+          <PlaceInput label="From" value={origin} onChange={setOrigin} api={api}
+            open={popover === "from"} onToggle={toggles.from} />
+          <PlaceInput label="To" value={destination} onChange={setDestination} api={api}
+            open={popover === "to"} onToggle={toggles.to} />
           {/* Each departure day is priced against each return day. */}
           <RangePicker
             label="Depart"
             from={start}
             to={end || start}
             min={todayISO()}
-            hint={`${departDays} departure${departDays > 1 ? "s" : ""}`}
             relatedRange={{ from: ret, to: retEnd || ret, label: "Return" }}
+            open={popover === "depart"} onToggle={toggles.depart}
             onChange={(from, to) => { setStart(from); setEnd(to); }}
           />
           <RangePicker
@@ -724,131 +736,109 @@ function Shell() {
             min={start || todayISO()}
             optional
             empty="One way"
-            hint={ret ? `${returnDays} return${returnDays > 1 ? "s" : ""}` : ""}
-            relatedRange={{ from: start, to: end || start, label: "Depart" }}
+            relatedRange={{ from: start, to: end || start, label: "Departure" }}
+            open={popover === "return"} onToggle={toggles.return}
             onChange={(from, to) => { setRet(from); setRetEnd(to); }}
           />
+          <TravellersPicker party={{ adults, children, infants, cabin, currency: askCurrency }} currencies={CURRENCIES}
+            open={popover === "travellers"} onToggle={toggles.travellers}
+            onChange={(next) => {
+              if (next.adults !== undefined) setAdults(next.adults);
+              if (next.children !== undefined) setChildren(next.children);
+              if (next.infants !== undefined) setInfants(next.infants);
+              if (next.cabin) setCabin(next.cabin);
+              if (next.currency) setAskCurrency(next.currency);
+            }} />
+          <FetchButton queue={queue} trips={trips} canSearch={Boolean(api && request)}
+            fetching={engine.running} onFetch={fetchRange} />
+        </div>
 
-          {/* Folded away because most searches are one adult in economy, but
-              part of the search itself — changing any of it re-reads the
-              database for that party, and a scrape asks for exactly it. */}
-          <button
-            type="button"
-            className="disclose"
-            aria-expanded={advanced}
-            aria-controls="advanced-search-options"
-            onClick={() => setAdvanced((open) => !open)}
-          >
-            <Icon name={advanced ? "chevron-down" : "chevron-right"} /> Advanced
-          </button>
-
-        </form>
-
-        {/* Pushed to the right of the search it acts on. */}
         <div className="topbar-actions">
           <UpdateControls busy={engine.running || Boolean(queue.busy) || queue.offline || !queue.state
             || Boolean(queue.state.scheduler.running || queue.state.scheduler.queued)} />
-          <RangeStatus queue={queue} trips={trips} canSearch={Boolean(api && request)}
-            fetching={engine.running} onFetch={fetchRange} />
-          <button type="button" className="queue-icon-button sidebar-toggle"
-            title="Show search queue" aria-label="Show search queue"
-            aria-pressed={!openRow} aria-controls="search-queue" onClick={() => setOpenKey(null)}>
-            <Icon name="queue" />
-          </button>
+          <RangeStatus queue={queue} trips={trips} canSearch={Boolean(api && request)} />
         </div>
       </header>
 
       <main className="results-pane">
         {/* These display controls do not request new results from a source. */}
         <div className="results-bar">
-          {advanced && (
-            <div className="advanced" id="advanced-search-options">
-              <label>Adults
-                <input form="flight-search" type="number" min={1} max={9} value={adults}
-                  onChange={(e) => setAdults(Math.max(1, +e.target.value))} />
-              </label>
-              <label>Children
-                <input form="flight-search" type="number" min={0} max={8} value={children}
-                  onChange={(e) => setChildren(Math.max(0, +e.target.value))} />
-              </label>
-              <label>Infants
-                <input form="flight-search" type="number" min={0} max={8} value={infants}
-                  onChange={(e) => setInfants(Math.max(0, +e.target.value))} />
-              </label>
-              <label>Cabin
-                <select form="flight-search" value={cabin} onChange={(e) => setCabin(e.target.value as Cabin)}>
-                  {CABINS.map((c) => <option key={c} value={c}>{CABIN_LABELS[c]}</option>)}
-                </select>
-              </label>
-              <label>Quote in
-                <select form="flight-search" value={askCurrency} onChange={(e) => setAskCurrency(e.target.value)}>
-                  {CURRENCIES.map((code) => <option key={code} value={code}>{code}</option>)}
-                </select>
-              </label>
+          <div className="results-summary">
+            <h1>{loading && !priceRows.length ? "Searching…" : priceRows.length
+              ? `${shown.length.toLocaleString()} flight${shown.length === 1 ? "" : "s"}` : "No flights"}</h1>
+            <span>{shown.length && cheapest !== null ? `from ${money(cheapest)} · ` : ""}prices for {party}
+              {engine.running && shown.length ? " · more arriving" : ""}</span>
+            <div className="sort-options" role="group" aria-label="Sort by">
+              {(Object.keys(SORT_LABELS) as SortKey[]).map((key) => <button type="button" key={key}
+                aria-pressed={sort === key} onClick={() => setSort(key)}
+                title={key === "best" ? "Balances price and total travel time, including the return and layovers" : undefined}>
+                {SORT_LABELS[key]}</button>)}
             </div>
-          )}
-          <FlightFiltersBar filters={filters} onChange={setFilters} shown={shown.length} total={engine.rows.length} roundTrip={Boolean(ret)} suggestions={suggestions} connectionOptions={connectionOptions} />
-          <div className="results-view-controls">
-            <label className="inline">
-              Timeline
-              <select value={timelineMode} onChange={(e) => setTimelineMode(normalizeTimelineMode(e.target.value))}
-                title="Midnight-based ranges start at 24 hours and extend in three-hour steps. Shared scale aligns all filtered flights.">
-                <option value="days">Fixed ranges</option>
-                <option value="shared">Shared scale</option>
-              </select>
-            </label>
-            <label className="inline">
-              Sort by
-              <select value={sort} onChange={(e) => setSort(e.target.value as SortKey)}
-                title={sort === "best" ? "Balances price and total travel time, including the return and layovers" : undefined}>
-                {(Object.keys(SORT_LABELS) as SortKey[]).map((key) => (
-                  <option key={key} value={key}>{SORT_LABELS[key]}</option>
-                ))}
-              </select>
-            </label>
-            <CurrencyInput />
+          </div>
+          <div className="results-controls">
+            <FlightFiltersBar filters={filters} onChange={setFilters} shown={shown.length} total={engine.rows.length}
+              roundTrip={Boolean(ret)} suggestions={suggestions} connectionOptions={connectionOptions} />
+            <div className="results-view-controls">
+              <button type="button" className="view-control" aria-label={`Timeline scale: ${timelineMode === "days" ? "per trip" : "shared"}`}
+                title="Per trip: each row spans whole days from 05:00. Shared: all rows align on one scale per direction."
+                onClick={() => setTimelineMode((mode) => mode === "days" ? "shared" : "days")}>
+                Scale <b>{timelineMode === "days" ? "Per trip" : "Shared"}</b>
+              </button>
+              <CurrencyInput />
+            </div>
           </div>
         </div>
 
         <Results
           rows={shown}
           dataset={priceRows}
-          total={engine.total}
-          limited={filtersActive(filters)}
-          loading={Boolean(request) && (!api || engine.loadingStored || engine.running)}
+          loading={loading}
+          empty={empty}
           openKey={openKey}
-          onOpen={setOpenKey}
+          onOpen={(key) => pickFlight(key === openKey ? null : key)}
           favorites={favorites}
           onToggleFavorite={toggleFavorite}
           ratings={ratings}
           timelines={timelines}
           timelineMode={timelineMode}
           layoverRatings={layoverRatings}
-          connectionRecovery={connectionRecovery}
         />
       </main>
 
-      <aside className="side" ref={side} aria-label={openRow ? "Flight details" : "Search queue"}>
-        <div className="queue-view" id="search-queue" hidden={Boolean(openRow)}>
-          <ChallengeBanner
-            api={api}
-            pending={pending}
-            canSolveHere={canSolveHere}
-            onCleared={refreshChallenges}
-          />
-          <Queue queue={queue} />
+      <aside className="side" ref={side} aria-label="Flight and search queue">
+        <div className="side-tabs" role="tablist" aria-label="Side panel">
+          <button type="button" role="tab" id="tab-flight" aria-selected={tab === "flight"} aria-controls="panel-flight"
+            onClick={() => setTab("flight")}>Flight</button>
+          <button type="button" role="tab" id="tab-queue" aria-selected={tab === "queue"} aria-controls="panel-queue"
+            onClick={() => setTab("queue")}>Queue<span className="side-tab-count">{activeSearches}</span>
+            {pending.length > 0 && <span className="side-tab-alert" role="img" aria-label="Verification needed" />}</button>
+          <span className="side-hint" aria-hidden="true">↑ ↓ to browse · Esc</span>
         </div>
-
-        <Details
-          row={openRow}
-          rating={openRow ? ratings.get(openRow.trip_key) : undefined}
-          layoverRatings={layoverRatings}
-          onCorrectPrice={correctPrice}
-          favorite={Boolean(openRow && favorites.has(openRow.trip_key))}
-          onToggleFavorite={toggleFavorite}
-          partyLabel={describeParty(adults, children, infants, cabin)}
-        />
+        <div className="side-body">
+          <div role="tabpanel" id="panel-queue" aria-labelledby="tab-queue" hidden={tab !== "queue"}>
+            <ChallengeBanner
+              api={api}
+              pending={pending}
+              canSolveHere={canSolveHere}
+              onCleared={refreshChallenges}
+            />
+            <Queue queue={queue} />
+          </div>
+          <div role="tabpanel" id="panel-flight" aria-labelledby="tab-flight" hidden={tab !== "flight"}>
+            {openRow ? <Details
+              row={openRow}
+              rating={ratings.get(openRow.trip_key)}
+              layoverRatings={layoverRatings}
+              onCorrectPrice={correctPrice}
+              favorite={favorites.has(openRow.trip_key)}
+              onToggleFavorite={toggleFavorite}
+              partyLabel={party}
+              onOpenBooking={(seller) => setToast(`Opening ${seller} in your browser…`)}
+            /> : <p className="side-note">Select a flight to see its full itinerary, connections and every seller's price.</p>}
+          </div>
+        </div>
       </aside>
+      {toast && <div className="toast" role="status">{toast}</div>}
     </div></AirportNamesProvider>
   );
 }

@@ -201,15 +201,6 @@ export function flightTimelines(rows: FlightRow[], cached?: ReadonlyMap<Leg, Jou
  */
 export interface Midnight { at: number; label: string }
 const monthNames = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
-/** Label the left edge only when it belongs to the departure airport's departure date. */
-export function timelineStartDate(timing: JourneyTiming, scale: Pick<TimelineScale, "min">, departure: string): Midnight | null {
-  const wall = wallStamp(departure);
-  if (wall === null || !Number.isFinite(scale.min)) return null;
-  const startWall = wall + scale.min - timing.start;
-  if (Math.floor(startWall / 1440) !== Math.floor(wall / 1440)) return null;
-  const day = new Date(startWall * 60000);
-  return { at: scale.min, label: `${monthNames[day.getUTCMonth()]} ${day.getUTCDate()}` };
-}
 export interface LocalClockSpan { from: number; to: number; start: number; end: number }
 /** Airport-local clocks mapped onto elapsed positions, including empty range space.
  * In-flight clocks interpolate between airport timestamps, not geographic zone borders.

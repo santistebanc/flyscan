@@ -4,13 +4,13 @@ import { createPortal } from "react-dom";
 import { useCurrency } from "./currency";
 import { Icon } from "./Icon";
 import { elapsed } from "./flightTimeline";
-import { roundLimitPresets, timePresets, type ConnectionFilterOptions, type FilterRanges } from "./filterSuggestions";
+import { roundLimitPresets, type ConnectionFilterOptions, type FilterRanges } from "./filterSuggestions";
 import { DEFAULT_FILTERS, OPEN_FILTERS, filtersActive, filtersChanged, formatClock,
   type DirectionTimes, type ListFilters } from "./flightFilters";
 
 export const FILTERS_KEY = "flight-scraper:list-filters";
 type Panel = "stops" | "price" | "duration" | "layovers" | "times";
-const TITLES: Record<Panel, string> = { stops: "Stops", price: "Price", duration: "Journey duration", layovers: "Layovers", times: "Departure & arrival" };
+const TITLES: Record<Panel, string> = { stops: "Stops", price: "Price", duration: "Duration", layovers: "Layovers", times: "Departure and arrival times" };
 const timeOptions = Array.from({ length: 49 }, (_, i) => i * 30);
 
 function LimitInput({ label, unit, value, onCommit }: {
@@ -33,8 +33,12 @@ function LimitInput({ label, unit, value, onCommit }: {
   </label>;
 }
 
-function TimeBound({ label, accessibleLabel, value, minimum, suggestions, onChange }: {
-  label: string; accessibleLabel: string; value: number; minimum: boolean; suggestions: number[]; onChange: (next: number) => void;
+/** The design's quick picks; the dropdown still reaches any half hour. */
+const DEPART_PRESETS = [0, 360, 540, 720, 900];
+const ARRIVE_PRESETS = [1440, 720, 900, 1080, 1320];
+
+function TimeBound({ label, accessibleLabel, value, minimum, onChange }: {
+  label: string; accessibleLabel: string; value: number; minimum: boolean; onChange: (next: number) => void;
 }) {
   const unrestricted = minimum ? 0 : 1440;
   return <div className="filter-time-range">
@@ -44,17 +48,10 @@ function TimeBound({ label, accessibleLabel, value, minimum, suggestions, onChan
         {timeOptions.map((m) => <option key={m} value={m}>{m === unrestricted ? "Any time" : formatClock(m)}</option>)}
       </select>
     </label>
-    <span className="time-range-track">
-      <span className="time-range-rail" />
-      <span className="time-range-fill" style={{ left: `${minimum ? value / 1440 * 100 : 0}%`, width: `${(minimum ? 1440 - value : value) / 1440 * 100}%` }} />
-      <input type="range" min={0} max={48} step={1} value={value / 30}
-        aria-label={`${accessibleLabel} slider`} aria-valuetext={value === unrestricted ? "Any time" : formatClock(value)}
-        onChange={(e) => onChange(Number(e.target.value) * 30)} />
-    </span>
     <div className="filter-dayparts" role="group" aria-label={`${accessibleLabel} quick times`}>
-      {[...new Set(suggestions.filter((minutes) => minutes !== unrestricted)), unrestricted].map((minutes) => <button type="button" key={minutes}
+      {(minimum ? DEPART_PRESETS : ARRIVE_PRESETS).map((minutes) => <button type="button" key={minutes}
         aria-pressed={value === minutes} onClick={() => onChange(minutes)}>
-        {minutes === unrestricted ? "Any time" : formatClock(minutes)}
+        {minutes === unrestricted ? "Any" : formatClock(minutes)}
       </button>)}
     </div>
   </div>;
@@ -128,12 +125,12 @@ export function FlightFiltersBar({ filters, onChange, shown, total, roundTrip = 
     };
   }, [open]);
 
-  const controls: { name: Panel; label: string; value?: string; active: boolean; icon: "stops" | "price" | "waiting" | "connection" }[] = [
-    { name: "stops", label: "Stops", value: filters.maxStops === 0 ? "Nonstop" : filters.maxStops === null ? filters.excludeRepeatedAirports ? undefined : "All routes" : `≤ ${filters.maxStops}`, active: filters.maxStops !== DEFAULT_FILTERS.maxStops || filters.excludeRepeatedAirports !== DEFAULT_FILTERS.excludeRepeatedAirports, icon: "stops" },
-    { name: "price", label: "Price", value: filters.maxPriceEur === null ? undefined : `≤ ${money(filters.maxPriceEur)}`, active: filters.maxPriceEur !== null, icon: "price" },
-    { name: "duration", label: "Duration", value: filters.maxDurationMinutes === null ? undefined : `≤ ${elapsed(filters.maxDurationMinutes)}`, active: filters.maxDurationMinutes !== null, icon: "waiting" },
-    { name: "layovers", label: "Layovers", value: filters.maxLayoverMinutes === null ? "No limit" : `≤ ${elapsed(filters.maxLayoverMinutes)}`, active: filters.maxLayoverMinutes !== DEFAULT_FILTERS.maxLayoverMinutes, icon: "connection" },
-    { name: "times", label: "Times", value: timeCount ? String(timeCount) : undefined, active: timeCount > 0, icon: "waiting" },
+  const controls: { name: Panel; label: string; value?: string; active: boolean }[] = [
+    { name: "stops", label: "Stops", value: filters.maxStops === 0 ? "Nonstop" : filters.maxStops === null ? filters.excludeRepeatedAirports ? undefined : "All routes" : `≤ ${filters.maxStops}`, active: filters.maxStops !== DEFAULT_FILTERS.maxStops || filters.excludeRepeatedAirports !== DEFAULT_FILTERS.excludeRepeatedAirports },
+    { name: "price", label: "Price", value: filters.maxPriceEur === null ? undefined : `≤ ${money(filters.maxPriceEur)}`, active: filters.maxPriceEur !== null },
+    { name: "duration", label: "Duration", value: filters.maxDurationMinutes === null ? undefined : `≤ ${elapsed(filters.maxDurationMinutes)}`, active: filters.maxDurationMinutes !== null },
+    { name: "layovers", label: "Layovers", value: filters.maxLayoverMinutes === null ? "No limit" : `≤ ${elapsed(filters.maxLayoverMinutes)}`, active: filters.maxLayoverMinutes !== DEFAULT_FILTERS.maxLayoverMinutes },
+    { name: "times", label: "Times", value: timeCount ? String(timeCount) : undefined, active: timeCount > 0 },
   ];
 
   return <div className="flight-filters" ref={root} role="group" aria-label="Filter flights">
@@ -144,10 +141,10 @@ export function FlightFiltersBar({ filters, onChange, shown, total, roundTrip = 
       aria-haspopup="dialog" aria-expanded={open === control.name}
       aria-controls={open === control.name ? id : undefined}
       onClick={() => setOpen((was) => was === control.name ? null : control.name)}>
-      <Icon name={control.icon} /><span>{control.label}</span>{control.value && <b>{control.value}</b>}<Icon name="chevron-down" />
+      <span>{control.label}</span>{control.value && <b>{control.value}</b>}<Icon name="chevron-down" />
     </button>)}
-    {(active || changed) && <span className="filter-count" role="status" aria-live="polite" aria-atomic="true">{shown.toLocaleString()} of {total.toLocaleString()}</span>}
-    {changed && <button type="button" className="filter-reset-all" onClick={() => onChange(DEFAULT_FILTERS)} title="Restore default filters"><Icon name="retry" /> Reset</button>}
+    {(active || changed) && total > 0 && <span className="filter-count" role="status" aria-live="polite" aria-atomic="true">{shown.toLocaleString()} of {total.toLocaleString()}</span>}
+    {changed && <button type="button" className="filter-reset-all" onClick={() => onChange(DEFAULT_FILTERS)} title="Restore default filters">Reset</button>}
     {open && createPortal(<div id={id} ref={popup} className={`flight-filter-panel${open === "times" ? " filter-times-panel" : ""}`}
       role="dialog" aria-label={TITLES[open]} style={position}>
       <div className="filter-panel-heading"><h3>{TITLES[open]}</h3><button type="button" aria-label="Close filter" title="Close" onClick={close}><Icon name="cancel" /></button></div>
@@ -194,10 +191,8 @@ export function FlightFiltersBar({ filters, onChange, shown, total, roundTrip = 
           <button type="button" data-autofocus={displayedDirection === "inbound" || undefined} aria-pressed={displayedDirection === "inbound"} onClick={() => setDirection("inbound")}>Return</button>
         </div>}
         <TimeBound label="Depart after" accessibleLabel={`${displayedDirection === "outbound" ? "Outbound" : "Return"} depart after`} minimum value={times.depart.from}
-          suggestions={timePresets(suggestions[displayedDirection].depart, true)}
           onChange={(from) => changeTimes({ ...times, depart: { from, to: 1440 } })} />
         <TimeBound label="Arrive before" accessibleLabel={`${displayedDirection === "outbound" ? "Outbound" : "Return"} arrive before`} minimum={false} value={times.arrive.to}
-          suggestions={timePresets(suggestions[displayedDirection].arrive, false)}
           onChange={(to) => changeTimes({ ...times, arrive: { from: 0, to } })} />
         <div className="filter-times-footer"><span>Local airport times</span>{timeCount > 0 && <button type="button" onClick={() => onChange({ ...filters, outbound: OPEN_FILTERS.outbound, inbound: OPEN_FILTERS.inbound })}>Reset times</button>}</div>
       </>}

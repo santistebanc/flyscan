@@ -7,25 +7,10 @@ const code = buildSync({ entryPoints: [path.join(__dirname, "../src/flightTimeli
   bundle: true, write: false, format: "cjs", platform: "node" }).outputFiles[0].text;
 const mod = { exports: {} };
 vm.runInNewContext(code, { module: mod, exports: mod.exports });
-const { journeyTiming, flightTimelines, timelineScaleFor, timelineScaleLabel, normalizeTimelineMode, localMidnights, timelineStartDate } = mod.exports;
+const { journeyTiming, flightTimelines, timelineScaleFor, timelineScaleLabel, normalizeTimelineMode, localMidnights } = mod.exports;
 const leg = (clock, duration, extra = {}) => ({ departure: `2026-11-01T${clock}`, duration,
   origin_airport: "BER", destination_airport: "LHR", segments: [], ...extra });
 const range = (flight) => timelineScaleFor(journeyTiming(flight), null, "days");
-
-test("the left edge shows the date of the range", () => {
-  const flight = leg('22:45+03:00','14h 45m');
-  const start = timelineStartDate(journeyTiming(flight), range(flight), flight.departure);
-  assert.equal(start.at,300);assert.equal(start.label,'Nov 1');
-});
-
-test("the starting label omits padding on another date, including across a year boundary", () => {
-  const flight = leg('01:00+03:00','2h',{departure:'2027-01-01T01:00+03:00'});
-  const start = timelineStartDate(journeyTiming(flight),{min:-60},flight.departure);
-  assert.equal(start,null);
-  assert.equal(timelineStartDate(journeyTiming(flight),{min:0},flight.departure).label,'Jan 1');
-  assert.equal(timelineStartDate(journeyTiming(flight),{min:1440},flight.departure),null);
-  assert.equal(timelineStartDate(journeyTiming(flight),{min:0},'unknown'),null);
-});
 
 test("ranges run from 05:00 to 05:00 in whole days", () => {
   for (const [clock, duration, min, max] of [["23:30", "30m", 300, 1740], ["05:00", "1h", 300, 1740],
@@ -37,7 +22,7 @@ test("ranges run from 05:00 to 05:00 in whole days", () => {
   assert.equal(timelineScaleLabel(range(leg("08:00", "6h")), "days"), "05:00 – 05:00 +1");
 });
 
-test("a departure before 05:00 starts on the previous day and omits its date label", () => {
+test("a departure before 05:00 starts on the previous day", () => {
   const flight = leg("01:00", "1h", { arrival: "2026-11-01T02:00" });
   const scale = range(flight);
   assert.equal(scale.min, -1140);
@@ -45,7 +30,6 @@ test("a departure before 05:00 starts on the previous day and omits its date lab
   const marks = localMidnights(journeyTiming(flight), scale);
   assert.equal(marks.length, 1);
   assert.equal(marks[0].at, 0);
-  assert.equal(timelineStartDate(journeyTiming(flight),scale,flight.departure),null);
   assert.equal(timelineScaleLabel(scale,"days"),"05:00 -1 – 05:00");
 });
 

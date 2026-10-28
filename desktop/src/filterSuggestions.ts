@@ -1,7 +1,7 @@
 import type { FlightRow, Leg } from "./api";
 import type { JourneyTiming } from "./flightTimeline";
 import { durationMinutes } from "./flightRatings";
-import { clockMinutes, knownStops, longestLayover, matchesFlight, type FlightLimits } from "./flightFilters";
+import { knownStops, longestLayover, matchesFlight, type FlightLimits } from "./flightFilters";
 
 export interface ConnectionFilterOptions { stops: number[]; layoverMinutes: number[] }
 
@@ -32,15 +32,12 @@ export function connectionFilterOptions(
 }
 
 export interface NumericRange { min: number; max: number }
-interface DirectionRanges { depart: NumericRange | null; arrive: NumericRange | null }
 export interface FilterRanges {
   priceEur: NumericRange | null;
   durationMinutes: NumericRange | null;
   layoverMinutes: NumericRange | null;
   limits: { priceEur: number[]; durationMinutes: number[]; layoverMinutes: number[] };
   stops: number[];
-  outbound: DirectionRanges;
-  inbound: DirectionRanges;
 }
 
 /** One scan of all loaded flights, independent of sorting and local limits.
@@ -50,7 +47,6 @@ export interface FilterRanges {
 export function filterRanges(rows: FlightRow[], timings?: ReadonlyMap<Leg, JourneyTiming | null>): FilterRanges {
   const empty = (): NumericRange => ({ min: Infinity, max: -Infinity });
   const price = empty(), duration = empty(), layover = empty();
-  const outbound = { depart: empty(), arrive: empty() }, inbound = { depart: empty(), arrive: empty() };
   const stops = new Set<number>();
   const prices = new Map<number, number>(), durations = new Map<number, number>(), connections = new Map<number, number>();
   const count = (values: Map<number, number>, value: number) => {
@@ -84,12 +80,6 @@ export function filterRanges(rows: FlightRow[], timings?: ReadonlyMap<Leg, Journ
     count(connections, connection);
     const outStops = knownStops(row.outbound?.stops ?? row.stops), backStops = knownStops(row.inbound?.stops);
     if (outStops !== null || backStops !== null) stops.add(Math.max(outStops ?? 0, backStops ?? 0));
-    add(outbound.depart, clockMinutes(row.outbound?.departure || row.departure));
-    add(outbound.arrive, clockMinutes(row.outbound?.arrival || row.arrival));
-    if (row.inbound || row.return_date) {
-      add(inbound.depart, clockMinutes(row.inbound?.departure || row.return_departure));
-      add(inbound.arrive, clockMinutes(row.inbound?.arrival || row.return_arrival));
-    }
   }
   const finish = (range: NumericRange): NumericRange | null => range.min <= range.max ? range : null;
   return {
@@ -97,8 +87,6 @@ export function filterRanges(rows: FlightRow[], timings?: ReadonlyMap<Leg, Journ
     limits: { priceEur: distributionLimits(prices), durationMinutes: distributionLimits(durations),
       layoverMinutes: distributionLimits(connections) },
     stops: [...stops].sort((a, b) => a - b),
-    outbound: { depart: finish(outbound.depart), arrive: finish(outbound.arrive) },
-    inbound: { depart: finish(inbound.depart), arrive: finish(inbound.arrive) },
   };
 }
 
@@ -134,20 +122,4 @@ export function roundLimitPresets(values: number[], max: number | null | undefin
   const unit = Number.isFinite(step) && step > 0 ? step : 1;
   return [...new Set(values.map((value) => Math.ceil(value / unit) * unit)
     .filter((value) => Number.isFinite(value) && value > 0 && value < max))];
-}
-
-/** Preserve the actual extremes; round only the middle suggestion for readability. */
-export function rangePresets(range: NumericRange | null, step = 1): number[] {
-  if (!range) return [];
-  const middle = Math.max(range.min, Math.min(range.max, Math.round((range.min + range.max) / 2 / step) * step));
-  return [...new Set([range.min, middle, range.max])];
-}
-
-/** Match the editor's half-hour steps without excluding every actual flight.
- * Departure minimums round down; arrival maximums round up.
- */
-export function timePresets(range: NumericRange | null, minimum: boolean): number[] {
-  if (!range) return [];
-  const snap = (n: number) => (minimum ? Math.floor(n / 30) : Math.ceil(n / 30)) * 30;
-  return rangePresets({ min: snap(range.min), max: snap(range.max) }, 30);
 }

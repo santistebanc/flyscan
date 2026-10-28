@@ -37,10 +37,9 @@ src/api.ts        typed client for /v1  ← survives any UI rewrite
 src/platform.ts   the three calls that need the shell, and their browser fallbacks
 src/currency.tsx  display currency + formatting (React context)
 src/useFlights.ts the engine: loadStored reads the DB, runSearch is the only scrape
-src/App.tsx       header of search controls, source panel, results list
-src/Details.tsx   itinerary detail and every seller, in the side panel
-src/styles.css    base layout and interaction styles
-src/theme.css     Ledger: dark blue slate, compact grid, tabular figures
+src/App.tsx       search bar, results list, side panel with Flight and Queue tabs
+src/Details.tsx   booking options and itinerary of the selected flight
+src/styles.css    Ledger, refined: dark blue slate, Geist, tabular figures
 src-tauri/        spawns the sidecar on a free port; open_challenge, open_external
 ```
 
@@ -50,27 +49,27 @@ with live reload during development. There used to be a second, server-rendered
 UI in the Python package; keeping two in step failed often enough that deleting
 one was the fix.
 
-The window is a frame, not a page: every search control across a fixed header,
-the results down the left, and a fixed side panel on the right showing either
-the search queue or the flight you have picked. The results *are* the
-page and scroll the window; the header and the panel are pinned out of that
-flow, which is why the header remeasures itself into `--header-h` whenever
-Advanced opens. Rows carry only what you scan by — price, day, itinerary,
-duration — and the panel carries the full itinerary, layovers and every
-seller's price for whichever row is selected, by click or with ↑ and ↓.
-The chosen Ledger theme keeps the grid compact, with dark blue-slate surfaces,
-blue accents, and a sidebar on the right. Geist and Geist Mono are bundled in
-`src/assets/fonts`; their OFL licenses ship in `public/licenses`. The temporary
-design comparison and picker are not part of the application build.
+The window is a frame, not a page: one search bar across a fixed header — From,
+To, Depart, Return, Travellers and Fetch, each segment opening its own popover —
+the results down the left, and a fixed side panel on the right with two tabs,
+the flight you have picked and the search queue. The results *are* the page and
+scroll the window; the header and the panel are pinned out of that flow, which
+is why the header remeasures itself into `--header-h` when it wraps. Rows carry
+only what you scan by — price, dates, and per direction the times either side
+of the bars, connections, duration and stops — and the Flight tab carries
+booking first, then the full itinerary, for whichever row is selected, by click
+or with ↑ and ↓. Escape puts the flight down and returns to the queue. The
+"Ledger, refined" design keeps dark blue-slate surfaces and blue accents. Geist
+and Geist Mono are bundled in `src/assets/fonts`; their OFL licenses ship in
+`public/licenses`.
 
 All money crossing `/v1` is EUR — numbers, never formatted strings, and the
 database stores EUR only — so the "show prices in" selector is a re-render rather
 than another scrape. It is
 persisted in `localStorage` and never reaches the database.
 
-Party, cabin and quote currency sit under **Advanced** in the search form,
-folded away by default and opened automatically when the remembered form holds
-anything non-default. Changing any search parameter re-reads the database for
+Party, cabin and quote currency sit under **Travellers** in the search bar,
+which summarises them when closed. Changing any search parameter re-reads the database for
 exactly that party — never a scrape. Quote currency is the one exception to the
 re-read: it changes what the sources are asked to quote, but stored prices are
 EUR only, so re-querying on it could not return anything different.
@@ -147,40 +146,27 @@ exists. Use the desktop app when a source actually asks for a human.
   one day. BER 06:00 → LGW 07:05 reads 05:00–05:00 +1; a 03:00 departure starts
   at 05:00 the day before. Compare bar
   lengths within the same range. Other results cannot stretch that row's scale.
-  Timeline > Shared scale instead aligns all filtered results per direction,
+  Scale > Shared instead aligns all filtered results per direction,
   from the earliest departure to the latest elapsed-time arrival, using the same
   05:00 boundaries on the departure clock. The display
-  choice is remembered separately from result filters. Departure dates align
-  on day zero; endpoint labels, midnight dates and tooltips retain airport-local
-  clocks, including timezone changes.
-  Departure and arrival times and airport codes share the line below the
-  flight bars with the connection labels. Departure sits left, connections in
-  the middle and arrival right; the line wraps when space is limited.
-  The starting date appears only when the left edge shares the flight's departure
-  date; a previous padding day has no starting label. It and later midnight
-  indicators have a reserved row above the flight bars. Their
-  measured widths keep them inside the plot; collisions add date rows, and the
-  plot grows to preserve spacing from flight times and connection labels.
-  Short divider ticks adapt independently from the quieter checkpoint labels
-  above the bars, so there are more marks than labels. Date indicators occupy
-  their own rows above the clock labels. Wider plots show finer
-  intervals; narrow or multi-day plots use fewer marks and labels. Checkpoints
-  use one tick interval and one label interval across the entire timeline,
-  including flights and connections; time zone compression does not skip ticks.
-  Overlapping clock labels may be hidden while their marks remain visible. They
-  follow airport-local clocks, interpolated between each segment's timestamps
-  across timezone changes. Empty range space continues the departure clock
-  before takeoff and the destination clock after landing. Flight bars retain
-  their elapsed durations; ticks do not claim geographic timezone boundaries.
-- Timeline labels show airport codes, with city names in their hover titles and
-  flight, layover and transfer tooltips. Details show “city, country” beside the
-  codes and wrap long names. Countries share the city cache; older city-only
+  choice is remembered separately from result filters.
+  The plot carries no clock labels: departure and arrival times flank the bars,
+  with `+1` when the local arrival date is later, and a faint line marks each
+  local midnight (its date is the line's hover title). Midnights follow
+  airport-local clocks, interpolated between each segment's timestamps across
+  timezone changes; empty range space continues the departure clock before
+  takeoff and the destination clock after landing. Connection codes and
+  durations sit centred under the bars, airport changes in amber, overnight
+  waits with a moon. A leg without segment times draws one dashed interval and
+  says "Schedule not detailed", except for nonstop flights. Duration and stops
+  sit at the right; nonstop legs show no stops label.
+- Hover titles name each flight, layover and transfer; airport codes show their
+  city on hover. Details show “city, country” beside the codes and wrap long
+  names. Countries share the city cache; older city-only
   entries are enriched when details need them, and missing countries retry
   after ten minutes while the labels remain visible.
-  The details header keeps just the route codes, with the departure date or
-  departure–return date range beneath them; segment endpoints retain city and country.
-  From/To also show the resolved city beside the code in quieter text, using the
-  same cache. Focusing a field gives its full width to the editable search text.
+  From/To show the resolved city beside the code in quieter text, using the
+  same cache; clicking either opens a search popover with recent places first.
   Missing names use the same autocomplete API as From/To. Every useful match
   from either field seeds the shared city cache, and identical queries share
   requests and a five-minute query cache. City names persist locally for 180
@@ -196,10 +182,8 @@ exists. Use the desktop app when a source actually asks for a human.
   the left. Without a return selection, it puts the departure month on the left
   instead; the departure picker keeps its selected starting month on the left.
   Completing a date range keeps either picker open for further adjustments;
-  clicking outside, toggling its trigger, or pressing Escape dismisses it.
-  Advanced search
-  fields expand above the result filters within the results pane, keeping the
-  sidebar in place. Endpoint dates share the airport row in the details panel.
+  Done, clicking outside, toggling its segment, or pressing Escape dismisses it.
+  Only one search-bar popover is open at a time.
 - Booking options offer a price correction button. Enter the corrected total
   in the current display currency; it updates the cheapest offer, sorting,
   filters and colors. Corrections are saved in this app for the exact journey,
@@ -210,12 +194,9 @@ exists. Use the desktop app when a source actually asks for a human.
   including offscreen rows. Bounds follow the filtered results; segment timings
   are reused from the full dataset. Sorting and favorites do not rescan it.
   Rows remain virtualized. Favorites occupy a separate column sized to the star
-  button. The price and route column shares the width of its widest content
-  across all filtered results, including offscreen rows, so scrolling cannot
-  shift its alignment. The compact column below the price shows route codes
-  on the first line, departure and return dates on the second, and outbound and
-  return durations on the third. One-way trips use the same layout with one
-  date and duration, leaving most of the width for the timeline.
+  button. The price column shows the price and the trip's dates, and shares
+  the width of its widest content across all filtered results, including
+  offscreen rows, so scrolling cannot shift its alignment.
 - Colored segments use reported flight durations and same-airport connection
   times. Missing segment timing produces a neutral summary interval. Complete
   details stay visible when their sum disagrees with the reported total; a
@@ -250,11 +231,13 @@ exists. Use the desktop app when a source actually asks for a human.
   New visible arrivals fade in for 160 ms without moving their geometry.
   Initial loads, sorting, filtering and virtual remounts do not replay that fade;
   reduced-motion preferences skip it. Hover uses a thin border highlight;
-  selection uses a stronger inset accent border. These do not affect row sizes
-  or replace the alternating backgrounds.
-  Alternating backgrounds use the full results index, so virtual scrolling
-  cannot change a flight's stripe. Timeline markings keep the same colors and
+  selection raises the row's background and adds an accent bar on its left
+  edge. Neither affects row sizes. Timeline markings keep the same colors and
   opacity on hovered and selected rows. Sorting offers Best, Cheapest, Departure and Shortest.
+- The Times filter offers quick picks (depart after 06, 09, 12 or 15; arrive
+  before 12, 15, 18 or 22) and a dropdown reaching any half hour, per direction.
+- The update control is a quiet icon until an update is available, then an
+  "Update available" pill; either opens the same dialog.
 
 - `open_challenge` is an **async** command on purpose. Reading webview cookies
   deadlocks on Windows from a synchronous command or an event handler.
