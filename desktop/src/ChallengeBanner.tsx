@@ -54,24 +54,32 @@ export function ChallengeBanner({ api, pending, canSolveHere, viewerUrl = null, 
       const working = busy.has(challenge.source) || Boolean(challenge.solving);
       const error = errors[challenge.source] || challenge.error;
       const streamed = !isDesktop && Boolean(viewerUrl);
-      const title = working ? streamed ? "Complete verification in the stream tab" : "Complete verification in the open window"
+      // A streamed check is open on the server already; the button just shows it again.
+      const watching = streamed && working;
+      const title = watching ? "Open the stream to complete verification"
+        : working ? "Complete verification in the open window"
         : available ? `Verify ${name}` : "Open the desktop app to verify";
       return <div key={challenge.source} className="challenge">
         <span className="challenge-source"><b>{name}</b> wants to check you’re human.</span>
         <span className="challenge-note">{available && streamed
-          ? "It opens in a new tab streaming the server’s browser. Solve it there and the search continues. Other sources keep running."
+          ? "It opens in a new tab streaming the server’s browser, where the check is already loading. Solve it there and the search continues. Other sources keep running."
           : available
           ? "It opens in a window this app owns. Solve it there and the search continues. Other sources keep running."
           : "Open the desktop app to verify: a browser tab can’t hand the clearance back to the search."}</span>
         <div className="challenge-row">
-          <button type="button" disabled={!available || working}
-            aria-label={`${working ? "Verifying" : "Verify"} ${name}`}
-            aria-busy={working || undefined} title={title} onClick={() => verify(challenge)}>
-            {working ? <Spinner /> : <Icon name="input" />}
-            {working ? "Verifying" : "Verify"}
-          </button>
-          {working && <span className="challenge-hint">{streamed
-            ? <>Complete it in the <a href={viewerUrl!} target="_blank" rel="noreferrer">stream tab</a></>
+          {watching
+            ? <button type="button" aria-label={`Open the stream for ${name}`} title={title}
+              onClick={() => void openExternal(viewerUrl!)}>
+              <Icon name="input" />Open stream
+            </button>
+            : <button type="button" disabled={!available || working}
+              aria-label={`${working ? "Verifying" : "Verify"} ${name}`}
+              aria-busy={working || undefined} title={title} onClick={() => verify(challenge)}>
+              {working ? <Spinner /> : <Icon name="input" />}
+              {working ? "Verifying" : "Verify"}
+            </button>}
+          {working && <span className="challenge-hint">{watching
+            ? "Solve it in the stream; this clears by itself"
             : "Complete it in the open window"}</span>}
         </div>
         {!working && error && <div className="challenge-error" role="alert">{error}</div>}

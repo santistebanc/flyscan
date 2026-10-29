@@ -125,6 +125,8 @@ Environment=DISPLAY=:$DISPLAY_NUMBER
 Environment=FLIGHT_SCRAPER_CHECK_SCREEN=$SCREEN
 Environment="FLIGHT_SCRAPER_CHALLENGE_VIEWER_URL=$VIEWER"
 ExecStart=$HOME_DIR/current/.venv/bin/flight-scraper serve --host $HOST_IP --port $PORT
+# The Beelink is shared and often busy; a check's browser starts a third faster with priority.
+CPUWeight=1000
 Restart=on-failure
 RestartSec=5
 [Install]

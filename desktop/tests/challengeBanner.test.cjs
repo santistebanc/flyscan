@@ -111,3 +111,14 @@ test("in a browser without a stream, verify only asks the server", async () => {
   await buttons(render({ api: { solveChallenge: async (source) => { events.push(`solve ${source}`); } } }))[0].props.onClick();
   assert.deepEqual(events, ["solve ff-kayak"]);
 });
+
+test("a streamed check already open on the server offers its stream instead of a disabled button", async () => {
+  const opened = [];
+  const render = host({ isDesktop: false, openExternal: async (url) => { opened.push(url); } });
+  const tree = render({ viewerUrl: "http://beelink.test:6080/vnc.html", pending: [{ ...requests[0], solving: true }] });
+  const [button] = buttons(tree);
+  assert.equal(Boolean(button.props.disabled), false);
+  assert.match(renderToStaticMarkup(tree), /Open stream/);
+  button.props.onClick();
+  assert.deepEqual(opened, ["http://beelink.test:6080/vnc.html"]);
+});

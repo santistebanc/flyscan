@@ -14,7 +14,7 @@ from typing import Callable, Dict, List, Optional
 
 from . import errorlog
 from .cache import offers_from_dicts, offers_to_dicts
-from .challenge import ChallengeCoordinator
+from .challenge import CHALLENGE_VIEWER_URL_ENV, ChallengeCoordinator
 from .models import SearchQuery
 from .query_jobs import belongs_to, query_job_id
 from .sources import REGISTRY, ChallengeRequired, Source, SourceResult
@@ -140,6 +140,7 @@ class Scheduler:
             self.store,
             self.queue,
             ledger_lock=self._store_lock,
+            open_when_recorded=bool(os.environ.get(CHALLENGE_VIEWER_URL_ENV)),
         )
 
     def submit(

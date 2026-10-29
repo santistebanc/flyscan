@@ -16,8 +16,10 @@ on its own: pushing to `main` changes nothing until you ask for a preview.
 
 **Checks from a phone.** A check opens in a real Chromium on a phone-shaped
 virtual screen (Xvfb), which noVNC streams on `http://beelink-home:6080`.
-Verify opens that stream in a new tab; solve it there and the search carries
-on. The cookies land in the preview's own browser profile.
+The browser opens the check as soon as a source asks, so it is loaded by the
+time you look: starting it on the busy Beelink takes 15–25 seconds. Verify (or
+Open stream, once it is open) shows the stream in a new tab; solve it there and
+the search carries on. The cookies land in the preview's own browser profile.
 
 **Its data** lives in `~/.local/share/flight-scraper-preview/data` and survives
 redeploys, so each preview runs the new code, migrations included, against what

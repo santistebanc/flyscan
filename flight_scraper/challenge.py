@@ -34,6 +34,11 @@ DEFAULT_DIR = Path(".challenges")
 #: How long a cleared challenge is assumed to hold before it is worth redoing.
 DEFAULT_TTL = timedelta(hours=12)
 
+#: Where a person can watch and clear the check this server opens on its own
+#: display: a noVNC page, on the preview. Unset means there is nothing to offer,
+#: and a check opens wherever the server's display is, when someone asks.
+CHALLENGE_VIEWER_URL_ENV = "FLIGHT_SCRAPER_CHALLENGE_VIEWER_URL"
+
 #: The screen a tidied check window fills, as WIDTHxHEIGHT. The preview sets it to
 #: the size of its virtual screen, which is phone-shaped so a check streamed to a
 #: phone shows the captcha and nothing else.
@@ -216,6 +221,7 @@ class ChallengeCoordinator:
         cookies=None,
         reconcile_interval=0.2,
         owns_ledger=False,
+        open_when_recorded=False,
     ):
         self._ledger, self._queue = ledger, queue
         self._ledger_lock = ledger_lock or threading.RLock()
@@ -231,6 +237,9 @@ class ChallengeCoordinator:
         self._recovery_errors = {}
         self._stopped = threading.Event()
         self._owns_ledger = owns_ledger
+        # Where the check is streamed, open it as soon as it is known: starting a browser on a
+        # busy machine takes longer than a person takes to pick up their phone.
+        self.open_when_recorded = open_when_recorded
         self.reconcile()
         self._monitor = None
         if ledger is not None and queue is not None:
@@ -295,6 +304,8 @@ class ChallengeCoordinator:
             self._pending[source] = url
             if self._queue:
                 self._queue.pause(source, ActionRequired("captcha", "source needs a human", url))
+        if self.open_when_recorded:
+            self.start_recovery(source)
 
     def clear(self, source):
         with self._lock:

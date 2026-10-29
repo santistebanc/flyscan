@@ -32,6 +32,7 @@ from typing import Any, Dict, List, Optional
 from flask import Blueprint, Response, current_app, jsonify, request
 
 from . import errorlog, fx
+from .challenge import CHALLENGE_VIEWER_URL_ENV
 from .jobs import Job
 from .manual import itinerary_from, query_from
 from .models import SearchQuery, parse_date, pretty_duration, trip_pairs
@@ -49,11 +50,6 @@ api = Blueprint("api_v1", __name__, url_prefix="/v1")
 #: elsewhere: an unauthenticated caller here spends *your* IP's goodwill with
 #: the sources.
 API_KEY_ENV = "FLIGHT_SCRAPER_API_KEY"
-
-#: Where a person can watch and clear the check this server opens on its own
-#: display: a noVNC page, on the preview. Unset means there is nothing to offer,
-#: and a check opens wherever the server's display is.
-CHALLENGE_VIEWER_URL_ENV = "FLIGHT_SCRAPER_CHALLENGE_VIEWER_URL"
 
 
 def _registry():
