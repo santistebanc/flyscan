@@ -27,34 +27,33 @@ A stale or missing sidecar fails the build. `-SkipTests` is for local iteration.
 
 The output is in `release/`: the setup executable, `SHA256SUMS.txt`, and
 `build-info.json` with version, source revision, dirty-workspace and signing
-status. The Windows installer GitHub Actions workflow runs the same build and
-retains its output as an artifact. It does not automatically publish releases.
+status.
 
 ## Automatic updates and releases
 
-The separate **Publish Windows release** workflow runs on stable version tags.
-It runs every test, builds the installer and its Tauri signature, verifies the
+A release is one trigger, the **Release** workflow, started from the Actions
+tab, the GitHub app or:
+
+```bash
+gh workflow run release                      # the next patch, notes from the commits
+gh workflow run release -f version=0.4.0 -f notes="What changed"
+```
+
+It bumps every version file (`set-version.py`), writes
+`packaging/release-notes.md`, commits `Release vX.Y.Z` and its tag to `main`,
+then runs every test, builds the installer and its Tauri signature, verifies the
 signature against the public key embedded in the app, and creates `latest.json`.
 It uploads the installer, signature, manifest and checksum to a draft in
 `santistebanc/flight-scraper-releases`, then publishes the complete release.
-The source repository stays private. Published versions cannot be overwritten.
+The source repository stays private. Published versions cannot be overwritten,
+and a version must be newer than the last for installed apps to take it.
 
-To release the next version, update the release notes and run:
-
-```powershell
-python packaging/set-version.py 0.3.3
-# Edit packaging/release-notes.md, commit and push the changes to main, then:
-git tag v0.3.3
-git push origin v0.3.3
-```
-
-The tag must match all app version files and point to a commit on `main`.
 The release workflow needs `TAURI_SIGNING_PRIVATE_KEY` and `RELEASES_TOKEN` as
 repository Actions secrets, and `RELEASES_REPOSITORY` as a repository variable.
 `RELEASES_TOKEN` needs Contents read/write on only the downloads repository;
 renew it before its expiry. The normal GitHub workflow token cannot write to a
-different repository. Pull request builds receive neither signing nor release
-credentials and produce ordinary test installers.
+different repository; the workflow's own token only commits and tags the
+release on `main`.
 
 The updater public key is committed in `tauri.conf.json`. The private key is
 backed up locally outside the checkout under `~/.flight-scraper-signing/` with

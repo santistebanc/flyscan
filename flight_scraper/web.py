@@ -14,6 +14,7 @@ silently rewritten.
 from __future__ import annotations
 
 import logging
+import os
 import sys
 from pathlib import Path
 from typing import Any, Dict, Optional
@@ -214,7 +215,10 @@ def run_server(
     db_path="flights.db",
     max_workers=DEFAULT_MAX_WORKERS,
 ) -> None:
-    default_scheduler(db_path=db_path or None, max_workers=max_workers)
+    # With --debug, Werkzeug runs this twice: a parent that only watches the source and
+    # restarts a child that serves. Only the child should own a scheduler and the ledger.
+    if not debug or os.environ.get("WERKZEUG_RUN_MAIN"):
+        default_scheduler(db_path=db_path or None, max_workers=max_workers)
     for noisy in ("curl_cffi", "urllib3"):
         logging.getLogger(noisy).setLevel(logging.DEBUG if debug else logging.WARNING)
     OUT_DIR.mkdir(parents=True, exist_ok=True)

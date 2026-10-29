@@ -32,4 +32,4 @@ select = ["E4", "E7", "E9", "F", "I", "B"]
 
 
 [dependency-groups]
-dev = ["pytest", "ruff==0.17.1", "pre-commit"]
+dev = ["pytest", "ruff==0.17.1", "pre-commit", "playwright==1.64.0"]

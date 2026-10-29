@@ -11,7 +11,7 @@ try {
     $version = $manifest.version
     if ($version -notmatch '^\d+\.\d+\.\d+$' -or $version -ne $info.version) { throw "Release version mismatch." }
     $tag = "v$version"
-    if ($env:GITHUB_REF_NAME -and $env:GITHUB_REF_NAME -ne $tag) { throw "Git tag does not match the built app version." }
+    if ($env:RELEASE_TAG -and $env:RELEASE_TAG -ne $tag) { throw "The release tag does not match the built app version." }
     $name = "Flight-Scraper-$version-windows-x64-setup.exe"
     $expectedUrl = "https://github.com/$Repository/releases/download/$tag/$name"
     $platform = $manifest.platforms.'windows-x86_64'

@@ -1,0 +1,108 @@
+name: Release
+
+# One trigger for a release: bump every version, write the notes, commit and tag on main,
+# then build, sign and publish the Windows installer. Installed apps update themselves
+# from it. Start it from the Actions tab, the GitHub app, or `gh workflow run release`.
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Version (major.minor.patch). Empty releases the next patch."
+        required: false
+      notes:
+        description: "What changed, shown in the update prompt. Empty lists the commits since the last release."
+        required: false
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+jobs:
+  tag:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    outputs:
+      tag: ${{ steps.bump.outputs.tag }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: main
+          fetch-depth: 0
+      - name: Bump the version, write the notes, commit and tag
+        id: bump
+        env:
+          VERSION: ${{ inputs.version }}
+          NOTES: ${{ inputs.notes }}
+        run: |
+          current="$(jq -r .version desktop/package.json)"
+          version="${VERSION:-}"
+          if [ -z "$version" ]; then
+            IFS=. read -r major minor patch <<<"$current"
+            version="$major.$minor.$((patch + 1))"
+          fi
+          # Installed apps only update to a higher version.
+          if [ "$(printf '%s\n%s\n' "$current" "$version" | sort -V | tail -1)" != "$version" ] || [ "$version" = "$current" ]; then
+            echo "::error::$version is not newer than $current"; exit 1
+          fi
+          last="$(git log -G'"version":' --format=%H -1 -- desktop/src-tauri/tauri.conf.json)"
+          if [ -n "$NOTES" ]; then
+            printf '%s\n' "$NOTES" > packaging/release-notes.md
+          else
+            git log --no-merges --format='- %s' "$last"..HEAD > packaging/release-notes.md
+          fi
+          python3 packaging/set-version.py "$version"
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git commit -qam "Release v$version"
+          git tag "v$version"
+          git push origin HEAD:main "v$version"
+          echo "tag=v$version" >> "$GITHUB_OUTPUT"
+
+  windows:
+    needs: tag
+    runs-on: windows-latest
+    timeout-minutes: 45
+    env:
+      RELEASE_TAG: ${{ needs.tag.outputs.tag }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ needs.tag.outputs.tag }}
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: desktop/package-lock.json
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: "3.12"
+          architecture: x64
+      - uses: astral-sh/setup-uv@1c37ad07a6a961277cf70c0d37d6f313000f5884 # v10.3.0
+      - name: Install Rust stable
+        shell: pwsh
+        run: |
+          rustup toolchain install stable --profile minimal
+          rustup default stable
+      - name: Build, test and sign updater assets
+        shell: pwsh
+        env:
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ""
+          RELEASES_REPOSITORY: ${{ vars.RELEASES_REPOSITORY }}
+        run: ./packaging/build-windows.ps1 -Python (Get-Command python).Source -UpdaterRelease -ReleaseRepository $env:RELEASES_REPOSITORY
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: Flight-Scraper-Windows-${{ needs.tag.outputs.tag }}
+          path: release/*
+          if-no-files-found: error
+          retention-days: 14
+      - name: Publish verified assets to the downloads repository
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ secrets.RELEASES_TOKEN }}
+          RELEASES_REPOSITORY: ${{ vars.RELEASES_REPOSITORY }}
+        run: ./packaging/publish-windows-release.ps1 -Repository $env:RELEASES_REPOSITORY

@@ -83,60 +83,52 @@ returns as a seven-night trip from the default date, and a one-way stays one-way
 
 ## Running it
 
-For an installable Windows release, run `./packaging/build-windows.ps1` from
-the repository root. It produces a per-user NSIS installer with the frontend
-and Python service included. See [`../packaging/README.md`](../packaging/README.md)
-for prerequisites, signing and data storage. The installed app waits for its
-authenticated service before showing the main window and keeps writable data
-under local app data instead of the installation directory.
+There are three ways, one per need.
 
-For development:
+**Developing on a laptop: `./dev.sh`** from the repository root, then open
+http://localhost:1420. The service restarts itself on Python edits and the UI
+hot-reloads; Vite forwards `/v1` to the service on :5111. A security check
+opens in a Chromium window on the laptop (Playwright is a dev dependency): the
+service owns that browser, so the cookies it earns land where the scraper uses
+them. Dev data lives in `./data`.
 
-Build the sidecar first (see `../packaging/README.md`), then:
+**Developing from a phone: `beelink/dev.sh`**, run on the Beelink from the
+checkout being edited (T3 Code's worktree, say), then open
+http://beelink-home:1420 on the tailnet. It is the same loop as a set of user
+services, pointed at that checkout until it is run from another one. A check
+opens in a real Chromium on a phone-shaped virtual screen, which noVNC streams
+on :6080. The check opens as soon as a source asks, since starting a browser on
+the shared Beelink takes a while, and Verify, or Open stream once it is open,
+shows the stream in a new tab. `beelink/dev.sh stop` and `status` do what
+they say. Its data lives in `~/.local/share/flight-scraper-dev`.
+
+**Using it: the installed desktop app**, built and published by the Release
+workflow (see [`../packaging/README.md`](../packaging/README.md)) and updated
+in place from then on. It runs its own service, keeps its data under local app
+data, and opens a check in a webview it owns, handing the cookies back to the
+service.
+
+`npm run tauri dev` is only for work on the shell itself: the check window, the
+updater, the sidecar lifecycle. Build the sidecar first, then:
 
 ```bash
 cd desktop
-npm install
-cp ../packaging/dist/flight-scraper-sidecar.exe \
-   src-tauri/binaries/flight-scraper-sidecar-$(rustc -vV | sed -n 's/host: //p').exe
+cp ../packaging/dist/flight-scraper-sidecar.exe    src-tauri/binaries/flight-scraper-sidecar-$(rustc -vV | sed -n 's/host: //p').exe
 npm run tauri dev
 ```
 
 The suffix is not optional: Tauri resolves `externalBin` by target triple and
 the build fails without an exact match. `FLIGHT_SCRAPER_SIDECAR` overrides the
-path if you would rather point at a binary somewhere else.
+path. A Rust edit costs a full stop-rebuild-restart, because the running app
+holds the sidecar binary the build has to replace.
 
-## Running the same UI in a browser
-
-While the UI is changing quickly, the desktop shell is the slow way to see a
-change. A Rust edit costs a full stop-rebuild-restart, because the running app
-holds `target/debug/flight-scraper-sidecar.exe` and the build script has to
-delete that file before it can copy a new one — so `tauri dev` cannot rebuild
-itself while it is up.
-
-The same frontend runs as an ordinary web page, with live reload:
-
-```bash
-flight-scraper serve --port 5111    # or the packaged sidecar
-npm run dev --prefix desktop        # http://localhost:1420
-```
-
-`src/platform.ts` is what makes this work. It resolves the three shell-only
-calls at runtime:
+`src/platform.ts` resolves the shell-only calls at runtime:
 
 | | desktop | browser |
 |---|---|---|
-| `apiBase` | the port the shell reserved | `?api=…`, else `VITE_API_BASE`, else `:5111` in dev, the page's own origin when built |
+| `apiBase` | the port the shell reserved | `?api=…`, else the page's own origin |
 | `openExternal` | `open_external` command | `window.open` |
-| `openChallenge` | webview + cookie read-back | refuses, and says why |
-
-Point it at another port with `http://localhost:1420/?api=http://127.0.0.1:5200`.
-
-**Clearing a security check is the one thing that cannot work here**, and the
-challenge banner says so rather than offering a button that does nothing. A
-browser cannot read cookies from another origin, so a challenge solved in a tab
-leaves the scraper just as blocked — which is the whole reason the desktop shell
-exists. Use the desktop app when a source actually asks for a human.
+| `openChallenge` | webview + cookie read-back | not used: the service opens the check itself |
 
 ## Notes
 

@@ -4,7 +4,11 @@ Python scrapers and a local API (`flight_scraper/`), plus a Tauri 2 / React desk
 
 ## Stay offline
 
-Live requests to the flight sites risk IP bans and bot challenges. Work against tests, `tests/fixtures/` and `tests/recordings/` (replayed by `flight_scraper.capture`, never the network). The CLI commands `scrape`, `capture`, `unblock`, `places`, `rates` and `serve`, and the desktop dev app, reach the live sites: develop against an offline configuration, and run live requests only when an explicit owner decision allows them. A challenge is always put in front of a person; code waits for clearance.
+Live requests to the flight sites risk IP bans and bot challenges. Work against tests, `tests/fixtures/` and `tests/recordings/` (replayed by `flight_scraper.capture`, never the network). The CLI commands `scrape`, `capture`, `unblock`, `places`, `rates` and `serve`, `./dev.sh`, `beelink/dev.sh` and the desktop dev app reach the live sites: develop against an offline configuration, and run live requests only when an explicit owner decision allows them. A challenge is always put in front of a person; code waits for clearance.
+
+## Showing a change
+
+Working on the Beelink (the owner on a phone): run `beelink/dev.sh` from the checkout you edit and give the owner http://beelink-home:1420. It hot-reloads from then on; run it again only after switching checkouts. Releases go through the `Release` workflow, started only when the owner asks.
 
 ## Checks
 

@@ -22,3 +22,6 @@ desktop/src-tauri/binaries/
 
 # Error log: local to a run, and can hold URLs from real searches.
 .errors/
+
+# Dev data (./dev.sh): ledger, caches, clearance cookies.
+data/

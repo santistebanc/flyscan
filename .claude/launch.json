@@ -2,9 +2,9 @@
   "version": "0.0.1",
   "configurations": [
     {
-      "name": "flight-scraper-ui",
-      "runtimeExecutable": "npm",
-      "runtimeArgs": ["run", "dev", "--prefix", "desktop"],
+      "name": "flight-scraper",
+      "runtimeExecutable": "bash",
+      "runtimeArgs": ["dev.sh"],
       "port": 1420
     }
   ]

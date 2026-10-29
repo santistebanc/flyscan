@@ -35,23 +35,15 @@ flight-scraper scrape berlin london 2026-09-19
 ## Install
 
 ```bash
-pip install -e .
+uv sync                          # the CLI, the service and the dev tools
+uv run flight-scraper --help
+./dev.sh                         # the app with live reload: http://localhost:1420
 ```
 
-That puts a `flight-scraper` command on your PATH — but only while the
-environment it was installed into is active. On Windows PowerShell:
-
-```powershell
-.\.venv\Scripts\Activate.ps1     # then: flight-scraper ...
-```
-
-Or skip activation and call it directly:
-
-```powershell
-.\.venv\Scriptslight-scraper.exe unblock ff-kayak
-```
-
-Every source answers over plain HTTP — no browser, no driver.
+Every source answers over plain HTTP; no browser, no driver. A browser is only
+opened for a person to clear a source's security check (see below). How the app
+runs on a laptop, on the Beelink for a phone, and as the installed desktop app
+is in [`desktop/README.md`](desktop/README.md#running-it).
 
 ## Usage
 
@@ -120,12 +112,11 @@ scraped for it yet the page says so rather than showing a one-adult price for a
 family of four. The detail panel is read-only for the same reason: every price in
 it is already for the travellers that were asked about.
 
-Build it with `npm install --prefix desktop && npm run build --prefix desktop`;
-without that, `/` explains how and the API still works. While the UI is changing,
-`npm run dev --prefix desktop` gives the same app on port 1420 with live reload.
-The desktop shell wraps the identical bundle — see `desktop/README.md`; only
-clearing a source's security check needs it. The server exposes a versioned API
-at `/v1` for any other frontend — see below.
+`flight-scraper serve` serves the built bundle (`npm run build --prefix desktop`;
+without it, `/` explains how and the API still works). While developing, `./dev.sh`
+runs the same app with live reload. The desktop app wraps the identical bundle;
+see `desktop/README.md`. The server exposes a versioned API at `/v1` for any other
+frontend; see below.
 
 ## The sources
 
@@ -489,6 +480,9 @@ desktop/
     App.tsx       header of search controls, source panel, results list
     Details.tsx   itinerary detail and every seller, in the side panel
   src-tauri/      spawns the sidecar on a free port; open_challenge, open_external
+packaging/       the Windows installer, its signing, and the update manifest
+dev.sh           the dev loop on a laptop
+beelink/dev.sh   the same loop on the Beelink, with checks streamed to a phone
 ```
 
 Adding a source means writing a `Source` subclass and listing it in
@@ -872,6 +866,12 @@ source to disappear, because solving takes as long as a person takes.
 `GET /challenges` reports `can_solve_here`, which is false when the process has
 no browser to open — as in the packaged sidecar, which excludes Playwright
 deliberately because the desktop shell uses its own webview instead.
+
+**A server with no one at its screen can still have the check cleared.** With
+`FLIGHT_SCRAPER_CHALLENGE_VIEWER_URL` set to a page streaming its display (noVNC,
+on the Beelink), `/challenges` reports it as `viewer_url`, the check opens the
+moment a source asks rather than on Verify, and the UI offers the stream in a
+new tab. `FLIGHT_SCRAPER_CHECK_SCREEN` sizes the check window to that display.
 
 ## When something goes wrong
 

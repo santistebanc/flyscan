@@ -28,20 +28,14 @@ export const isDesktop = "__TAURI_INTERNALS__" in window;
  * Where the sidecar is listening.
  *
  * The shell reserves a free port at launch and is the only one who knows it.
- * In a browser there is no shell, so the port comes from `?api=…`, else the
- * `VITE_API_BASE` env var, else a default. The default depends on who served
- * the page: the Vite dev server only has the UI, so the API is on the
- * documented port, but a built bundle served by `flight-scraper serve` sits
- * beside the API it should talk to, on whatever port that happens to be.
+ * In a browser there is no shell, so it is `?api=…`, else the page's own
+ * origin: `flight-scraper serve` serves the built bundle beside the API, and
+ * the Vite dev server forwards /v1 to the service. The origin, not a fixed
+ * address, is what lets a phone use a dev server on another machine.
  */
 export async function apiBase(): Promise<string> {
   if (isDesktop) return invoke<string>("api_base");
-  const fromQuery = new URLSearchParams(location.search).get("api");
-  return (
-    fromQuery ??
-    (import.meta.env.VITE_API_BASE as string | undefined) ??
-    (import.meta.env.DEV ? "http://127.0.0.1:5111" : location.origin)
-  );
+  return new URLSearchParams(location.search).get("api") ?? location.origin;
 }
 
 /** The session secret is available only through the main desktop window's IPC. */
