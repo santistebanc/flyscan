@@ -5,6 +5,7 @@ from __future__ import annotations
 import argparse
 import json
 import logging
+import os
 import sys
 from datetime import date, timedelta
 from pathlib import Path
@@ -35,6 +36,11 @@ from .store import (
 )
 
 OUT_DIR = Path("out")
+
+#: Every file the app keeps (ledger, caches, clearance cookies, error log, exports) is
+#: relative to the working directory. Pointing this at a folder gives an environment
+#: (dev, the preview, an installed app) data of its own.
+DATA_DIR_ENV = "FLIGHT_SCRAPER_DATA_DIR"
 
 
 def parse_date(value: str) -> date:
@@ -737,6 +743,10 @@ def cmd_serve(args: argparse.Namespace) -> int:
 
 def main(argv: Optional[List[str]] = None) -> int:
     args = build_parser().parse_args(argv)
+    data_dir = os.environ.get(DATA_DIR_ENV)
+    if data_dir:
+        Path(data_dir).mkdir(parents=True, exist_ok=True)
+        os.chdir(data_dir)
     return args.func(args)
 
 

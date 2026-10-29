@@ -446,9 +446,16 @@ flight-scraper query --origin BER --destination LON --start 2026-09-01 --max-sto
 flight-scraper query --summary --base-currency GBP
 ```
 
-This layout replaced a four-table one on 2026-08-23. There is no migration —
-the contents are scraped data that re-fetches in under a minute, so an older
-`flights.db` should simply be deleted.
+Schema changes after this layout go in `MIGRATIONS` in `store.py`, appended and
+never edited once released. The database records how many it has taken
+(`PRAGMA user_version`) and runs the rest when opened, each in one transaction, so
+an installed app keeps its data, prices added by hand included, across updates. A
+database written by a newer version is refused rather than misread.
+
+Every file the app keeps (`flights.db`, `.challenges/`, the place and rate caches,
+`.errors/`, `out/`) sits in the working directory. Set `FLIGHT_SCRAPER_DATA_DIR`
+to give an environment its own folder; the desktop app runs its service in the
+app's data folder for the same reason.
 
 ## Layout
 

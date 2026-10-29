@@ -119,6 +119,12 @@ CREATE INDEX IF NOT EXISTS idx_offers_fetch ON offers (fetch_id);
 CREATE INDEX IF NOT EXISTS idx_offers_price ON offers (price);
 """
 
+#: Schema changes after :data:`SCHEMA`, oldest first. The database counts how
+#: many it has taken (``PRAGMA user_version``) and takes the rest when opened,
+#: each in its own transaction. Append only: never edit, reorder or remove one
+#: that has been released, because a database somewhere has already run it.
+MIGRATIONS: List[str] = []
+
 #: Prices a person entered by hand. A source in the database's eyes, so its
 #: offers are read, filtered and compared like any other, but never planned or
 #: asked: nothing can be fetched from it.
@@ -260,8 +266,26 @@ class FlightStore:
         self.conn = sqlite3.connect(str(self.path), check_same_thread=False)
         self.conn.row_factory = sqlite3.Row
         self.conn.executescript(SCHEMA)
+        self._migrate()
         self.conn.execute("PRAGMA foreign_keys = ON")
         self.conn.commit()
+
+    def _migrate(self) -> None:
+        taken = self.conn.execute("PRAGMA user_version").fetchone()[0]
+        if taken > len(MIGRATIONS):
+            # Written by a newer version: its tables mean things this one cannot know.
+            self.conn.close()
+            raise RuntimeError(
+                f"{self.path} was written by a newer version of flight-scraper "
+                f"(schema {taken}, this version knows {len(MIGRATIONS)})"
+            )
+        for number, step in enumerate(MIGRATIONS[taken:], start=taken + 1):
+            try:
+                self.conn.executescript(f"BEGIN;\n{step}\nPRAGMA user_version = {number};\nCOMMIT;")
+            except sqlite3.Error:
+                self.conn.rollback()
+                self.conn.close()
+                raise
 
     # -- deciding what to ask ----------------------------------------------
 
