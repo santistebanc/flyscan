@@ -339,10 +339,10 @@ function Results(
             </span>
             <span className="trip" role="gridcell">
               <FlightTimeline label="Outbound" leg={row.outbound} scale={timelines.outbound} timing={timelines.journeys.get(row.outbound)}
-                mode={timelineMode} rating={rating?.outbound} layoverRatings={layoverRatings} times={filters.outbound} />
+                mode={timelineMode} rating={rating?.outbound} layoverRatings={layoverRatings.outbound} times={filters.outbound} />
               {row.inbound ? (
                 <FlightTimeline label="Return" leg={row.inbound} scale={timelines.inbound} timing={timelines.journeys.get(row.inbound)}
-                  mode={timelineMode} rating={rating?.inbound} layoverRatings={layoverRatings} times={filters.inbound} />
+                  mode={timelineMode} rating={rating?.inbound} layoverRatings={layoverRatings.inbound} times={filters.inbound} />
               ) : row.return_date && (
                 // The seller priced the round trip without saying which flight
                 // comes back. Saying so beats a row that reads as a cheaper
@@ -502,7 +502,7 @@ function Shell() {
   const ratings = useMemo(() => flightRatings(filtered), [filtered]);
   const allTimelines = useMemo(() => flightTimelines(priceRows), [priceRows]);
   const timelines = useMemo(() => flightTimelines(filtered, allTimelines.journeys), [filtered, allTimelines]);
-  const layoverRatings = useMemo(() => connectionRatings(timelines), [timelines]);
+  const layoverRatings = useMemo(() => connectionRatings(filtered, timelines), [filtered, timelines]);
   const suggestions = useMemo(() => filterRanges(priceRows, allTimelines.journeys), [priceRows, allTimelines]);
   const connectionOptions = useMemo(() => connectionFilterOptions(priceRows, limits,
     (row) => row.best?.price_base == null ? null : roundedIn(row.best.price_base)), [priceRows, limits, roundedIn]);

@@ -2,6 +2,7 @@
 import { useId, useState, type CSSProperties } from "react";
 import type { FlightRow, Leg, Offer, Segment } from "./api";
 import type { Rating } from "./flightRatings";
+import type { ConnectionRatings } from "./connectionRatings";
 import { openExternal } from "./platform";
 import { useCurrency } from "./currency";
 import { Icon } from "./Icon";
@@ -192,7 +193,7 @@ function AddPrice({ row, manual }: { row: FlightRow; manual: ManualActions }) {
 export function Details({ row, partyLabel, favorite, onToggleFavorite, rating, layoverRatings, onCorrectPrice, onOpenBooking, manual }: {
   row: FlightRow | null; partyLabel: string; favorite: boolean;
   onToggleFavorite: (key: string) => void; rating?: JourneyRating;
-  layoverRatings?: ReadonlyMap<number, Rating>; onCorrectPrice?: CorrectOfferPrice;
+  layoverRatings?: ConnectionRatings; onCorrectPrice?: CorrectOfferPrice;
   manual?: ManualActions;
   /** Told after a booking page was handed to the browser. */
   onOpenBooking?: (seller: string) => void;
@@ -252,8 +253,8 @@ export function Details({ row, partyLabel, favorite, onToggleFavorite, rating, l
         {manual && <AddPrice key={row.trip_key} row={row} manual={manual} />}
       </div>
     </div>
-    <LegView leg={row.outbound} title="Outbound" rating={rating?.outbound} layoverRatings={layoverRatings} />
-    <LegView leg={row.inbound} title="Return" rating={rating?.inbound} layoverRatings={layoverRatings} />
+    <LegView leg={row.outbound} title="Outbound" rating={rating?.outbound} layoverRatings={layoverRatings?.outbound} />
+    <LegView leg={row.inbound} title="Return" rating={rating?.inbound} layoverRatings={layoverRatings?.inbound} />
     {row.return_date && !row.inbound && <p className="detail-missing-return">Return flight details unavailable. The seller priced the round trip without saying which flight comes back.</p>}
   </section>;
 }

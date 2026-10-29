@@ -12,22 +12,24 @@ const stamp=(minutes)=>new Date(Date.UTC(2026,10,13,8,minutes)).toISOString().sl
 const leg=(gap)=>({ departure:stamp(0),arrival:stamp(120+gap),duration:`${Math.floor((120+gap)/60)}h ${gap%60}m`,
   segments:[{origin:'BER',destination:'MAD',departure:stamp(0),arrival:stamp(60),duration:'1h'},
     {origin:'MAD',destination:'SLP',departure:stamp(60+gap),arrival:stamp(120+gap),duration:'1h'}] });
-test('connections are rated on fixed thresholds, in both directions',()=>{
- const rows=[{outbound:leg(30)},{outbound:leg(120),inbound:leg(300)},{outbound:leg(600),inbound:leg(900)}];
- const ratings=connectionRatings(flightTimelines(rows));
- assert.deepEqual([30,120,300,600,900].map((m)=>ratings.get(m).level),[3,1,3,4,5]);
- assert.match(ratings.get(30).description,/^Tight/);
- assert.match(ratings.get(900).description,/Over 12h/);
+
+test('layovers use fixed bands in both directions regardless of other connections',()=>{
+ const rows=[{outbound:leg(120),inbound:leg(300)},{outbound:leg(300),inbound:leg(600)}];
+ const ratings=connectionRatings(rows,flightTimelines(rows));
+ assert.equal(ratings.outbound.get(300).level,3);
+ assert.equal(ratings.inbound.get(300).level,3);
+ assert.equal(ratings.outbound.get(120).level,1);
+ assert.equal(ratings.inbound.get(600).level,4);
+ assert.equal(ratings.outbound.has(600),false);
+ const changed=[{outbound:leg(120),inbound:leg(60)},{outbound:leg(300),inbound:leg(600)}];
+ assert.deepEqual(connectionRatings(changed,flightTimelines(changed)).outbound.get(300),ratings.outbound.get(300));
 });
-test('a connection keeps its rating whatever else is in the list',()=>{
- const alone=connectionRatings(flightTimelines([{outbound:leg(120)}]));
- const mixed=connectionRatings(flightTimelines([{outbound:leg(120)},{outbound:leg(60)},{outbound:leg(900)}]));
- assert.deepEqual(alone.get(120),mixed.get(120));
- assert.equal(alone.has(900),false);
-});
-test('zero-minute known connections are rated while missing connections are not invented',()=>{
- const ratings=connectionRatings(flightTimelines([{outbound:leg(0)},{outbound:leg(60)}]));
- assert.equal(ratings.get(0).level,3);
- assert.equal(ratings.get(60).level,1);
- assert.equal(connectionRatings(flightTimelines([])).size,0);
+test('tight connections remain tight and empty directions have no ratings',()=>{
+ const rows=[{outbound:leg(0)},{outbound:leg(30)},{outbound:leg(120)}];
+ const ratings=connectionRatings(rows,flightTimelines(rows));
+ assert.equal(ratings.outbound.get(0).level,3);
+ assert.match(ratings.outbound.get(30).description,/^Tight/);
+ assert.equal(ratings.outbound.get(120).level,1);
+ assert.equal(ratings.inbound.size,0);
+ assert.equal(connectionRatings([],flightTimelines([])).outbound.size,0);
 });
