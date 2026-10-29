@@ -154,3 +154,23 @@ def test_an_untidied_check_keeps_an_ordinary_window(tmp_path):
     assert not [a for a in kwargs["args"] if a.startswith(("--app=", "--force-device-scale"))]
     assert kwargs["viewport"] == {"width": 1280, "height": 900}
     context.new_cdp_session.assert_not_called()
+
+
+def test_the_check_window_fills_a_screen_of_the_configured_size(tmp_path, monkeypatch):
+    # The preview's virtual screen is phone-shaped, so the check fills a phone's view of it.
+    monkeypatch.setenv("FLIGHT_SCRAPER_CHECK_SCREEN", "520x900")
+    page = mock.Mock(url="https://www.momondo.ie/home")
+    context = mock.Mock(pages=[page], cookies=lambda: [])
+    context.new_cdp_session.return_value.send.return_value = {"windowId": 7}
+    playwright = mock.MagicMock()
+    launch = playwright.__enter__.return_value.chromium.launch_persistent_context
+    launch.return_value = context
+    module = mock.Mock(sync_playwright=lambda: playwright)
+    with mock.patch.dict("sys.modules", {"playwright": mock.Mock(), "playwright.sync_api": module}):
+        challenge.solve(
+            "momondo",
+            "https://www.momondo.ie/security/check",
+            store=challenge.ChallengeStore(tmp_path),
+            wait_seconds=1,
+        )
+    assert f"--window-size={round(520 / 1.3)},{round(900 / 1.3)}" in launch.call_args.kwargs["args"]

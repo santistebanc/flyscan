@@ -1,14 +1,16 @@
 import { useRef, useState } from "react";
 import type { FlightScraperApi, PendingChallenge } from "./api";
-import { isDesktop, openChallenge } from "./platform";
+import { isDesktop, openChallenge, openExternal } from "./platform";
 import { Icon, Spinner } from "./Icon";
 import { sourceLabel } from "./queueModel";
 
 /** Each source owns its verification request; other sources remain available. */
-export function ChallengeBanner({ api, pending, canSolveHere, onCleared }: {
+export function ChallengeBanner({ api, pending, canSolveHere, viewerUrl = null, onCleared }: {
   api: FlightScraperApi | null;
   pending: PendingChallenge[];
   canSolveHere: boolean;
+  /** Where the server's display is streamed (the preview), so a check it opens can be solved from anywhere. */
+  viewerUrl?: string | null;
   onCleared: () => void | Promise<void>;
 }) {
   const [busy, setBusy] = useState(new Set<string>());
@@ -28,6 +30,8 @@ export function ChallengeBanner({ api, pending, canSolveHere, onCleared }: {
         if (!outcome.solved) throw new Error("Verification wasn’t completed. Try again.");
         await api.submitChallengeCookies(challenge.source, outcome.cookies, outcome.landed_on);
       } else {
+        // Before any await: a tab opened later than the click is a popup, and phones block those.
+        if (viewerUrl) void openExternal(viewerUrl);
         await api.solveChallenge(challenge.source);
       }
     } catch (error) {
@@ -49,11 +53,14 @@ export function ChallengeBanner({ api, pending, canSolveHere, onCleared }: {
       const name = sourceLabel(challenge.source);
       const working = busy.has(challenge.source) || Boolean(challenge.solving);
       const error = errors[challenge.source] || challenge.error;
-      const title = working ? "Complete verification in the open window"
+      const streamed = !isDesktop && Boolean(viewerUrl);
+      const title = working ? streamed ? "Complete verification in the stream tab" : "Complete verification in the open window"
         : available ? `Verify ${name}` : "Open the desktop app to verify";
       return <div key={challenge.source} className="challenge">
         <span className="challenge-source"><b>{name}</b> wants to check you’re human.</span>
-        <span className="challenge-note">{available
+        <span className="challenge-note">{available && streamed
+          ? "It opens in a new tab streaming the server’s browser. Solve it there and the search continues. Other sources keep running."
+          : available
           ? "It opens in a window this app owns. Solve it there and the search continues. Other sources keep running."
           : "Open the desktop app to verify: a browser tab can’t hand the clearance back to the search."}</span>
         <div className="challenge-row">
@@ -63,7 +70,9 @@ export function ChallengeBanner({ api, pending, canSolveHere, onCleared }: {
             {working ? <Spinner /> : <Icon name="input" />}
             {working ? "Verifying" : "Verify"}
           </button>
-          {working && <span className="challenge-hint">Complete it in the open window</span>}
+          {working && <span className="challenge-hint">{streamed
+            ? <>Complete it in the <a href={viewerUrl!} target="_blank" rel="noreferrer">stream tab</a></>
+            : "Complete it in the open window"}</span>}
         </div>
         {!working && error && <div className="challenge-error" role="alert">{error}</div>}
       </div>;

@@ -367,6 +367,7 @@ function Shell() {
   const [api, setApi] = useState<FlightScraperApi | null>(null);
   const [pending, setPending] = useState<PendingChallenge[]>([]);
   const [canSolveHere, setCanSolveHere] = useState(false);
+  const [viewerUrl, setViewerUrl] = useState<string | null>(null);
 
   const remembered = useRef(rememberedForm()).current;
   const [origin, setOrigin] = useState(remembered.origin ?? "BER");
@@ -434,6 +435,7 @@ function Shell() {
     if (version !== challengeRead.current) return;
     setPending(c.pending);
     setCanSolveHere(Boolean(c.can_solve_here));
+    setViewerUrl(c.viewer_url || null);
   }, [api]);
 
   // Background jobs and other windows can add or clear a challenge at any time.
@@ -953,6 +955,7 @@ function Shell() {
               api={api}
               pending={pending}
               canSolveHere={canSolveHere}
+              viewerUrl={viewerUrl}
               onCleared={refreshChallenges}
             />
             <Queue queue={queue} />

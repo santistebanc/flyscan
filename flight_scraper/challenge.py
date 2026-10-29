@@ -34,8 +34,20 @@ DEFAULT_DIR = Path(".challenges")
 #: How long a cleared challenge is assumed to hold before it is worth redoing.
 DEFAULT_TTL = timedelta(hours=12)
 
-#: The size the check window is given (the factory's virtual screen is the same size).
-SCREEN = (1280, 900)
+#: The screen a tidied check window fills, as WIDTHxHEIGHT. The preview sets it to
+#: the size of its virtual screen, which is phone-shaped so a check streamed to a
+#: phone shows the captcha and nothing else.
+CHECK_SCREEN_ENV = "FLIGHT_SCRAPER_CHECK_SCREEN"
+DEFAULT_SCREEN = (1280, 900)
+
+
+def check_screen() -> Tuple[int, int]:
+    """The screen size from :data:`CHECK_SCREEN_ENV`, or the default if unset or malformed."""
+    width, _, height = os.environ.get(CHECK_SCREEN_ENV, "").partition("x")
+    if width.isdigit() and height.isdigit():
+        return int(width), int(height)
+    return DEFAULT_SCREEN
+
 
 #: Nothing about this page means "solved" as reliably as leaving it does.
 CHECK_MARKER = "/security/check"
@@ -539,11 +551,12 @@ def solve(
         # Zoom the whole browser (not the page: the captcha's image grid lives outside it) and
         # shrink the window to match, so it still fills the same screen.
         scale = CHECK_PAGE_TWEAKS[source].scale
+        screen = check_screen()
         window = {
             "left": 0,
             "top": 0,
-            "width": round(SCREEN[0] / scale),
-            "height": round(SCREEN[1] / scale),
+            "width": round(screen[0] / scale),
+            "height": round(screen[1] / scale),
         }
         args += [
             f"--force-device-scale-factor={scale}",

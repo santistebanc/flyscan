@@ -50,6 +50,11 @@ api = Blueprint("api_v1", __name__, url_prefix="/v1")
 #: the sources.
 API_KEY_ENV = "FLIGHT_SCRAPER_API_KEY"
 
+#: Where a person can watch and clear the check this server opens on its own
+#: display: a noVNC page, on the preview. Unset means there is nothing to offer,
+#: and a check opens wherever the server's display is.
+CHALLENGE_VIEWER_URL_ENV = "FLIGHT_SCRAPER_CHALLENGE_VIEWER_URL"
+
 
 def _registry():
     return current_app.extensions["flight_scraper"]["jobs"]
@@ -785,16 +790,18 @@ def challenges():
     pending = default_scheduler().challenges()
     solving = default_scheduler().challenge_control.solving()
     errors = default_scheduler().challenge_control.recovery_errors()
-    return jsonify(
-        {
-            "pending": [
-                {"source": s, "url": u, "solving": s in solving, "error": errors.get(s)}
-                for s, u in pending.items()
-            ],
-            "can_solve_here": _can_solve_here(),
-            "how_to_clear": "flight-scraper unblock <source>",
-        }
-    )
+    body = {
+        "pending": [
+            {"source": s, "url": u, "solving": s in solving, "error": errors.get(s)}
+            for s, u in pending.items()
+        ],
+        "can_solve_here": _can_solve_here(),
+        "how_to_clear": "flight-scraper unblock <source>",
+    }
+    viewer_url = os.environ.get(CHALLENGE_VIEWER_URL_ENV)
+    if viewer_url:
+        body["viewer_url"] = viewer_url
+    return jsonify(body)
 
 
 @api.post("/challenges/<source>/solve")

@@ -573,6 +573,8 @@ export class FlightScraperApi {
       pending: PendingChallenge[];
       /** Whether the server can open a browser itself. */
       can_solve_here: boolean;
+      /** A page streaming the server's display, where a check it opens can be solved. */
+      viewer_url?: string;
     }>("/challenges");
   }
 

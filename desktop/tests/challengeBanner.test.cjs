@@ -94,3 +94,20 @@ test("asynchronous server launch errors appear beside the affected source", () =
   assert.match(renderToStaticMarkup(tree), /Browser executable is missing/);
   assert.equal(buttons(tree).every((button) => !button.props.disabled), true);
 });
+
+test("in a browser with a stream, verify opens the stream before asking the server", async () => {
+  const events = [];
+  const render = host({ isDesktop: false, openExternal: async (url) => { events.push(`open ${url}`); } });
+  const props = { viewerUrl: "http://beelink.test:6080/vnc.html",
+    api: { solveChallenge: async (source) => { events.push(`solve ${source}`); } } };
+  await buttons(render(props))[0].props.onClick();
+  assert.deepEqual(events, ["open http://beelink.test:6080/vnc.html", "solve ff-kayak"]);
+  assert.match(renderToStaticMarkup(render(props)), /streaming the server’s browser/);
+});
+
+test("in a browser without a stream, verify only asks the server", async () => {
+  const events = [];
+  const render = host({ isDesktop: false, openExternal: async (url) => { events.push(`open ${url}`); } });
+  await buttons(render({ api: { solveChallenge: async (source) => { events.push(`solve ${source}`); } } }))[0].props.onClick();
+  assert.deepEqual(events, ["solve ff-kayak"]);
+});

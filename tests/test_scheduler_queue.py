@@ -315,6 +315,16 @@ class QueueAPITests(unittest.TestCase):
         eventually(lambda: self.scheduler.find_job(job_id).state == "done")
         self.assertEqual(self.client.get(f"/v1/jobs/{job_id}").json["attempts"], 2)
 
+    def test_challenges_report_viewer_url_only_when_configured(self):
+        viewer = "http://beelink.test:6080/vnc.html"
+        with mock.patch.dict("os.environ", {"FLIGHT_SCRAPER_CHALLENGE_VIEWER_URL": viewer}):
+            configured = self.client.get("/v1/challenges").json
+        self.assertEqual(configured["viewer_url"], viewer)
+        with mock.patch.dict("os.environ", {"FLIGHT_SCRAPER_CHALLENGE_VIEWER_URL": ""}):
+            empty = self.client.get("/v1/challenges").json
+        self.assertNotIn("viewer_url", empty)
+        self.assertEqual({k: v for k, v in configured.items() if k != "viewer_url"}, empty)
+
     def test_invalid_requests_are_rejected_without_starting_jobs(self):
         for payload in (
             [],
