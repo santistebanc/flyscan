@@ -17,3 +17,5 @@
 **Search lifecycle**: Starting or joining a search, publishing results and progress, accepting cancellation, and reaching one terminal outcome.
 
 **Subscription**: One caller's interest in a scrape. Cancelling one subscription does not cancel work that another caller still needs.
+
+**Check page tidy**: A per-source method that, in the window where a person clears a challenge, accepts the source's cookie consent and hides everything except the captcha and its Continue button. It only changes what is shown; the person still clears the challenge.

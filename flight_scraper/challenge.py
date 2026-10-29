@@ -25,12 +25,17 @@ import threading
 import time
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, Iterable, List, Optional, Tuple
+
+from .challenge_page import CHECK_PAGE_TWEAKS, check_page_script
 
 DEFAULT_DIR = Path(".challenges")
 
 #: How long a cleared challenge is assumed to hold before it is worth redoing.
 DEFAULT_TTL = timedelta(hours=12)
+
+#: The size the check window is given (the factory's virtual screen is the same size).
+SCREEN = (1280, 900)
 
 #: Nothing about this page means "solved" as reliably as leaving it does.
 CHECK_MARKER = "/security/check"
@@ -57,26 +62,39 @@ class ChallengeStore:
 
     # -- reading and writing -----------------------------------------------
 
-    def save(self, source: str, cookies: Dict[str, str], url: str = "") -> None:
+    def save(
+        self,
+        source: str,
+        cookies: Dict[str, str],
+        url: str = "",
+        durable: Optional[Iterable[str]] = None,
+    ) -> None:
+        """Keep the cookies; ``durable`` names those that outlive a browser session."""
         record = {
             "source": source,
             "cookies": cookies,
             "url": url,
             "solved_at": datetime.now(timezone.utc).isoformat(timespec="seconds"),
         }
-        self.path.mkdir(parents=True, exist_ok=True)
+        if durable is not None:
+            record["durable"] = sorted(durable)
         with self._lock:
-            temporary = None
-            try:
-                with tempfile.NamedTemporaryFile(
-                    mode="w", encoding="utf-8", dir=self.path, suffix=".tmp", delete=False
-                ) as stream:
-                    temporary = stream.name
-                    json.dump(record, stream, indent=1)
-                os.replace(temporary, self._file(source))
-            finally:
-                if temporary and os.path.exists(temporary):
-                    os.unlink(temporary)
+            self._write(source, record)
+
+    def _write(self, source: str, record: Dict[str, Any]) -> None:
+        """Replace the record whole: another process may be reading it at any moment."""
+        self.path.mkdir(parents=True, exist_ok=True)
+        temporary = None
+        try:
+            with tempfile.NamedTemporaryFile(
+                mode="w", encoding="utf-8", dir=self.path, suffix=".tmp", delete=False
+            ) as stream:
+                temporary = stream.name
+                json.dump(record, stream, indent=1)
+            os.replace(temporary, self._file(source))
+        finally:
+            if temporary and os.path.exists(temporary):
+                os.unlink(temporary)
 
     def load(self, source: str) -> Dict[str, str]:
         """Read the latest clearance on every session, including another process's write."""
@@ -89,6 +107,40 @@ class ChallengeStore:
             return {}
         cookies = record.get("cookies")
         return dict(cookies) if isinstance(cookies, dict) else {}
+
+    def narrow_to_durable(self, source: str) -> bool:
+        """Keep only the cookies that outlive a browser session; False if that changes nothing.
+
+        A session cookie belongs to the session that earned it: replayed in a new one it can
+        make the source ask again. The full set is kept aside for ``restore_full``.
+        """
+        return self._rewrite(source, narrow=True)
+
+    def restore_full(self, source: str) -> bool:
+        return self._rewrite(source, narrow=False)
+
+    def _rewrite(self, source: str, narrow: bool) -> bool:
+        with self._lock:
+            try:
+                record = json.loads(self._file(source).read_text(encoding="utf-8"))
+            except (OSError, json.JSONDecodeError):
+                return False
+            if not isinstance(record, dict) or not isinstance(record.get("cookies"), dict):
+                return False
+            if narrow:
+                keep = record.get("durable")
+                if keep is None or "full" in record:
+                    return False
+                kept = {k: v for k, v in record["cookies"].items() if k in set(keep)}
+                if len(kept) == len(record["cookies"]):
+                    return False
+                record["full"], record["cookies"] = record["cookies"], kept
+            else:
+                if "full" not in record:
+                    return False
+                record["cookies"] = record.pop("full")
+            self._write(source, record)
+            return True
 
     def clear(self, source: str) -> None:
         with self._lock:
@@ -295,8 +347,27 @@ class ChallengeCoordinator:
         if self._stopped.is_set():
             return self._cancelled(source)
         if report.get("solved"):
+            self._keep_cookies_that_clear(source)
             self.clear(source)
         return report
+
+    def _keep_cookies_that_clear(self, source):
+        """Make sure the cookies a person just earned are ones the source accepts.
+
+        The browser's whole jar is the natural thing to keep, but replaying a session's own
+        cookies in a new session can get the source to ask again (Momondo does, with its session
+        id), and the check would reappear as soon as the waiting work resumed. So if the source
+        still challenges, try the cookies that outlive a browser session instead.
+        """
+        store = self.cookies
+        if not hasattr(store, "narrow_to_durable"):
+            return
+        _, outcome = probe_challenge(source)
+        if outcome != "challenged" or not store.narrow_to_durable(source):
+            return
+        _, outcome = probe_challenge(source)
+        if outcome != "clear":
+            store.restore_full(source)
 
     def solving(self):
         with self._lock:
@@ -410,6 +481,19 @@ def probe_challenge(source_name: str) -> Tuple[Optional[str], str]:
     return None, "clear"
 
 
+def _fit_window(context, page, bounds: Dict[str, int]) -> None:
+    """Put the window at ``bounds``: Chromium restores an app window's last size over the flags."""
+    try:
+        session = context.new_cdp_session(page)
+        window_id = session.send("Browser.getWindowForTarget")["windowId"]
+        session.send(
+            "Browser.setWindowBounds",
+            {"windowId": window_id, "bounds": {**bounds, "windowState": "normal"}},
+        )
+    except Exception:
+        logging.getLogger(__name__).warning("could not size the check window", exc_info=True)
+
+
 def solve(
     source: str,
     url: str,
@@ -444,18 +528,43 @@ def solve(
         ) from exc
 
     profile = store.profile_dir(source)
+    tidy = check_page_script(source)
+    # The profile outlives a killed browser: don't greet the person with "Restore pages?".
+    args = ["--hide-crash-restore-bubble", "--noerrdialogs"]
+    if tidy:
+        # A bare window: no tabs or address bar around the check. It has to be the app's own
+        # address (about:blank would leave Playwright holding a second, ordinary window); the
+        # goto below then reloads it with the tidy script installed.
+        args.append(f"--app={url}")
+        # Zoom the whole browser (not the page: the captcha's image grid lives outside it) and
+        # shrink the window to match, so it still fills the same screen.
+        scale = CHECK_PAGE_TWEAKS[source].scale
+        window = {
+            "left": 0,
+            "top": 0,
+            "width": round(SCREEN[0] / scale),
+            "height": round(SCREEN[1] / scale),
+        }
+        args += [
+            f"--force-device-scale-factor={scale}",
+            f"--window-size={window['width']},{window['height']}",
+            "--window-position=0,0",
+        ]
 
     with sync_playwright() as driver:
+        # no_viewport: the window itself sets the page size (an emulated viewport would not zoom).
+        viewport = {"no_viewport": True} if tidy else {"viewport": {"width": 1280, "height": 900}}
         context = driver.chromium.launch_persistent_context(
-            str(profile),
-            headless=headless,
-            locale="en-GB",
-            viewport={"width": 1280, "height": 900},
+            str(profile), headless=headless, locale="en-GB", args=args, **viewport
         )
         try:
             if was_cancelled():
                 return report
+            if tidy:
+                context.add_init_script(tidy)
             page = context.pages[0] if context.pages else context.new_page()
+            if tidy:
+                _fit_window(context, page, window)
             page.goto(url, wait_until="domcontentloaded", timeout=60_000)
 
             deadline = time.monotonic() + wait_seconds
@@ -472,14 +581,17 @@ def solve(
                 page.wait_for_timeout(2500)
                 if was_cancelled():
                     return report
-                cookies = {
-                    c["name"]: c["value"]
+                earned = [
+                    c
                     for c in context.cookies()
                     if "flightsfinder" in c.get("domain", "")
                     or "kayak" in c.get("domain", "")
                     or "momondo" in c.get("domain", "")
-                }
-                store.save(source, cookies, url)
+                ]
+                cookies = {c["name"]: c["value"] for c in earned}
+                # A session cookie has no expiry (Playwright reports -1).
+                durable = {c["name"] for c in earned if c.get("expires", -1) not in (-1, None)}
+                store.save(source, cookies, url, durable=durable)
                 report["cookies"] = len(cookies)
                 report["landed_on"] = page.url
         finally:
