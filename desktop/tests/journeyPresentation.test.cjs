@@ -73,7 +73,7 @@ test("the exact Jetradar return renders five flights and a labeled airport trans
   assert.equal((html.match(/leg-part layover/g) || []).length, 4);
   assert.equal((html.match(/leg-part layover transfer/g) || []).length, 1);
   assert.doesNotMatch(html, /leg-part summary/);
-  assert.match(html, /title="Airport transfer MDW to ORD, 23h 4m"/);
+  assert.match(html, /title="Airport transfer MDW to ORD, 23h 4m\nArrives 16:51 · departs 15:55 \(\+1\)"/);
   assert.match(html, /MDW→ORD/);
 });
 
@@ -82,7 +82,7 @@ test("details identify MDW to ORD as an airport change with the same elapsed con
     depart_date: "2026-12-10", arrival: "2026-12-11T12:16" };
   const html = renderToStaticMarkup(React.createElement(CurrencyProvider, { api: null },
     React.createElement(Details, { row, partyLabel: "1 adult", favorite: false, onToggleFavorite: () => {} })));
-  assert.match(html, /title="Airport transfer MDW to ORD, 23h 4m"/);
+  assert.match(html, /title="Airport transfer MDW to ORD, 23h 4m\nArrives 16:51 · departs 15:55 \(\+1\)"/);
   assert.match(html, /class="detail-connection-duration">23h 4m/);
   assert.match(html, /Change airports/);
   assert.doesNotMatch(html, /detail-transfer-route/);

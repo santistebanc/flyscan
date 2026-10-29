@@ -7,7 +7,7 @@ const code = buildSync({ entryPoints: [path.join(__dirname, "../src/flightTimeli
   bundle: true, write: false, format: "cjs", platform: "node" }).outputFiles[0].text;
 const mod = { exports: {} };
 vm.runInNewContext(code, { module: mod, exports: mod.exports });
-const { airlineColor, airlineColors, partsOf, journeyTiming, flightTimelines, percent, dayOffset, scaleClock, timingNote, localMidnights, isOvernight } = mod.exports;
+const { airlineColor, partsOf, journeyTiming, flightTimelines, percent, dayOffset, scaleClock, timingNote, localMidnights, localHourMarks, isOvernight, partLabel, filteredOutSpans } = mod.exports;
 
 test("filtered bounds shrink without reusing hidden outliers from the timing cache", () => {
   const normal = { departure: "2026-11-01T08:00", duration: "3h", segments: [] };
@@ -27,6 +27,15 @@ const segmentA = { origin: "BER", destination: "LHR", departure: "2026-12-10T12:
   arrival: "2026-12-10T13:20", duration: "2h 05m", carrier: "AA" };
 const segmentB = { origin: "LHR", destination: "DFW", departure: "2026-12-10T14:45",
   arrival: "2026-12-10T19:10", duration: "10h 25m", carrier: "AA" };
+
+test("bar tooltips say when each flight leaves and lands, and how long each wait runs", () => {
+  const [flight, layover] = partsOf(leg("2026-12-10T12:15", "13h", { segments: [segmentA, segmentB] }));
+  assert.equal(partLabel(flight), "Flight BER to LHR, AA\nDeparts Thu, Dec 10, 12:15 · arrives 13:20\n2h 05m");
+  assert.equal(partLabel(layover), "Layover in LHR, 1h 25m\nArrives 13:20 · departs 14:45");
+  const overnight = partsOf(leg("2026-12-10T12:15", "1d", { segments: [segmentA, { ...segmentB, departure: "2026-12-11T07:00" }] }))[1];
+  assert.match(partLabel(overnight), /departs 07:00 \(\+1\)$/);
+  assert.equal(partLabel({ ...flight, segment: { ...segmentA, departure: "", arrival: "" } }), "Flight BER to LHR, AA\n2h 05m");
+});
 
 test("the captured Jetradar return keeps its flights across the MDW to ORD airport change", () => {
   const inbound = require("./fixtures/jetradar-airport-transfer.json");
@@ -208,6 +217,18 @@ test("a westbound flight whose local clock stays before midnight has no moon", (
   ] }));
   assert.deepEqual(midnights(timing), []);
 });
+test("quarter-day marks thin out to noon, then vanish, as the timeline narrows", () => {
+  // 12:00 to 13:00 the next day on one clock, plotted over 2000 minutes from departure.
+  const timing = journeyTiming(leg("2026-12-10T12:00", "25h", { arrival: "2026-12-11T13:00" }));
+  const scale = { min: timing.start, max: timing.start + 2000 };
+  const hours = (px, range = scale) => Array.from(localHourMarks(timing, range, px / (range.max - range.min)), (m) => m.hour);
+  assert.deepEqual(hours(800), [18, 6, 12, 18], "six hours = 144px: every mark fits");
+  assert.deepEqual(hours(500), [12], "six hours = 90px is crowded: noon alone");
+  assert.deepEqual(hours(150), [], "twelve hours = 54px: nothing fits");
+  assert.equal(localHourMarks(timing, scale, 0.4)[0].at, timing.start + 360, "18:00 sits six hours after a 12:00 departure");
+  assert.deepEqual(hours(600, { min: timing.start, max: timing.start + 1500 }), [18, 6],
+    "noon an hour (24px) before the end would spill its label out of the timeline");
+});
 test("multi-day journeys mark each local midnight, including summary-only legs", () => {
   const summary = journeyTiming(leg("2026-12-10T12:00", "49h", { arrival: "2026-12-12T13:00" }));
   // Local clock advances 49h over 49h elapsed: midnights 12h and 36h in.
@@ -261,12 +282,29 @@ test("only layovers whose local clock passes midnight are overnight", () => {
   assert.equal(isOvernight(partsOf(leg("2026-12-10T08:00", "2h"))[0]), false);
 });
 
-test("each carrier in the results gets its own color, the most frequent first", () => {
-  const legOf = (...carriers) => ({ segments: carriers.map((carrier) => ({ carrier })) });
-  const rows = [{ outbound: legOf("AM", "LH"), inbound: legOf("AF", "AM") }, { outbound: legOf("AM", "LH") }];
-  const colors = airlineColors(rows);
-  assert.deepEqual([...colors.keys()], ["AM", "LH", "AF"]);
-  assert.equal(new Set(colors.values()).size, 3);
-  assert.equal(airlineColor("LH", colors), colors.get("LH"));
-  assert.match(airlineColor("ZZ", colors), /^#[0-9a-f]{6}$/, "an unranked carrier still gets a color");
+test("an airline has the same color in every search", () => {
+  assert.equal(airlineColor("LH"), airlineColor("LH"));
+  assert.match(airlineColor("ZZ"), /^#[0-9a-f]{6}$/);
+});
+
+// Plain objects: the module runs in its own vm context, so its arrays and objects have other prototypes.
+const spansOf = (...args) => JSON.parse(JSON.stringify(filteredOutSpans(...args)));
+
+test("filtered-out spans run to the earliest departure and from the latest arrival", () => {
+  const timing = journeyTiming(leg("2026-11-01T08:00", "3h", { arrival: "2026-11-01T11:00" }));
+  const scale = { min: timing.start - 480, max: timing.start + 1440 };
+  assert.deepEqual(spansOf(timing, scale, 6 * 60, 20 * 60), [
+    { start: scale.min, end: timing.start - 120, side: "before" },
+    { start: timing.start + 180 + 540, end: scale.max, side: "after" },
+  ]);
+  assert.deepEqual(spansOf(timing, scale, null, null), []);
+});
+
+test("a latest arrival counts from the departure day, and spans stay inside the scale", () => {
+  // Leaves 08:00, lands 01:00 the next day.
+  const timing = journeyTiming(leg("2026-11-01T08:00", "17h", { arrival: "2026-11-02T01:00" }));
+  const scale = { min: timing.start, max: timing.end + 300 };
+  assert.deepEqual(spansOf(timing, scale, null, 1440 + 3 * 60), [{ start: timing.end + 120, end: scale.max, side: "after" }]);
+  assert.deepEqual(spansOf(timing, scale, null, 2 * 1440), [], "00:00 two days on is past the scale");
+  assert.deepEqual(spansOf(timing, scale, 7 * 60, null), [], "the earliest departure falls before the scale");
 });

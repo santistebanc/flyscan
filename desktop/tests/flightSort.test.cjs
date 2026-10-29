@@ -7,7 +7,7 @@ const code = buildSync({ entryPoints: [path.join(__dirname, "../src/flightSort.t
   bundle: true, write: false, format: "cjs", platform: "node" }).outputFiles[0].text;
 const mod = { exports: {} };
 vm.runInNewContext(code, { module: mod, exports: mod.exports });
-const { sortFlightRows, DEFAULT_SORT, SORT_LABELS } = mod.exports;
+const { sortFlightRows, DEFAULT_SORT, SORT_GROUPS, SORT_BUTTON_LABELS, effectiveSort, sortKeysFor } = mod.exports;
 const row = (id, price, duration, extra = {}) => ({ trip_key: id,
   best: { price_base: price }, duration, return_duration: "", return_date: "",
   departure: "2026-12-11T10:00", depart_date: "2026-12-11", stops: 0, ...extra });
@@ -15,7 +15,7 @@ const keys = (rows, sort = "best") => Array.from(sortFlightRows(rows, sort), (r)
 
 test("Best is the default and favors a reasonable price/time balance", () => {
   assert.equal(DEFAULT_SORT, "best");
-  assert.equal(SORT_LABELS.best, "Best");
+  assert.equal(SORT_BUTTON_LABELS.best, "Best");
   const rows = [row("cheap-slow", 80, "12h"), row("fast-expensive", 400, "2h"), row("balanced", 120, "3h")];
   assert.deepEqual(keys(rows), ["balanced", "fast-expensive", "cheap-slow"]);
   assert.deepEqual(rows.map((r) => r.trip_key), ["cheap-slow", "fast-expensive", "balanced"], "sorting leaves input order intact");
@@ -60,5 +60,42 @@ test("the existing explicit sorting options keep their behavior", () => {
   assert.deepEqual(keys(rows, "price"), ["cheap", "early", "short"]);
   assert.deepEqual(keys(rows, "depart"), ["early", "short", "cheap"]);
   assert.deepEqual(keys(rows, "duration"), ["short", "early", "cheap"]);
-  assert.equal(SORT_LABELS.stops, undefined, "stop count remains a filter, not a sort option");
+  assert.equal(SORT_GROUPS.some((group) => group.keys.includes("stops")), false, "stop count remains a filter, not a sort option");
+});
+
+const back = (departure, arrival, duration) => ({ return_date: departure.slice(0, 10), return_departure: departure,
+  return_arrival: arrival, return_duration: duration });
+
+test("Shortest counts both directions of a round trip, and its variants each one alone", () => {
+  const rows = [row("short-out-long-back", 100, "2h", back("2026-12-19T08:00", "2026-12-20T14:00", "30h")),
+    row("even", 100, "5h", back("2026-12-19T09:00", "2026-12-19T14:00", "5h"))];
+  assert.deepEqual(keys(rows, "duration"), ["even", "short-out-long-back"], "a long return is not a short trip");
+  assert.deepEqual(keys(rows, "duration-outbound"), ["short-out-long-back", "even"]);
+  assert.deepEqual(keys(rows, "duration-return"), ["even", "short-out-long-back"]);
+});
+
+test("departure and arrival sorts read either direction's local clock", () => {
+  const rows = [
+    row("early-out-late-back", 100, "2h", { departure: "2026-12-11T06:00", arrival: "2026-12-11T12:00",
+      ...back("2026-12-19T20:00", "2026-12-19T23:00", "3h") }),
+    row("late-out-early-back", 100, "2h", { departure: "2026-12-11T09:00", arrival: "2026-12-11T10:00",
+      ...back("2026-12-19T07:00", "2026-12-19T09:00", "2h") }),
+  ];
+  assert.deepEqual(keys(rows, "depart"), ["early-out-late-back", "late-out-early-back"]);
+  assert.deepEqual(keys(rows, "arrive"), ["late-out-early-back", "early-out-late-back"]);
+  assert.deepEqual(keys(rows, "return-depart"), ["late-out-early-back", "early-out-late-back"]);
+  assert.deepEqual(keys(rows, "return-arrive"), ["late-out-early-back", "early-out-late-back"]);
+  const unknown = row("no-return", 50, "2h");
+  assert.equal(keys([unknown, ...rows], "return-depart").at(-1), "no-return", "an unknown time sorts last");
+});
+
+test("a one-way search offers and falls back to outbound variants only", () => {
+  const departure = SORT_GROUPS.find((group) => group.label === "Departure");
+  const shortest = SORT_GROUPS.find((group) => group.label === "Shortest");
+  assert.deepEqual(Array.from(sortKeysFor(false, departure.keys)), ["depart", "arrive"]);
+  assert.deepEqual(Array.from(sortKeysFor(false, shortest.keys)), ["duration"]);
+  assert.deepEqual(Array.from(sortKeysFor(true, shortest.keys)), ["duration", "duration-outbound", "duration-return"]);
+  assert.equal(effectiveSort("return-arrive", false), "arrive");
+  assert.equal(effectiveSort("duration-return", false), "duration");
+  assert.equal(effectiveSort("return-arrive", true), "return-arrive");
 });

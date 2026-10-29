@@ -1,9 +1,14 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { FlightRow, Offer } from "./api";
-import { applyPriceOverrides, offerPriceKey, PRICE_OVERRIDES_KEY, sanitizePriceOverrides } from "./offerPriceOverrides";
+import { applyPriceOverrides, correctionFor, LEGACY_PRICE_OVERRIDES_KEY, offerPriceKey, PRICE_OVERRIDES_KEY,
+  sanitizePriceOverrides, upgradeLegacyOverrides } from "./offerPriceOverrides";
 
 function read() {
-  try { return sanitizePriceOverrides(JSON.parse(localStorage.getItem(PRICE_OVERRIDES_KEY) || "{}")); }
+  try {
+    const saved = localStorage.getItem(PRICE_OVERRIDES_KEY);
+    if (saved !== null) return sanitizePriceOverrides(JSON.parse(saved));
+    return upgradeLegacyOverrides(JSON.parse(localStorage.getItem(LEGACY_PRICE_OVERRIDES_KEY) || "{}"));
+  }
   catch { return {}; }
 }
 export function useOfferPrices(rawRows: FlightRow[], scope: string) {
@@ -23,7 +28,7 @@ export function useOfferPrices(rawRows: FlightRow[], scope: string) {
     else {
       const rounded = Math.round(value * 100) / 100;
       if (rounded <= 0) throw new Error("Enter a price of at least €0.01.");
-      next[key] = rounded;
+      next[key] = correctionFor(offer, rounded);
     }
     try { localStorage.setItem(PRICE_OVERRIDES_KEY, JSON.stringify(next)); }
     catch { throw new Error("The price could not be saved. Check available app storage and try again."); }

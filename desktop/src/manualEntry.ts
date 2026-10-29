@@ -363,17 +363,5 @@ export function nextDraft(added: FlightDraft[], fallback: Partial<FlightDraft> =
 
 export const isManual = (offer: Pick<Offer, "source">) => offer.source === MANUAL_SOURCE;
 
-/** "3 days ago", "today": when a hand-entered price was added. */
-export function addedAgo(iso: string | undefined, now = Date.now()): string {
-  const at = iso ? Date.parse(iso) : NaN;
-  if (!Number.isFinite(at)) return "";
-  const days = Math.floor((now - at) / 86_400_000);
-  if (days < 1) return "today";
-  if (days === 1) return "yesterday";
-  if (days < 30) return `${days} days ago`;
-  const months = Math.floor(days / 30);
-  return months === 1 ? "a month ago" : `${months} months ago`;
-}
-
 /** True when nobody but the person sells this flight, so its details are theirs to change. */
 export const onlyManual = (row: FlightRow) => row.offers.length > 0 && row.offers.every(isManual);

@@ -140,6 +140,12 @@ export interface Offer {
   deeplink: string;
   manual_price?: boolean;
   original_price_base?: number | null;
+  /** A correction the source has since requoted: kept to reapply, not applied. */
+  stale_price_base?: number;
+  /** When the correction, applied or set aside, was made. */
+  corrected_at?: string;
+  /** When the source quoted this price, or the person typed or changed it. */
+  seen_at?: string;
   /** Set on prices typed in by hand: what editing or deleting one needs. */
   entry_id?: number;
   added_at?: string;

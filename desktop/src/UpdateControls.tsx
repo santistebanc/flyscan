@@ -18,7 +18,7 @@ export function UpdatePanel({ state, manager, busy, onClose }: {
   return <>
     <div className="update-panel-heading">
       <div><h2 id="app-updates-title">App updates</h2>
-        <p className="muted">Flight Scraper{state.currentVersion && ` ${state.currentVersion}`}</p></div>
+        <p className="muted">Flyscan{state.currentVersion && ` ${state.currentVersion}`}</p></div>
       <button type="button" className="update-close" aria-label="Close app updates"
         disabled={state.status === "installing"} onClick={onClose}><Icon name="cancel" /></button>
     </div>

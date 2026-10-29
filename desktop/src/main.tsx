@@ -14,6 +14,7 @@ import App from "./App";
 import { FlightScraperApi } from "./api";
 import { apiConnection } from "./platform";
 import "./styles.css";
+import "./flyscan.css";
 
 /** Whatever the page was doing when it broke, for whoever reads this later. */
 const surroundings = () => ({

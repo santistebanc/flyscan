@@ -1,4 +1,4 @@
-import { useEffect, useLayoutEffect, type ReactNode, type RefObject } from "react";
+import { useEffect, useLayoutEffect, useRef, type MouseEvent as ReactMouseEvent, type ReactNode, type RefObject } from "react";
 
 /** Closes on a press outside every root, or on Escape before the list's own Escape sees it. */
 export function useDismiss(open: boolean, close: () => void, ...roots: RefObject<HTMLElement | null>[]) {
@@ -56,4 +56,24 @@ export function SearchSegment({ label, value, hint, open, onToggle, root, childr
     </button>
     {open && children}
   </div>;
+}
+
+/**
+ * Closes a modal dialog on a click on its backdrop. The press has to start
+ * there too, so a text selection dragged out of the dialog does not close it.
+ */
+export function useBackdropDismiss(close: () => void) {
+  const pressedOutside = useRef(false);
+  const outside = (event: ReactMouseEvent<HTMLDialogElement>) => {
+    if (event.target !== event.currentTarget) return false;
+    const box = event.currentTarget.getBoundingClientRect();
+    return event.clientX < box.left || event.clientX > box.right || event.clientY < box.top || event.clientY > box.bottom;
+  };
+  return {
+    onPointerDown: (event: ReactMouseEvent<HTMLDialogElement>) => { pressedOutside.current = outside(event); },
+    onClick: (event: ReactMouseEvent<HTMLDialogElement>) => {
+      if (pressedOutside.current && outside(event)) close();
+      pressedOutside.current = false;
+    },
+  };
 }

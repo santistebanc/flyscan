@@ -950,7 +950,7 @@ def _stored_offer(offer: Dict[str, Any]) -> Dict[str, Any]:
         "currency": "EUR",
         "price_base": price,
         "deeplink": offer.get("deeplink", ""),
-        **{key: offer[key] for key in ("entry_id", "added_at") if key in offer},
+        **{key: offer[key] for key in ("entry_id", "added_at", "seen_at") if key in offer},
     }
 
 

@@ -1,20 +1,23 @@
 ﻿/** Compact controls for the flights already listed; changes never scrape. */
-import { useEffect, useId, useLayoutEffect, useRef, useState } from "react";
+import { useEffect, useId, useLayoutEffect, useRef, useState, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import { useCurrency } from "./currency";
 import { Icon } from "./Icon";
 import { elapsed } from "./flightTimeline";
 import { roundLimitPresets, type ConnectionFilterOptions, type FilterRanges } from "./filterSuggestions";
-import { DEFAULT_FILTERS, OPEN_FILTERS, filtersActive, filtersChanged, formatClock,
-  type DirectionTimes, type ListFilters } from "./flightFilters";
+import { ANY_ARRIVAL, DEFAULT_FILTERS, filtersActive, filtersChanged, formatArrival, formatClock, setDirectionLimits,
+  setSeparate, type DirectionLimits, type DirectionalFilter, type ListFilters } from "./flightFilters";
 
 export const FILTERS_KEY = "flight-scraper:list-filters";
 type Panel = "stops" | "price" | "duration" | "layovers" | "times";
+type Direction = "outbound" | "inbound";
 const TITLES: Record<Panel, string> = { stops: "Stops", price: "Price", duration: "Duration", layovers: "Layovers", times: "Departure and arrival times" };
-const timeOptions = Array.from({ length: 49 }, (_, i) => i * 30);
+const DIRECTION_NAMES: Record<Direction, string> = { outbound: "Outbound", inbound: "Return" };
+/** Every half hour of a day, 00:00 to 23:30. */
+const timeOptions = Array.from({ length: 48 }, (_, i) => i * 30);
 
-function LimitInput({ label, unit, value, onCommit }: {
-  label: string; unit: string; value: number | null; onCommit: (value: number | null) => void;
+function LimitInput({ label, accessibleLabel = label, unit, value, onCommit }: {
+  label: string; accessibleLabel?: string; unit: string; value: number | null; onCommit: (value: number | null) => void;
 }) {
   const format = (n: number | null) => n === null ? "" : String(Math.round(n * 100) / 100);
   const [text, setText] = useState(() => format(value));
@@ -24,7 +27,7 @@ function LimitInput({ label, unit, value, onCommit }: {
   return <label className="filter-limit-label">
     <span>{label}</span>
     <span className="filter-limit-field">
-      <input data-autofocus inputMode="decimal" aria-label={label} placeholder="No limit" value={text}
+      <input data-autofocus inputMode="decimal" aria-label={accessibleLabel} placeholder="No limit" value={text}
         onFocus={() => { focused.current = true; }}
         onChange={(e) => { setText(e.target.value); onCommit(parse(e.target.value)); }}
         onBlur={() => { focused.current = false; setText(format(value)); }} />
@@ -35,27 +38,40 @@ function LimitInput({ label, unit, value, onCommit }: {
 
 /** The design's quick picks; the dropdown still reaches any half hour. */
 const DEPART_PRESETS = [0, 360, 540, 720, 900];
-const ARRIVE_PRESETS = [1440, 720, 900, 1080, 1320];
+const ARRIVE_PRESETS = [ANY_ARRIVAL, 1080, 1320, 1440 + 720, 2 * 1440 + 720];
+/** Arrival choices by day: the departure day, the next one, and the one after. */
+const ARRIVE_DAYS = ["Departure day", "Next day", "Two days later"];
 
-function TimeBound({ label, accessibleLabel, value, minimum, onChange }: {
-  label: string; accessibleLabel: string; value: number; minimum: boolean; onChange: (next: number) => void;
+function TimeBound({ label, accessibleLabel, value, minimum, autoFocus, onChange }: {
+  label: string; accessibleLabel: string; value: number; minimum: boolean; autoFocus?: boolean; onChange: (next: number) => void;
 }) {
-  const unrestricted = minimum ? 0 : 1440;
+  const unrestricted = minimum ? 0 : ANY_ARRIVAL;
+  const format = minimum ? formatClock : formatArrival;
   return <div className="filter-time-range">
     <label className="filter-time-bound-label">
       <span>{label}</span>
-      <select aria-label={accessibleLabel} value={value} onChange={(e) => onChange(Number(e.target.value))}>
-        {timeOptions.map((m) => <option key={m} value={m}>{m === unrestricted ? "Any time" : formatClock(m)}</option>)}
+      <select data-autofocus={autoFocus || undefined} aria-label={accessibleLabel} value={value} onChange={(e) => onChange(Number(e.target.value))}>
+        {minimum ? timeOptions.map((m) => <option key={m} value={m}>{m === unrestricted ? "Any time" : format(m)}</option>) : <>
+          <option value={unrestricted}>Any time</option>
+          {ARRIVE_DAYS.map((day, d) => <optgroup key={day} label={day}>
+            {timeOptions.map((m) => d * 1440 + m).filter((m) => m > 0).map((m) =>
+              <option key={m} value={m}>{format(m)}</option>)}
+          </optgroup>)}
+        </>}
       </select>
     </label>
     <div className="filter-dayparts" role="group" aria-label={`${accessibleLabel} quick times`}>
       {(minimum ? DEPART_PRESETS : ARRIVE_PRESETS).map((minutes) => <button type="button" key={minutes}
         aria-pressed={value === minutes} onClick={() => onChange(minutes)}>
-        {minutes === unrestricted ? "Any" : formatClock(minutes)}
+        {minutes === unrestricted ? "Any" : format(minutes)}
       </button>)}
     </div>
   </div>;
 }
+
+const timeBounds = (limits: DirectionLimits) => Number(limits.depart.from > 0) + Number(limits.arrive.to < ANY_ARRIVAL);
+const stopsText = (stops: number | null) => stops === null ? undefined : stops === 0 ? "Nonstop" : `≤ ${stops}`;
+const minutesText = (minutes: number | null) => minutes === null ? undefined : `≤ ${elapsed(minutes)}`;
 
 export function FlightFiltersBar({ filters, onChange, shown, total, roundTrip = true, suggestions, connectionOptions }: {
   filters: ListFilters; onChange: (next: ListFilters) => void; shown: number; total: number; roundTrip?: boolean; suggestions: FilterRanges;
@@ -63,21 +79,20 @@ export function FlightFiltersBar({ filters, onChange, shown, total, roundTrip = 
 }) {
   const { currency, roundedIn, toEur, money } = useCurrency();
   const [open, setOpen] = useState<Panel | null>(null);
-  const [direction, setDirection] = useState<"outbound" | "inbound">("outbound");
   const root = useRef<HTMLDivElement>(null);
   const popup = useRef<HTMLDivElement>(null);
   const triggers = useRef<Partial<Record<Panel, HTMLButtonElement>>>({});
   const id = useId();
   const [position, setPosition] = useState({ left: 12, top: 0, maxHeight: 600 });
-  const effective = roundTrip ? filters : { ...filters, inbound: OPEN_FILTERS.inbound };
+  /** Return limits only exist for a round trip; on a one-way the outbound ones are all there is. */
+  const separate = (filter: DirectionalFilter) => roundTrip && filters.separate[filter];
+  const effective = roundTrip ? filters : { ...filters, inbound: filters.outbound };
   const active = filtersActive(effective);
   const changed = filtersChanged(effective);
-  const timeCount = [effective.outbound.depart.from > 0, effective.outbound.arrive.to < 1440,
-    effective.inbound.depart.from > 0, effective.inbound.arrive.to < 1440].filter(Boolean).length;
+  const timeCount = timeBounds(filters.outbound) + (separate("times") ? timeBounds(filters.inbound) : 0);
   const close = () => { if (open) triggers.current[open]?.focus({ preventScroll: true }); setOpen(null); };
-  const displayedDirection = roundTrip ? direction : "outbound";
-  const times = filters[displayedDirection];
-  const changeTimes = (next: DirectionTimes) => onChange({ ...filters, [displayedDirection]: next });
+  const set = (filter: DirectionalFilter, direction: Direction, patch: Partial<DirectionLimits>) =>
+    onChange(setDirectionLimits(filters, filter, direction, patch));
   // Only these few display values depend on currency. The dataset scan is
   // memoized by App, so opening a filter or editing a limit never rescans it.
   const prices = suggestions.priceEur && { min: roundedIn(suggestions.priceEur.min), max: roundedIn(suggestions.priceEur.max) };
@@ -85,13 +100,19 @@ export function FlightFiltersBar({ filters, onChange, shown, total, roundTrip = 
   const priceSpan = priceValues.length ? priceValues[priceValues.length - 1]! - priceValues[0]! : 0;
   const priceStep = Math.max(1, 10 ** Math.floor(Math.log10(Math.max(1, priceSpan) / 5)));
   const pricePresets = roundLimitPresets(priceValues, prices?.max, priceStep);
-  const durationRange = suggestions.durationMinutes;
-  const durationValues = suggestions.limits.durationMinutes;
-  const durationSpan = durationValues.length ? durationValues[durationValues.length - 1]! - durationValues[0]! : 0;
-  const durationPresets = open === "layovers"
-    ? [...new Set([...connectionOptions.layoverMinutes, ...(filters.maxLayoverMinutes === null ? [] : [filters.maxLayoverMinutes])])].sort((a, b) => a - b)
-    : roundLimitPresets(durationValues, durationRange?.max, durationSpan > 180 ? 30 : 5);
-  const stopChoices = [...new Set([...connectionOptions.stops, ...(filters.maxStops === null ? [] : [filters.maxStops])])].sort((a, b) => a - b);
+  /** Choices for one direction's cap, or for both when the filter is not separate. */
+  const durationPresets = (filter: "duration" | "layovers", direction: Direction) => {
+    const own = separate(filter);
+    if (filter === "layovers") {
+      const current = filters[direction].maxLayoverMinutes;
+      const options = own ? connectionOptions[direction].layoverMinutes : connectionOptions.layoverMinutes;
+      return [...new Set([...options, ...(current === null ? [] : [current])])].sort((a, b) => a - b);
+    }
+    const range = own ? suggestions[direction].durationMinutes : suggestions.durationMinutes;
+    const values = own ? suggestions[direction].limits : suggestions.limits.durationMinutes;
+    const span = values.length ? values[values.length - 1]! - values[0]! : 0;
+    return roundLimitPresets(values, range?.max, span > 180 ? 30 : 5);
+  };
 
   useLayoutEffect(() => {
     if (!open || !popup.current || !triggers.current[open]) return;
@@ -125,19 +146,54 @@ export function FlightFiltersBar({ filters, onChange, shown, total, roundTrip = 
     };
   }, [open]);
 
-  const controls: { name: Panel; label: string; value?: string; active: boolean }[] = [
-    { name: "stops", label: "Stops", value: filters.maxStops === 0 ? "Nonstop" : filters.maxStops === null ? filters.excludeRepeatedAirports ? undefined : "All routes" : `≤ ${filters.maxStops}`, active: filters.maxStops !== DEFAULT_FILTERS.maxStops || filters.excludeRepeatedAirports !== DEFAULT_FILTERS.excludeRepeatedAirports },
+  /** A chip's value: one text when both directions agree, "outbound / return" when they differ. */
+  const chip = (filter: DirectionalFilter, describe: (limits: DirectionLimits) => string | undefined, none = "Any") => {
+    const outbound = describe(filters.outbound);
+    if (!separate(filter)) return { value: outbound };
+    const inbound = describe(filters.inbound);
+    if (outbound === inbound) return { value: outbound };
+    return { value: `${outbound ?? none} / ${inbound ?? none}`,
+      title: `Outbound: ${outbound ?? none} · Return: ${inbound ?? none}` };
+  };
+  const either = (test: (limits: DirectionLimits) => boolean) => test(filters.outbound) || (roundTrip && test(filters.inbound));
+  const stopsChip = chip("stops", (d) => stopsText(d.maxStops));
+  const durationChip = chip("duration", (d) => minutesText(d.maxDurationMinutes));
+  const layoversChip = chip("layovers", (d) => minutesText(d.maxLayoverMinutes) ?? "No limit", "No limit");
+  const controls: { name: Panel; label: string; value?: string; title?: string; active: boolean }[] = [
+    { name: "stops", label: "Stops", ...stopsChip,
+      value: stopsChip.value ?? (filters.excludeRepeatedAirports ? undefined : "All routes"),
+      active: either((d) => d.maxStops !== null) || filters.excludeRepeatedAirports !== DEFAULT_FILTERS.excludeRepeatedAirports },
     { name: "price", label: "Price", value: filters.maxPriceEur === null ? undefined : `≤ ${money(filters.maxPriceEur)}`, active: filters.maxPriceEur !== null },
-    { name: "duration", label: "Duration", value: filters.maxDurationMinutes === null ? undefined : `≤ ${elapsed(filters.maxDurationMinutes)}`, active: filters.maxDurationMinutes !== null },
-    { name: "layovers", label: "Layovers", value: filters.maxLayoverMinutes === null ? "No limit" : `≤ ${elapsed(filters.maxLayoverMinutes)}`, active: filters.maxLayoverMinutes !== DEFAULT_FILTERS.maxLayoverMinutes },
+    { name: "duration", label: "Duration", ...durationChip, active: either((d) => d.maxDurationMinutes !== null) },
+    { name: "layovers", label: "Layovers", ...layoversChip,
+      active: either((d) => d.maxLayoverMinutes !== DEFAULT_FILTERS.outbound.maxLayoverMinutes) },
     { name: "times", label: "Times", value: timeCount ? String(timeCount) : undefined, active: timeCount > 0 },
   ];
+
+  /**
+   * A panel's controls once for both directions, or under an Outbound and a
+   * Return heading when the filter is separate, with the switch between them.
+   */
+  const directional = (filter: DirectionalFilter, body: (direction: Direction, name: string, first: boolean) => ReactNode) => <>
+    {(separate(filter) ? ["outbound", "inbound"] as const : ["outbound"] as const).map((direction, i) => {
+      const name = separate(filter) ? DIRECTION_NAMES[direction] : "";
+      return <div key={direction} className="filter-direction" role={name ? "group" : undefined} aria-label={name || undefined}>
+        {name && <h4 className="filter-direction-heading">{name}</h4>}
+        {body(direction, name, i === 0)}
+      </div>;
+    })}
+    {roundTrip && <label className="filter-checkbox filter-separate">
+      <input type="checkbox" checked={filters.separate[filter]} onChange={(event) => onChange(setSeparate(filters, filter, event.target.checked))} />
+      Set outbound and return separately
+    </label>}
+  </>;
+  const labelled = (name: string, text: string) => name ? `${name} ${text.charAt(0).toLowerCase()}${text.slice(1)}` : text;
 
   return <div className="flight-filters" ref={root} role="group" aria-label="Filter flights">
     {controls.map((control) => <button type="button" key={control.name}
       ref={(node) => { if (node) triggers.current[control.name] = node; }}
-      className="flight-filter-trigger" data-active={control.active || undefined}
-      aria-label={control.value ? `${control.label}: ${control.value}` : control.label}
+      className="flight-filter-trigger" data-active={control.active || undefined} title={control.title}
+      aria-label={control.value ? `${control.label}: ${control.title ?? control.value}` : control.label}
       aria-haspopup="dialog" aria-expanded={open === control.name}
       aria-controls={open === control.name ? id : undefined}
       onClick={() => setOpen((was) => was === control.name ? null : control.name)}>
@@ -149,15 +205,20 @@ export function FlightFiltersBar({ filters, onChange, shown, total, roundTrip = 
       role="dialog" aria-label={TITLES[open]} style={position}>
       <div className="filter-panel-heading"><h3>{TITLES[open]}</h3><button type="button" aria-label="Close filter" title="Close" onClick={close}><Icon name="cancel" /></button></div>
       {open === "stops" && <>
-        <p className="filter-panel-note">Maximum stops in each direction.</p>
-        <div className="filter-stop-options" role="group" aria-label="Maximum stops">
-          {[...stopChoices, null].map((stops) =>
-            <button type="button" key={stops ?? "any"} data-autofocus={filters.maxStops === stops || undefined}
-              aria-pressed={filters.maxStops === stops} onClick={() => onChange({ ...filters, maxStops: stops })}>
-              <span>{stops === null ? "Any number of stops" : stops === 0 ? "Nonstop only" : `Up to ${stops} stop${stops === 1 ? "" : "s"}`}</span>
-              {filters.maxStops === stops && <Icon name="done" />}
-            </button>)}
-        </div>
+        {!separate("stops") && <p className="filter-panel-note">Maximum stops in each direction.</p>}
+        {directional("stops", (direction, name, first) => {
+          const value = filters[direction].maxStops;
+          const options = separate("stops") ? connectionOptions[direction].stops : connectionOptions.stops;
+          const choices = [...new Set([...options, ...(value === null ? [] : [value])])].sort((a, b) => a - b);
+          return <div className="filter-stop-options" role="group" aria-label={labelled(name, "Maximum stops")}>
+            {[...choices, null].map((stops) =>
+              <button type="button" key={stops ?? "any"} data-autofocus={(first && value === stops) || undefined}
+                aria-pressed={value === stops} onClick={() => set("stops", direction, { maxStops: stops })}>
+                <span>{stops === null ? "Any number of stops" : stops === 0 ? "Nonstop only" : `Up to ${stops} stop${stops === 1 ? "" : "s"}`}</span>
+                {value === stops && <Icon name="done" />}
+              </button>)}
+          </div>;
+        })}
         <label className="filter-checkbox">
           <input type="checkbox" checked={filters.excludeRepeatedAirports}
             onChange={(event) => onChange({ ...filters, excludeRepeatedAirports: event.target.checked })} />
@@ -175,26 +236,36 @@ export function FlightFiltersBar({ filters, onChange, shown, total, roundTrip = 
         </div>
       </>}
       {(open === "duration" || open === "layovers") && <>
-        <LimitInput label={open === "duration" ? "Maximum journey time" : "Maximum connection time"} unit="hours"
-          value={(open === "duration" ? filters.maxDurationMinutes : filters.maxLayoverMinutes) === null ? null : (open === "duration" ? filters.maxDurationMinutes! : filters.maxLayoverMinutes!) / 60}
-          onCommit={(hours) => onChange({ ...filters, [open === "duration" ? "maxDurationMinutes" : "maxLayoverMinutes"]: hours === null ? null : Math.max(1, Math.round(hours * 60)) })} />
-        <div className="filter-presets" role="group" aria-label="Duration quick limits">
-          {[...durationPresets, null].map((minutes) => <button type="button" key={minutes ?? "any"}
-            aria-pressed={(open === "duration" ? filters.maxDurationMinutes : filters.maxLayoverMinutes) === minutes}
-            onClick={() => onChange({ ...filters, [open === "duration" ? "maxDurationMinutes" : "maxLayoverMinutes"]: minutes })}>{minutes === null ? "No limit" : elapsed(minutes)}</button>)}
-        </div>
-        <p className="filter-panel-note">{open === "duration" ? "Includes flights and connections, per direction." : "Applies to each connection in both directions, including airport changes. Overnight connections within the limit are included."}</p>
+        {directional(open, (direction, name) => {
+          const field = open === "duration" ? "maxDurationMinutes" : "maxLayoverMinutes";
+          const value = filters[direction][field];
+          const label = open === "duration" ? "Maximum journey time" : "Maximum connection time";
+          return <>
+            <LimitInput key={direction} label={label} accessibleLabel={labelled(name, label)} unit="hours" value={value === null ? null : value / 60}
+              onCommit={(hours) => set(open, direction, { [field]: hours === null ? null : Math.max(1, Math.round(hours * 60)) })} />
+            <div className="filter-presets" role="group" aria-label={labelled(name, "Duration quick limits")}>
+              {[...durationPresets(open, direction), null].map((minutes) => <button type="button" key={minutes ?? "any"}
+                aria-pressed={value === minutes}
+                onClick={() => set(open, direction, { [field]: minutes })}>{minutes === null ? "No limit" : elapsed(minutes)}</button>)}
+            </div>
+          </>;
+        })}
+        <p className="filter-panel-note">{open === "duration" ? "Includes flights and connections, per direction." : "Applies to each connection, including airport changes. Overnight connections within the limit are included."}</p>
       </>}
       {open === "times" && <>
-        {roundTrip && <div className="filter-direction-tabs" role="group" aria-label="Journey direction">
-          <button type="button" data-autofocus={displayedDirection === "outbound" || undefined} aria-pressed={displayedDirection === "outbound"} onClick={() => setDirection("outbound")}>Outbound</button>
-          <button type="button" data-autofocus={displayedDirection === "inbound" || undefined} aria-pressed={displayedDirection === "inbound"} onClick={() => setDirection("inbound")}>Return</button>
-        </div>}
-        <TimeBound label="Depart after" accessibleLabel={`${displayedDirection === "outbound" ? "Outbound" : "Return"} depart after`} minimum value={times.depart.from}
-          onChange={(from) => changeTimes({ ...times, depart: { from, to: 1440 } })} />
-        <TimeBound label="Arrive before" accessibleLabel={`${displayedDirection === "outbound" ? "Outbound" : "Return"} arrive before`} minimum={false} value={times.arrive.to}
-          onChange={(to) => changeTimes({ ...times, arrive: { from: 0, to } })} />
-        <div className="filter-times-footer"><span>Local airport times</span>{timeCount > 0 && <button type="button" onClick={() => onChange({ ...filters, outbound: OPEN_FILTERS.outbound, inbound: OPEN_FILTERS.inbound })}>Reset times</button>}</div>
+        {directional("times", (direction, name, first) => {
+          const times = filters[direction];
+          return <>
+            <TimeBound label="Depart after" accessibleLabel={labelled(name, "Depart after")} minimum value={times.depart.from} autoFocus={first}
+              onChange={(from) => set("times", direction, { depart: { from, to: 1440 } })} />
+            <TimeBound label="Arrive before" accessibleLabel={labelled(name, "Arrive before")} minimum={false} value={times.arrive.to}
+              onChange={(to) => set("times", direction, { arrive: { from: 0, to } })} />
+          </>;
+        })}
+        <div className="filter-times-footer"><span>Local airport times</span>{timeCount > 0 && <button type="button"
+          onClick={() => onChange({ ...filters,
+            outbound: { ...filters.outbound, depart: DEFAULT_FILTERS.outbound.depart, arrive: DEFAULT_FILTERS.outbound.arrive },
+            inbound: { ...filters.inbound, depart: DEFAULT_FILTERS.inbound.depart, arrive: DEFAULT_FILTERS.inbound.arrive } })}>Reset times</button>}</div>
       </>}
     </div>, document.body)}
   </div>;
