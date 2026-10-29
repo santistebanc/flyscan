@@ -1,5 +1,5 @@
 ﻿/** The selected journey: booking up front, then each leg in the list's carrier colors. */
-import { useState, type CSSProperties } from "react";
+import { useId, useState, type CSSProperties } from "react";
 import type { FlightRow, Leg, Offer, Segment } from "./api";
 import type { Rating } from "./flightRatings";
 import { openExternal } from "./platform";
@@ -199,6 +199,9 @@ export function Details({ row, partyLabel, favorite, onToggleFavorite, rating, l
 }) {
   const { money } = useCurrency();
   const [bookError, setBookError] = useState("");
+  // Collapsed when a flight is first opened; kept as left while browsing others.
+  const [bookingsOpen, setBookingsOpen] = useState(false);
+  const bookingsId = useId();
   if (!row) return null;
   const [from, to] = row.route.split("-");
   const departureDate = row.depart_date || dayOf(row.outbound?.departure || "");
@@ -235,11 +238,19 @@ export function Details({ row, partyLabel, favorite, onToggleFavorite, rating, l
         </button>}
       </div>
       {bookError && <p className="detail-booking-error" role="alert">{bookError}</p>}
-      <h3 className="detail-bookings-title">Booking options<span>{row.offers.length}</span></h3>
-      {offers.map((offer, index) => <Booking key={`${row.trip_key}-${offer.source}-${offer.agent}-${offer.entry_id ?? ""}`} trip={row.trip_key}
-        offer={offer} cheapest={index === 0 && offer.price_base != null} onCorrectPrice={onCorrectPrice} onOpen={open} manual={manual} />)}
-      {row.offers.length === 0 && <p className="detail-booking-meta">No booking options available</p>}
-      {manual && <AddPrice key={row.trip_key} row={row} manual={manual} />}
+    </div>
+    <div className="detail-bookings">
+      <h3 className="detail-bookings-title">
+        <button type="button" aria-expanded={bookingsOpen} aria-controls={bookingsId} onClick={() => setBookingsOpen((was) => !was)}>
+          <Icon name="chevron-right" className="caret" />Booking options<span>{row.offers.length}</span>
+        </button>
+      </h3>
+      <div id={bookingsId} hidden={!bookingsOpen}>
+        {offers.map((offer, index) => <Booking key={`${row.trip_key}-${offer.source}-${offer.agent}-${offer.entry_id ?? ""}`} trip={row.trip_key}
+          offer={offer} cheapest={index === 0 && offer.price_base != null} onCorrectPrice={onCorrectPrice} onOpen={open} manual={manual} />)}
+        {row.offers.length === 0 && <p className="detail-booking-meta">No booking options available</p>}
+        {manual && <AddPrice key={row.trip_key} row={row} manual={manual} />}
+      </div>
     </div>
     <LegView leg={row.outbound} title="Outbound" rating={rating?.outbound} layoverRatings={layoverRatings} />
     <LegView leg={row.inbound} title="Return" rating={rating?.inbound} layoverRatings={layoverRatings} />

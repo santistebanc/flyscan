@@ -1,0 +1,184 @@
+/**
+ * Flyscan theme: a layer over styles.css, loaded after it.
+ *
+ * Lighter slate paper with a darker header, square corners throughout, the
+ * app's blue accent, Sora for everything with tabular figures, small tracked
+ * uppercase labels, and a hatched Fetch while it runs. Only tokens and the
+ * places that need the look are touched; layout stays in styles.css.
+ */
+
+
+:root {
+  --bg:            oklch(0.30 0.022 255);
+  --chrome:        oklch(0.27 0.024 258);
+  --panel:         oklch(0.27 0.024 258);
+  --raised:        oklch(0.34 0.020 252);
+  --ink:           oklch(0.92 0.014 85);
+  --ink-soft:      oklch(0.80 0.018 255);
+  --muted:         oklch(0.66 0.022 255);
+  --faint:         oklch(0.62 0.022 255);
+  --line:          oklch(0.40 0.025 255);
+  --line-soft:     oklch(0.35 0.023 255);
+  /* The app's own blue, not flyscan's orange: the accent must not look like a
+     status. --ok, --bad, --warn and the ratings keep styles.css values too. */
+  --accent:        #8cb8ff;
+  --accent-strong: #a3c6ff;
+  --accent-soft:   #23344f;
+  --accent-edge:   #4a6a99;
+  --on-accent:     oklch(0.18 0.01 255);
+  --sans:  "Sora", system-ui, sans-serif;
+  --serif: "Source Serif 4", Georgia, serif;
+  --mono:  var(--sans);
+  --shadow: 0 12px 32px oklch(0.10 0.02 255 / 0.5);
+  --hatch: repeating-linear-gradient(-45deg,
+    oklch(0.55 0.015 255 / 0.30) 0 1.5px, transparent 1.5px 6px);
+}
+
+body { font-family: var(--sans); font-size: 13.5px; font-variant-numeric: tabular-nums; letter-spacing: .005em; }
+::-webkit-scrollbar-thumb { border-radius: 0; }
+
+/* Square corners everywhere; only status dots stay round. */
+*, *::before, *::after { border-radius: 0 !important; }
+.update-pill span, .side-tab-alert { border-radius: 50% !important; }
+
+/* -- type: tracked uppercase labels ------------------------------------- */
+
+.search-segment-label, .popover-caption, .manual-caption, .leg-label, .cal-title, .cal-week span,
+.place-kind, .detail-bookings-title, .detail-summary-line, .side-tabs [role="tab"], .sort-option > button {
+  font-size: 9.5px; font-weight: 700; letter-spacing: .1em; text-transform: uppercase;
+}
+.side-tabs [role="tab"], .sort-option > button { font-size: 10.5px; }
+.detail-bookings-title button { text-transform: inherit; letter-spacing: inherit; }
+.detail-bookings-title span { text-transform: none; letter-spacing: 0; font-weight: 400; }
+.leg-label { color: var(--accent); }
+.detail-journey-head h3 { font-size: 11px; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; color: var(--accent); }
+.detail-journey-head h3 span { margin-left: 6px; letter-spacing: 0; text-transform: none; font-weight: 500; color: var(--muted); }
+
+.search-segment-value b { font-weight: 700; letter-spacing: .02em; }
+.results-summary h1 { font-weight: 700; letter-spacing: -.02em; }
+.fare-cell .price { font-weight: 800; letter-spacing: -.03em; }
+.detail-price { font-size: 40px; line-height: 44px; font-weight: 800; letter-spacing: -.04em; }
+.leg-end b, .detail-times { font-weight: 700; }
+.leg-end b { font-size: 14px; }
+.leg-connections, .leg-duration, .filter-count, .leg-date, .leg-hour-label { font-weight: 500; }
+
+/* -- brand and header --------------------------------------------------- */
+
+.brand {
+  display: flex; align-items: center; align-self: stretch; padding-right: 16px; margin-right: -4px;
+  border-right: 1px solid var(--line);
+  font: 600 21px/1 var(--serif); letter-spacing: -.02em; color: var(--ink); text-decoration: none; white-space: nowrap;
+}
+.brand span { color: var(--accent); }
+.brand:hover { color: var(--ink); }
+
+.topbar { padding: 8px 24px; background: var(--chrome); }
+.search-bar { height: 46px; background: transparent; border: 0; }
+.search-segment + .search-segment .search-segment-trigger { border-left: 1px solid var(--line); }
+.search-segment-trigger:hover, .search-segment-trigger[aria-expanded="true"] { background: var(--raised); }
+.search-segment-value span { font-weight: 400; }
+
+/* The one loud thing on screen, as in flyscan's Search. */
+.fetch-button, button.primary, .detail-book, .update-actions button {
+  background: var(--accent); color: var(--on-accent); font-weight: 700; letter-spacing: .02em;
+  transition: filter .12s;
+}
+.fetch-button { margin-left: 12px; padding: 0 22px; }
+.fetch-button:hover:not(:disabled), button.primary:hover:not(:disabled), .detail-book:hover {
+  background: var(--accent); filter: brightness(1.08);
+}
+.fetch-button[data-state="running"], .fetch-button:disabled {
+  background-color: var(--accent-soft); background-image: var(--hatch); color: var(--accent);
+}
+.cal-day.edge { color: var(--on-accent); }
+
+/* Ghost buttons: hairline box, orange on hover. */
+.cabin-options button, .filter-presets button, .filter-dayparts button,
+.sources-all, .cal-plain, .detail-price-actions button, .detail-manual-actions button, .detail-confirm button,
+.manual-leg-form-actions button, .flight-filter-trigger, .update-pill, .stepper button {
+  border-color: var(--line); background: var(--raised); font-weight: 600; color: var(--ink);
+  transition: border-color .12s, color .12s;
+}
+.cabin-options button:hover, .filter-presets button:hover, .filter-dayparts button:hover,
+.sources-all:hover, .cal-plain:hover, .detail-price-actions button:hover, .detail-manual-actions button:hover,
+.manual-leg-form-actions button:hover, .flight-filter-trigger:hover, .flight-filter-trigger[aria-expanded="true"],
+.stepper button:hover:not(:disabled) {
+  border-color: var(--accent); background: var(--raised); color: var(--accent);
+}
+/* A primary button inside those rows stays filled: the outline styles above must not reach it, hovered or not. */
+.detail-price-actions button.primary, .manual-leg-form-actions button.primary,
+.detail-price-actions button.primary:hover, .manual-leg-form-actions button.primary:hover {
+  border-color: var(--accent); background: var(--accent); color: var(--on-accent);
+}
+.detail-price-actions button.primary:hover:not(:disabled), .manual-leg-form-actions button.primary:hover:not(:disabled) { filter: brightness(1.08); }
+.flight-filter-trigger[data-active] { border-color: var(--accent); background: var(--accent-soft); color: var(--accent-strong); }
+
+/* Segmented controls: flyscan's stop picker. */
+.sort-options, .manual-tabs, .manual-trip-kind { padding: 0; gap: 0; background: var(--chrome); border: 1px solid var(--line); }
+.sort-option > button, .manual-tabs button, .manual-trip-kind button { padding: 6px 12px; }
+.sort-option + .sort-option, .manual-tabs button + button, .manual-trip-kind button + button { border-left: 1px solid var(--line); }
+.manual-tabs button[aria-selected="true"], .manual-trip-kind button[aria-pressed="true"],
+.sort-option[data-active] {
+  background: var(--raised); color: var(--ink); box-shadow: inset 0 -2px 0 var(--accent);
+}
+.sort-option[data-active] > button { color: var(--ink); }
+.sort-option > .sort-menu-toggle { padding: 0 8px 0 0; margin-left: -6px; }
+.sort-menu button { font-weight: 500; }
+.sort-menu button:hover { background: var(--bg); }
+
+/* -- results ------------------------------------------------------------ */
+
+.results-bar { padding: 16px 24px 12px; background: var(--bg); }
+.results .flight { padding: 16px 24px 16px 14px; border-bottom-color: var(--line); }
+@media (hover: hover) and (pointer: fine) {
+  .results .flight:hover { background: color-mix(in oklch, var(--bg) 85%, var(--raised)); box-shadow: none; }
+}
+.results .flight.picked { background: color-mix(in oklch, var(--bg) 80%, var(--accent-soft)); box-shadow: inset 3px 0 0 var(--accent); }
+.list-notice > * { background: var(--raised); border-color: var(--accent-edge); }
+
+.leg-plot::before { top: 17px; border-top-color: var(--line); }
+.leg-part.airborne { top: 12px; height: 10px; }
+.leg-part.layover, .leg-part.summary { top: 9px; height: 16px; }
+.leg-part.layover::before { top: 7px; border-top-color: var(--faint); }
+.leg-part.summary::before { top: 7px; }
+.leg-midnight { width: 0; background: none; border-left: 1px dashed var(--muted); }
+.leg-end sup, .leg-connections .transfer { color: var(--warn); }
+
+/* -- side panel and detail ---------------------------------------------- */
+
+.side { background: var(--chrome); border-left-color: var(--line); }
+.side-tabs { padding: 0 16px; gap: 0; border-bottom-color: var(--line); }
+.side-tabs [role="tab"] { padding: 12px 12px 10px; color: var(--muted); }
+.side-tabs [role="tab"][aria-selected="true"] { background: none; color: var(--ink); box-shadow: inset 0 -2px 0 var(--accent); }
+.detail-summary { padding: 18px 20px 4px; }
+.detail-journey { padding: 18px 20px; border-bottom-color: var(--line); }
+.detail-bookings { padding: 0 20px; border-bottom-color: var(--line); }
+.detail-route, .detail-stops .airport-label strong, .query-route, .place-list b, .currency-code { color: var(--accent-strong); font-weight: 700; }
+.detail-booking { border-bottom-color: var(--line-soft); }
+.detail-booking-price[data-cheapest] { color: var(--ok); font-weight: 700; }
+.detail-connection { background: var(--bg); }
+.detail-book { min-height: 54px; height: auto; }
+.query-group.selected { border-left-color: var(--accent); background: color-mix(in oklch, var(--chrome) 80%, var(--accent-soft)); }
+
+/* -- popovers, dialogs, inputs ------------------------------------------ */
+
+.popover, .flight-filter-panel, .manual-field-options, .update-panel, .manual-dialog { background: var(--raised); border-color: var(--line); }
+.place-search input, .currency-search input, .quote-field select, .filter-time-bound-label select,
+.filter-limit-field, .detail-price-editor input, .detail-price-editor select,
+.manual-price-form input, .manual-price-form select, .manual-field input, .manual-field select {
+  background: var(--bg); border-color: var(--line);
+}
+.place-list li[aria-selected="true"], .place-list li:hover, .currency-option:hover, .currency-option.active,
+.currency-option[aria-selected="true"] { background: var(--bg); }
+.place-list li.recent { background: color-mix(in oklch, var(--accent) 10%, transparent); }
+.cal-day.inside::before { background: var(--accent-soft); }
+.challenge { border-color: var(--warn); background: var(--warn-soft); }
+.challenge-row button { color: var(--on-accent); font-weight: 700; }
+.toast { background: var(--raised); border-color: var(--accent-edge); }
+.manual-preview-empty { background-image: var(--hatch); }
+
+@media (max-width: 760px) {
+  .brand { display: none; }
+  .topbar { padding: 8px 12px; }
+  .fetch-button { margin-left: 0; }
+}

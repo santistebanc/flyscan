@@ -26,26 +26,31 @@ const connecting = (wait, price, stops = 1) => {
     { origin: "LHR", destination: "MAD", departure: clock(wait), arrival: clock(wait + 60), duration: "1h" },
   ] } });
 };
-const options = (rows, changes = {}) => connectionFilterOptions(rows, { ...OPEN_FILTERS, maxPrice: null, ...changes }, (r) => r.best.price_base);
+/** Limits for both directions at once, as a filter edited together sets them. */
+const both = (patch) => ({ outbound: { ...OPEN_FILTERS.outbound, ...patch }, inbound: { ...OPEN_FILTERS.inbound, ...patch } });
+const options = (rows, changes = {}, directional = {}) =>
+  connectionFilterOptions(rows, { ...OPEN_FILTERS, maxPrice: null, ...changes, ...both(directional) }, (r) => r.best.price_base);
+/** The choices for a limit set on both directions. */
+const shared = (result) => { const { stops, layoverMinutes } = plain(result); return { stops, layoverMinutes }; };
 
 test("connection options hide empty caps, use maximum semantics and include return connections", () => {
   const eight = connecting(480, 100);
-  assert.deepEqual(plain(options([eight])), { stops: [1], layoverMinutes: [480, 720, 960] });
+  assert.deepEqual(shared(options([eight])), { stops: [1], layoverMinutes: [480, 720, 960] });
   const round = row(100, "2h", { inbound: connecting(900, 100, 2).outbound });
-  assert.deepEqual(plain(options([round])), { stops: [2], layoverMinutes: [960] });
+  assert.deepEqual(shared(options([round])), { stops: [2], layoverMinutes: [960] });
   assert.deepEqual(plain(options([connecting(180, 100)]).layoverMinutes), [360, 480, 720, 960]);
 });
 
 test("connection options respect other filters while removing their own cap", () => {
   const rows = [connecting(480, 100), connecting(240, 200, 2)];
-  assert.deepEqual(plain(options(rows, { maxPrice: 150, maxLayoverMinutes: 360 })), { stops: [], layoverMinutes: [480, 720, 960] });
-  assert.deepEqual(plain(options(rows, { maxStops: 1 })), { stops: [1, 2], layoverMinutes: [480, 720, 960] });
-  assert.deepEqual(plain(options(rows, { maxDurationMinutes: 100 })), { stops: [], layoverMinutes: [] });
+  assert.deepEqual(shared(options(rows, { maxPrice: 150 }, { maxLayoverMinutes: 360 })), { stops: [], layoverMinutes: [480, 720, 960] });
+  assert.deepEqual(shared(options(rows, {}, { maxStops: 1 })), { stops: [1, 2], layoverMinutes: [480, 720, 960] });
+  assert.deepEqual(shared(options(rows, {}, { maxDurationMinutes: 100 })), { stops: [], layoverMinutes: [] });
 });
 
 test("empty and nonstop-only results do not invent layover choices", () => {
-  assert.deepEqual(plain(options([])), { stops: [], layoverMinutes: [] });
-  assert.deepEqual(plain(options([row(100, "2h")])), { stops: [0], layoverMinutes: [] });
+  assert.deepEqual(shared(options([])), { stops: [], layoverMinutes: [] });
+  assert.deepEqual(shared(options([row(100, "2h")])), { stops: [0], layoverMinutes: [] });
 });
 
 test("price quick limits keep useful groups instead of the single cheapest flight or every flight", () => {
@@ -141,4 +146,28 @@ test("reusing timeline connections gives the same suggestions as directly readin
   const inbound = require("./fixtures/jetradar-airport-transfer.json");
   const rows = [row(1230, "32h 11m", { inbound, return_duration: inbound.duration }), row(100, "2h")];
   assert.deepEqual(plain(filterRanges(rows, flightTimelines(rows).journeys)), plain(filterRanges(rows)));
+});
+
+test("each direction offers the stops and connections of its own legs", () => {
+  const round = row(100, "2h", { inbound: connecting(900, 100, 2).outbound, outbound: connecting(480, 100).outbound });
+  const result = plain(options([round]));
+  assert.deepEqual(result.outbound, { stops: [1], layoverMinutes: [480, 720, 960] });
+  assert.deepEqual(result.inbound, { stops: [2], layoverMinutes: [960] });
+  assert.deepEqual(shared(result), { stops: [2], layoverMinutes: [960] }, "both at once must admit the busier leg");
+  // A return capped on its own leaves the outbound choices as they were.
+  const capped = plain(connectionFilterOptions([round], { ...OPEN_FILTERS, maxPrice: null,
+    inbound: { ...OPEN_FILTERS.inbound, maxStops: 1 } }, (r) => r.best.price_base));
+  assert.deepEqual(capped.inbound.stops, [2]);
+  assert.deepEqual(capped.outbound.stops, [], "the outbound list keeps the return cap, which this trip breaks");
+});
+
+test("duration suggestions are kept for each direction alone", () => {
+  const ranges = filterRanges([
+    row(100, "2h", { inbound: leg("10h"), return_duration: "10h" }),
+    row(120, "3h", { inbound: leg("12h"), return_duration: "12h" }),
+    row(140, "4h", { inbound: leg("14h"), return_duration: "14h" }),
+  ]);
+  assert.deepEqual(plain(ranges.outbound.durationMinutes), { min: 120, max: 240 });
+  assert.deepEqual(plain(ranges.inbound.durationMinutes), { min: 600, max: 840 });
+  assert.deepEqual(plain(ranges.durationMinutes), { min: 600, max: 840 }, "both at once count the longer direction");
 });

@@ -1,43 +1,59 @@
 import type { FlightRow, Leg } from "./api";
 import type { JourneyTiming } from "./flightTimeline";
 import { durationMinutes } from "./flightRatings";
-import { knownStops, longestLayover, matchesFlight, type FlightLimits } from "./flightFilters";
+import { knownStops, longestLayover, matchesFlight, withoutLimit, type FlightLimits } from "./flightFilters";
 
-export interface ConnectionFilterOptions { stops: number[]; layoverMinutes: number[] }
+export interface ConnectionChoices { stops: number[]; layoverMinutes: number[] }
+/** Choices for a limit set on both directions at once, and for each on its own. */
+export interface ConnectionFilterOptions extends ConnectionChoices { outbound: ConnectionChoices; inbound: ConnectionChoices }
+
+type Scope = "both" | "outbound" | "inbound";
+const SCOPES: Record<Scope, readonly ("outbound" | "inbound")[]> = { both: ["outbound", "inbound"], outbound: ["outbound"], inbound: ["inbound"] };
 
 /** Evaluate each facet with its own cap removed, retaining all other limits.
  * This lets users widen a cap without offering choices that yield no flights.
+ * A cap set on both directions must admit both legs, so a trip counts its
+ * larger value there; a cap on one direction counts that leg alone.
  */
 export function connectionFilterOptions(
   rows: FlightRow[], limits: FlightLimits, displayedPrice: (row: FlightRow) => number | null,
 ): ConnectionFilterOptions {
-  const withoutStops = { ...limits, maxStops: null };
-  const withoutLayovers = { ...limits, maxLayoverMinutes: null };
-  const stops = new Set<number>();
-  let shortestConnection = Infinity, hasConnections = false;
-  for (const row of rows) {
-    const price = displayedPrice(row);
-    if (matchesFlight(row, withoutStops, price)) {
-      const out = knownStops(row.outbound?.stops ?? row.stops), back = knownStops(row.inbound?.stops);
-      if (out !== null || back !== null) stops.add(Math.max(out ?? 0, back ?? 0));
+  const choices = (scope: Scope): ConnectionChoices => {
+    const directions = SCOPES[scope];
+    const withoutStops = withoutLimit(limits, "maxStops", directions);
+    const withoutLayovers = withoutLimit(limits, "maxLayoverMinutes", directions);
+    const stops = new Set<number>();
+    let shortestConnection = Infinity, hasConnections = false;
+    for (const row of rows) {
+      const price = displayedPrice(row);
+      if (matchesFlight(row, withoutStops, price)) {
+        const counted = directions.map((d) => knownStops(d === "outbound" ? row.outbound?.stops ?? row.stops : row.inbound?.stops))
+          .filter((value): value is number => value !== null);
+        if (counted.length) stops.add(Math.max(...counted));
+      }
+      if (matchesFlight(row, withoutLayovers, price)) {
+        const longest = Math.max(...directions.map((d) => longestLayover(d === "outbound" ? row.outbound : row.inbound)));
+        shortestConnection = Math.min(shortestConnection, longest);
+        hasConnections ||= longest > 0;
+      }
     }
-    if (matchesFlight(row, withoutLayovers, price)) {
-      const longest = Math.max(longestLayover(row.outbound), longestLayover(row.inbound));
-      shortestConnection = Math.min(shortestConnection, longest);
-      hasConnections ||= longest > 0;
-    }
-  }
-  return { stops: [...stops].sort((a, b) => a - b),
-    layoverMinutes: hasConnections ? [360, 480, 720, 960].filter((cap) => cap >= shortestConnection) : [] };
+    return { stops: [...stops].sort((a, b) => a - b),
+      layoverMinutes: hasConnections ? [360, 480, 720, 960].filter((cap) => cap >= shortestConnection) : [] };
+  };
+  return { ...choices("both"), outbound: choices("outbound"), inbound: choices("inbound") };
 }
 
 export interface NumericRange { min: number; max: number }
+/** Journey times of one direction alone, for a duration cap set on it by itself. */
+export interface DurationSuggestions { durationMinutes: NumericRange | null; limits: number[] }
 export interface FilterRanges {
   priceEur: NumericRange | null;
   durationMinutes: NumericRange | null;
   layoverMinutes: NumericRange | null;
   limits: { priceEur: number[]; durationMinutes: number[]; layoverMinutes: number[] };
   stops: number[];
+  outbound: DurationSuggestions;
+  inbound: DurationSuggestions;
 }
 
 /** One scan of all loaded flights, independent of sorting and local limits.
@@ -67,13 +83,19 @@ export function filterRanges(rows: FlightRow[], timings?: ReadonlyMap<Leg, Journ
       range.min = Math.min(range.min, value); range.max = Math.max(range.max, value);
     }
   };
+  const each = { outbound: { range: empty(), counts: new Map<number, number>() },
+    inbound: { range: empty(), counts: new Map<number, number>() } };
   for (const row of rows) {
     if (row.best?.price_base != null && row.best.price_base > 0) {
       add(price, row.best.price_base);
       count(prices, row.best.price_base);
     }
-    const longestDirection = Math.max(durationMinutes(row.duration || row.outbound?.duration || "") ?? 0,
-      durationMinutes(row.return_duration || row.inbound?.duration || "") ?? 0);
+    const outboundMinutes = durationMinutes(row.duration || row.outbound?.duration || "") ?? 0;
+    const inboundMinutes = durationMinutes(row.return_duration || row.inbound?.duration || "") ?? 0;
+    for (const [direction, minutes] of [["outbound", outboundMinutes], ["inbound", inboundMinutes]] as const) {
+      if (minutes > 0) { add(each[direction].range, minutes); count(each[direction].counts, minutes); }
+    }
+    const longestDirection = Math.max(outboundMinutes, inboundMinutes);
     if (longestDirection > 0) { add(duration, longestDirection); count(durations, longestDirection); }
     const connection = Math.max(connectionLength(row.outbound ?? null), connectionLength(row.inbound));
     if (connection > 0) add(layover, connection);
@@ -87,6 +109,8 @@ export function filterRanges(rows: FlightRow[], timings?: ReadonlyMap<Leg, Journ
     limits: { priceEur: distributionLimits(prices), durationMinutes: distributionLimits(durations),
       layoverMinutes: distributionLimits(connections) },
     stops: [...stops].sort((a, b) => a - b),
+    outbound: { durationMinutes: finish(each.outbound.range), limits: distributionLimits(each.outbound.counts) },
+    inbound: { durationMinutes: finish(each.inbound.range), limits: distributionLimits(each.inbound.counts) },
   };
 }
 

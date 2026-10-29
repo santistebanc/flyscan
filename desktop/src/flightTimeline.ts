@@ -202,6 +202,9 @@ export function flightTimelines(rows: FlightRow[], cached?: ReadonlyMap<Leg, Jou
  */
 export interface Midnight { at: number; label: string }
 const monthNames = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+/** The local wall clock where a part starts and where it ends. */
+const fromWall = (part: TimelinePart) => wallStamp(part.kind === "flight" ? part.segment.departure : part.before.arrival);
+const toWall = (part: TimelinePart) => wallStamp(part.kind === "flight" ? part.segment.arrival : part.after.departure);
 export interface LocalClockSpan { from: number; to: number; start: number; end: number }
 /** Airport-local clocks mapped onto elapsed positions, including empty range space.
  * In-flight clocks interpolate between airport timestamps, not geographic zone borders.
@@ -211,8 +214,6 @@ export function localClockSpans(timing: JourneyTiming, scale?: Pick<TimelineScal
   const append = (from: number | null, to: number | null, start: number, end: number) => {
     if (from !== null && to !== null && end > start) spans.push({ from, to, start, end });
   };
-  const fromWall = (part: TimelinePart) => wallStamp(part.kind === "flight" ? part.segment.departure : part.before.arrival);
-  const toWall = (part: TimelinePart) => wallStamp(part.kind === "flight" ? part.segment.arrival : part.after.departure);
   const range = scale && Number.isFinite(scale.min) && Number.isFinite(scale.max) && scale.max > scale.min ? scale : undefined;
   const first = timing.parts[0], last = timing.parts[timing.parts.length - 1];
   // Outside the journey the local clock continues at its endpoint airport.
@@ -243,6 +244,33 @@ export function localMidnights(timing: JourneyTiming, scale?: Pick<TimelineScale
     return found;
   });
   return scale ? marks.filter(({ at }) => at > scale.min && at <= scale.max) : marks;
+}
+/** `side`: before the earliest departure, or after the latest arrival. */
+export interface FilteredSpan { start: number; end: number; side: "before" | "after" }
+/**
+ * Where a row's timeline falls outside the time filters, which is how they
+ * judge a flight: before the earliest departure on the departure's local
+ * clock, and after the latest arrival on the destination's clock.
+ * Both are minutes from local midnight on the departure day, so a latest
+ * arrival past 1440 lands on a later day; null means no limit.
+ */
+export function filteredOutSpans(timing: JourneyTiming, scale: Pick<TimelineScale, "min" | "max">,
+  earliestDeparture: number | null, latestArrival: number | null): FilteredSpan[] {
+  const spans: FilteredSpan[] = [];
+  const first = timing.parts[0], last = timing.parts[timing.parts.length - 1];
+  const departed = first ? fromWall(first.part) : null;
+  if (departed === null) return spans;
+  const departureDay = Math.floor(departed / DAY) * DAY;
+  if (earliestDeparture !== null) {
+    const at = Math.min(first!.start + departureDay + earliestDeparture - departed, scale.max);
+    if (at > scale.min) spans.push({ start: scale.min, end: at, side: "before" });
+  }
+  const arrived = last ? toWall(last.part) : null;
+  if (latestArrival !== null && arrived !== null) {
+    const at = Math.max(last!.end + departureDay + latestArrival - arrived, scale.min);
+    if (at < scale.max) spans.push({ start: at, end: scale.max, side: "after" });
+  }
+  return spans;
 }
 export interface HourMark { at: number; hour: number }
 /** Pixels six hours need before all three marks show: below it they crowd the strip. */

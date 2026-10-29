@@ -231,13 +231,13 @@ button.primary:hover:not(:disabled) { background: var(--accent-strong); }
 .stepper b { width: 20px; text-align: center; font: 600 14px var(--mono); }
 .travellers-heading { margin-top: 10px; font-size: 12px; font-weight: 500; color: var(--ink-soft); }
 .cabin-options { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; margin-top: 6px; }
-.cabin-options button, .filter-presets button, .filter-dayparts button, .filter-direction-tabs button {
+.cabin-options button, .filter-presets button, .filter-dayparts button {
   padding: 5px 10px; border: 1px solid var(--line); border-radius: 4px; font-size: 12px; color: var(--ink-soft);
 }
 .cabin-options button { padding: 6px 8px; border-radius: 5px; }
-.cabin-options button:hover, .filter-presets button:hover, .filter-dayparts button:hover, .filter-direction-tabs button:hover { background: var(--line-soft); color: var(--ink); }
+.cabin-options button:hover, .filter-presets button:hover, .filter-dayparts button:hover { background: var(--line-soft); color: var(--ink); }
 .cabin-options button[aria-pressed="true"], .filter-presets button[aria-pressed="true"],
-.filter-dayparts button[aria-pressed="true"], .filter-direction-tabs button[aria-pressed="true"] {
+.filter-dayparts button[aria-pressed="true"] {
   border-color: var(--accent); background: var(--accent-soft); color: var(--accent);
 }
 .sources-popover { width: 240px; padding: 12px 16px 16px; }
@@ -267,9 +267,19 @@ button.primary:hover:not(:disabled) { background: var(--accent-strong); }
 .results-summary h1 { margin: 0; font-size: 18px; font-weight: 600; letter-spacing: -.01em; white-space: nowrap; }
 .results-summary > span { font-size: 12px; color: var(--muted); }
 .sort-options { display: flex; margin-left: auto; padding: 2px; background: var(--chrome); border: 1px solid var(--line-soft); border-radius: 6px; }
-.sort-options button { padding: 4px 12px; border-radius: 4px; font-size: 12px; font-weight: 500; color: var(--muted); white-space: nowrap; }
-.sort-options button:hover { color: var(--ink); }
-.sort-options button[aria-pressed="true"] { background: var(--accent-soft); color: var(--accent); }
+.sort-option { position: relative; display: inline-flex; align-items: stretch; border-radius: 4px; }
+.sort-option > button { padding: 4px 12px; border-radius: 4px; font-size: 12px; font-weight: 500; color: var(--muted); white-space: nowrap; }
+.sort-option > button:hover { color: var(--ink); }
+.sort-option[data-active] { background: var(--accent-soft); }
+.sort-option[data-active] > button { color: var(--accent); }
+/* A variant menu hangs off its button; the toggle sits flush against the label. */
+.sort-option > .sort-menu-toggle { display: flex; align-items: center; padding: 0 6px 0 0; margin-left: -8px; }
+.sort-menu-toggle .icon { width: 12px; height: 12px; }
+.sort-menu { display: flex; flex-direction: column; min-width: 190px; padding: 4px; }
+.sort-menu button { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 7px 10px; border-radius: 4px; font-size: 12px; color: var(--ink-soft); text-align: left; white-space: nowrap; }
+.sort-menu button:hover { background: var(--line-soft); color: var(--ink); }
+.sort-menu button[aria-checked="true"] { color: var(--accent); }
+.sort-menu .icon { width: 14px; height: 14px; }
 .results-controls { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 14px; }
 
 .flight-filters { display: flex; flex: 1 1 auto; flex-wrap: wrap; align-items: center; gap: 6px; min-width: 0; }
@@ -311,8 +321,9 @@ button.primary:hover:not(:disabled) { background: var(--accent-strong); }
 .filter-limit-field input { flex: 1; min-width: 0; height: 38px; padding: 0 12px; border: 0; background: transparent; font: 14px var(--mono); }
 .filter-limit-field > span { padding-right: 12px; color: var(--muted); }
 .filter-presets { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 12px; }
-.filter-direction-tabs { display: flex; gap: 6px; margin-bottom: 14px; }
-.filter-direction-tabs button { flex: 1; text-align: center; }
+.filter-direction + .filter-direction { margin-top: 14px; }
+.filter-separate { margin-top: 10px; border-top: 1px solid var(--line-soft); }
+.filter-direction-heading { margin: 0 0 2px; font-size: 11px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); }
 .filter-time-range { padding: 8px 0; border-bottom: 1px solid var(--line-soft); }
 .filter-time-bound-label { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 6px; font-size: 12px; color: var(--ink-soft); }
 .filter-time-bound-label select { height: 28px; font: 12px var(--mono); }
@@ -410,6 +421,10 @@ button.primary:hover:not(:disabled) { background: var(--accent-strong); }
 .leg-plot { position: relative; display: block; height: 30px; }
 .leg-plot::before { content: ""; position: absolute; left: 0; right: 0; top: 17px; border-top: 1px solid var(--line-soft); }
 .leg-midnight { position: absolute; top: 2px; width: 1px; height: 26px; background: var(--line); }
+/* Time the departure and arrival filters leave out, under everything else; its edge marks the limit. */
+.leg-filtered { position: absolute; top: 8px; height: 18px; background: rgb(0 0 0 / .28); }
+.leg-filtered.before { box-shadow: inset -1px 0 0 var(--muted); }
+.leg-filtered.after { box-shadow: inset 1px 0 0 var(--muted); }
 /* In the strip above the bars, which start 14px down. */
 .leg-date { position: absolute; top: 0; margin-left: 4px; font: 10px/10px var(--mono); color: var(--muted); white-space: nowrap; pointer-events: none; }
 /* Quarter-day ticks: fainter than midnight, labelled in the same strip as dates. */
@@ -511,11 +526,12 @@ button.primary:hover:not(:disabled) { background: var(--accent-strong); }
 
 /* -- the selected flight -------------------------------------------------- */
 
-.detail-summary { padding: 16px; border-bottom: 1px solid var(--line-soft); }
+/* No rule under the summary: the booking options below it belong to the same fare. */
+.detail-summary { padding: 16px 16px 4px; }
 .detail-summary-line { display: flex; align-items: center; justify-content: space-between; font-size: 12px; color: var(--muted); }
 .detail-summary-trip { display: flex; flex-direction: column; gap: 4px; }
 .detail-summary-line .favorite-button { width: 28px; height: 28px; color: var(--muted); }
-.detail-summary-line .favorite-button[aria-pressed="true"] { color: var(--warn); }
+.detail-summary-line .favorite-button[aria-pressed="true"], .detail-summary-line .favorite-button:hover { color: var(--warn); }
 .detail-fare { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px; margin-top: 12px; }
 .detail-price { margin: 0; font: 600 32px/40px var(--mono); letter-spacing: -.04em; }
 .detail-price-line { display: flex; align-items: center; gap: 6px; }
@@ -528,7 +544,14 @@ button.primary:hover:not(:disabled) { background: var(--accent-strong); }
 .detail-book-title { display: flex; align-items: center; gap: 8px; font-size: 18px; line-height: 22px; }
 .detail-book-source { font-size: 11px; line-height: 15px; font-weight: 400; overflow-wrap: anywhere; }
 .detail-book:hover { background: var(--accent-strong); }
-.detail-bookings-title { display: flex; align-items: center; gap: 8px; margin: 14px 0 0; font-size: 12px; font-weight: 600; color: var(--ink-soft); }
+/* Booking options open and close under their own heading; the count sits beside it. */
+.detail-bookings { padding: 0 16px; border-bottom: 1px solid var(--line-soft); }
+.detail-bookings > [id] { padding-bottom: 12px; }
+.detail-bookings-title { margin: 0; font-size: 12px; font-weight: 600; color: var(--ink-soft); }
+.detail-bookings-title button { display: flex; align-items: center; gap: 8px; width: 100%; min-height: 44px; text-align: left; }
+.detail-bookings-title button:hover { color: var(--ink); }
+.detail-bookings-title .caret { width: 14px; height: 14px; color: var(--faint); transition: transform .12s; }
+.detail-bookings-title button[aria-expanded="true"] .caret { transform: rotate(90deg); }
 .detail-bookings-title span { font-weight: 400; color: var(--muted); }
 .detail-booking { padding: 8px 0; border-bottom: 1px solid var(--line-soft); }
 /* Prices never wrap, so a long one (IRR, a struck-out pair) takes the next line instead of squeezing the seller. */
@@ -630,7 +653,7 @@ button.primary:hover:not(:disabled) { background: var(--accent-strong); }
   .search-bar { flex-wrap: wrap; height: auto; }
   .search-segment-trigger { min-height: 48px; }
   .fetch-button { min-height: 48px; border-radius: 0 0 7px 0; }
-  .leg { grid-template-columns: 24px 44px minmax(0, 1fr) 56px 60px; gap: 6px; }
+  .leg { grid-template-columns: 44px minmax(0, 1fr) 56px 60px; gap: 6px; }
   .results .flight { gap: 10px; padding-inline: 8px 12px; }
 }
 @media (pointer: coarse) {

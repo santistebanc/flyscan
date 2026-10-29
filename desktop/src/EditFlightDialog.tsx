@@ -17,6 +17,7 @@ import {
   legDrafts, legSuggestions, nextDraft, parseFlightLine, segmentDraft, segmentPayload, typed, datedLegs, departureDay,
   type Building, type Direction, type DraftField, type FieldOption, type FlightDraft, type LegSuggestion,
 } from "./manualEntry";
+import { useBackdropDismiss } from "./Popover";
 import { PlaceInput } from "./PlaceInput";
 import type { ManualParty } from "./ManualPriceForm";
 import { FlightTimeline } from "./TimelineFlight";
@@ -291,6 +292,7 @@ export function EditFlightDialog({ onClose, rows, search, party, carriers, api, 
     if (open && !node.open) node.showModal();
     if (!open && node.open) node.close();
   }, [open]);
+  const backdrop = useBackdropDismiss(onClose);
 
   /** The day each direction starts: the calendar's, or for a return not yet picked, when the outbound lands. */
   const tripDate = (which: Direction, trip = dates, added = legs) => which === "outbound" ? trip.depart
@@ -407,7 +409,7 @@ export function EditFlightDialog({ onClose, rows, search, party, carriers, api, 
 
   const title = "Edit flight";
   return <dialog ref={dialog} className="manual-dialog" aria-label={title}
-    onClose={onClose} onCancel={(event) => { event.preventDefault(); onClose(); }}>
+    onClose={onClose} onCancel={(event) => { event.preventDefault(); onClose(); }} {...backdrop}>
     {editing && <div className="manual-dialog-body">
       <header className="manual-dialog-head">
         <h2>{title}</h2>

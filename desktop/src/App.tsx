@@ -34,13 +34,14 @@ import { FetchButton, RangeStatus, rangeComplete } from "./RangeStatus";
 import { rangeStats, splitQueueGroups } from "./queueModel";
 import { Icon, Spinner } from "./Icon";
 import { flightRatings } from "./flightRatings";
-import { DEFAULT_SORT, SORT_LABELS, sortFlightRows, type SortKey } from "./flightSort";
+import { DEFAULT_SORT, effectiveSort, sortFlightRows, type SortKey } from "./flightSort";
+import { SortOptions } from "./SortOptions";
 import { useFavorites } from "./useFavorites";
 import { FavoriteButton } from "./FavoriteButton";
 import { FlightTimeline } from "./TimelineFlight";
 import { elapsed, flightTimelines, normalizeTimelineMode, TIMELINE_MODE_KEY, type FlightTimelines, type TimelineMode } from "./flightTimeline";
 import { FILTERS_KEY, FlightFiltersBar } from "./FilterBar";
-import { DEFAULT_FILTERS, FILTERS_VERSION, matchesFlight, sanitizeFilters, type ListFilters } from "./flightFilters";
+import { DEFAULT_FILTERS, FILTERS_VERSION, matchesFlight, sanitizeFilters, withoutLimit, type ListFilters } from "./flightFilters";
 import { connectionFilterOptions, filterRanges } from "./filterSuggestions";
 import { PlaceInput } from "./PlaceInput";
 import { TravellersPicker, CABIN_LABELS } from "./TravellersPicker";
@@ -163,7 +164,7 @@ type EmptyState = { title: string; body?: string; action?: { label: string; onCl
  * live in the side panel, which is what keeps a row scannable.
  */
 function Results(
-  { rows, dataset, view, loading, empty, openKey, onOpen, favorites, onToggleFavorite, ratings, timelines, timelineMode, layoverRatings }:
+  { rows, dataset, view, loading, empty, openKey, onOpen, favorites, onToggleFavorite, ratings, timelines, timelineMode, layoverRatings, filters }:
   {
     /** The sort and filters; a change returns the list to its top. */
     rows: FlightRow[]; dataset: FlightRow[]; view: string; loading: string | null; empty: EmptyState; openKey: string | null;
@@ -173,6 +174,8 @@ function Results(
     timelines: FlightTimelines;
     timelineMode: TimelineMode;
     layoverRatings: ReturnType<typeof connectionRatings>;
+    /** For shading the time the departure and arrival filters leave out. */
+    filters: ListFilters;
   },
 ) {
   const { money } = useCurrency();
@@ -336,10 +339,10 @@ function Results(
             </span>
             <span className="trip" role="gridcell">
               <FlightTimeline label="Outbound" leg={row.outbound} scale={timelines.outbound} timing={timelines.journeys.get(row.outbound)}
-                mode={timelineMode} rating={rating?.outbound} layoverRatings={layoverRatings} />
+                mode={timelineMode} rating={rating?.outbound} layoverRatings={layoverRatings} times={filters.outbound} />
               {row.inbound ? (
                 <FlightTimeline label="Return" leg={row.inbound} scale={timelines.inbound} timing={timelines.journeys.get(row.inbound)}
-                  mode={timelineMode} rating={rating?.inbound} layoverRatings={layoverRatings} />
+                  mode={timelineMode} rating={rating?.inbound} layoverRatings={layoverRatings} times={filters.inbound} />
               ) : row.return_date && (
                 // The seller priced the round trip without saying which flight
                 // comes back. Saying so beats a row that reads as a cheaper
@@ -486,9 +489,6 @@ function Shell() {
 
   const limits = useMemo(() => ({
     maxPrice: filters.maxPriceEur == null ? null : roundedIn(filters.maxPriceEur),
-    maxDurationMinutes: filters.maxDurationMinutes,
-    maxLayoverMinutes: filters.maxLayoverMinutes,
-    maxStops: filters.maxStops,
     excludeRepeatedAirports: filters.excludeRepeatedAirports,
     outbound: filters.outbound,
     inbound: filters.inbound,
@@ -496,7 +496,7 @@ function Shell() {
   const filtered = useMemo(() => priceRows.filter((row) => matchesFlight(
     row, limits, row.best?.price_base == null ? null : roundedIn(row.best.price_base),
   )), [priceRows, limits, roundedIn]);
-  const shown = useMemo(() => sortFlightRows(filtered, sort), [filtered, sort]);
+  const shown = useMemo(() => sortFlightRows(filtered, effectiveSort(sort, Boolean(ret))), [filtered, sort, ret]);
   // Ratings and bounds include every matching row, even offscreen. Sorting
   // and favorites reuse them; suggestions still cover all loaded results.
   const ratings = useMemo(() => flightRatings(filtered), [filtered]);
@@ -511,11 +511,15 @@ function Shell() {
     const canShow = (next: typeof limits) => priceRows.some((row) => matchesFlight(
       row, next, row.best?.price_base == null ? null : roundedIn(row.best.price_base),
     ));
-    if (limits.maxLayoverMinutes !== null && canShow({ ...limits, maxLayoverMinutes: null })) {
-      return { label: "Show longer connections", onClick: () => setFilters((old) => ({ ...old, maxLayoverMinutes: null })) };
+    const anyConnection = withoutLimit(limits, "maxLayoverMinutes");
+    const liftConnections = (old: ListFilters): ListFilters => ({ ...old,
+      outbound: { ...old.outbound, maxLayoverMinutes: null }, inbound: { ...old.inbound, maxLayoverMinutes: null } });
+    const capped = limits.outbound.maxLayoverMinutes !== null || limits.inbound.maxLayoverMinutes !== null;
+    if (capped && canShow(anyConnection)) {
+      return { label: "Show longer connections", onClick: () => setFilters(liftConnections) };
     }
-    if (limits.excludeRepeatedAirports && canShow({ ...limits, maxLayoverMinutes: null, excludeRepeatedAirports: false })) {
-      return { label: "Show all connections", onClick: () => setFilters((old) => ({ ...old, maxLayoverMinutes: null, excludeRepeatedAirports: false })) };
+    if (limits.excludeRepeatedAirports && canShow({ ...anyConnection, excludeRepeatedAirports: false })) {
+      return { label: "Show all connections", onClick: () => setFilters((old) => ({ ...liftConnections(old), excludeRepeatedAirports: false })) };
     }
     return null;
   }, [filtered, priceRows, limits, roundedIn]);
@@ -813,10 +817,13 @@ function Shell() {
     : !api || engine.loadingStored ? "Loading flights…" : null;
   const tripWord = `${trips} trip${trips === 1 ? "" : "s"}`;
   const asked = askSources ? `the ${askSources.length === 1 ? "chosen source" : `${askSources.length} chosen sources`}` : "every source";
+  // The tighter connection cap, the one a flight is more likely to break.
+  const connectionCap = [filters.outbound.maxLayoverMinutes, filters.inbound.maxLayoverMinutes]
+    .filter((cap): cap is number => cap !== null).sort((a, b) => a - b)[0] ?? null;
   const empty: EmptyState = connectionRecovery ? {
     title: "No flights match your connection preferences.",
-    body: filters.maxLayoverMinutes !== null
-      ? `Every stored flight has a connection longer than ${elapsed(filters.maxLayoverMinutes)}, or revisits an airport.`
+    body: connectionCap !== null
+      ? `Every stored flight has a connection longer than ${elapsed(connectionCap)}, or revisits an airport.`
       : "Every stored flight revisits an airport on the way.",
     action: connectionRecovery,
   } : !priceRows.length && correctedRows.length ? {
@@ -846,6 +853,7 @@ function Shell() {
   return (
     <AirportNamesProvider api={api}><div className="app">
       <header className="topbar" ref={header}>
+        <a className="brand" href="./">fly<span>scan</span></a>
         <div className="search-bar" role="search" aria-label="Flight search">
           <PlaceInput label="From" value={origin} onChange={setOrigin} api={api}
             open={popover === "from"} onToggle={toggles.from} />
@@ -903,12 +911,7 @@ function Shell() {
               ? `${shown.length.toLocaleString()} flight${shown.length === 1 ? "" : "s"}` : "No flights"}</h1>
             <span>{shown.length && cheapest !== null ? `from ${money(cheapest)} · ` : ""}prices for {party}
               {engine.running && shown.length ? " · more arriving" : ""}</span>
-            <div className="sort-options" role="group" aria-label="Sort by">
-              {(Object.keys(SORT_LABELS) as SortKey[]).map((key) => <button type="button" key={key}
-                aria-pressed={sort === key} onClick={() => setSort(key)}
-                title={key === "best" ? "Balances price and total travel time, including the return and layovers" : undefined}>
-                {SORT_LABELS[key]}</button>)}
-            </div>
+            <SortOptions sort={sort} onChange={setSort} roundTrip={Boolean(ret)} />
           </div>
           <div className="results-controls">
             <FlightFiltersBar filters={filters} onChange={setFilters} shown={shown.length} total={priceRows.length}
@@ -938,6 +941,7 @@ function Shell() {
           timelines={timelines}
           timelineMode={timelineMode}
           layoverRatings={layoverRatings}
+          filters={filters}
         />
       </main>
 
