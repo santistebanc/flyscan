@@ -1,36 +1,35 @@
 import { ActionButton } from "./Queue";
-import { groupStatus, rangeStats } from "./queueModel";
+import { groupStatus, rangeAnswered, rangeStats } from "./queueModel";
 import { QueueStatusIcon } from "./QueueStatusIcon";
 import type { QueueController } from "./useQueue";
 import { Icon, Spinner } from "./Icon";
 
-/** True when every source has answered for every trip on screen. */
-export function rangeComplete(queue: QueueController, trips: number) {
-  const stats = rangeStats(queue.selected);
-  return stats.groups === trips && stats.total > 0 && stats.done === stats.total;
+/** True when every chosen source has answered for every trip on screen. */
+export function rangeComplete(queue: QueueController, trips: number, sources?: readonly string[]) {
+  return rangeAnswered(queue.selected, trips, sources);
 }
 
 /** The end of the search bar: the one control that contacts a source. */
-export function FetchButton({ queue, trips, canSearch, fetching, onFetch }: {
-  queue: QueueController; trips: number; canSearch: boolean; fetching: boolean;
+export function FetchButton({ queue, trips, sources, canSearch, fetching, onFetch }: {
+  queue: QueueController; trips: number; sources?: readonly string[]; canSearch: boolean; fetching: boolean;
   onFetch: (refresh: boolean) => void;
 }) {
-  const complete = rangeComplete(queue, trips);
+  const complete = rangeComplete(queue, trips, sources);
   const unavailable = !canSearch || !queue.state || queue.offline || queue.busy !== null || trips === 0;
   return <button type="button" className="fetch-button" data-state={fetching ? "running" : undefined}
     disabled={!fetching && unavailable} aria-disabled={fetching || undefined}
-    title={complete ? "Refresh all sources for the selected dates" : "Fetch flights for every selected date"}
+    title={complete ? "Refresh the chosen sources for the selected dates" : "Fetch flights for every selected date"}
     onClick={() => { if (!fetching && !unavailable) onFetch(complete); }}>
     {fetching ? <><Spinner /> Searching</> : complete ? <><Icon name="retry" /> Refresh</> : "Fetch"}
   </button>;
 }
 
 /** Queue progress and actions for exactly the route, dates and party on screen. */
-export function RangeStatus({ queue, trips, canSearch }: {
-  queue: QueueController; trips: number; canSearch: boolean;
+export function RangeStatus({ queue, trips, sources, canSearch }: {
+  queue: QueueController; trips: number; sources?: readonly string[]; canSearch: boolean;
 }) {
   const stats = rangeStats(queue.selected);
-  const complete = rangeComplete(queue, trips);
+  const complete = rangeComplete(queue, trips, sources);
   const busy = queue.busy !== null;
   const pending = queue.busy?.key === "range" ? queue.busy : null;
   const unavailable = !canSearch || !queue.state || queue.offline;

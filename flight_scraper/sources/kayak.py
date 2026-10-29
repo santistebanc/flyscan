@@ -468,7 +468,7 @@ class FlightsFinderKayak(_KayakEngine):
     """FlightsFinder's Kayak white-label."""
 
     name = "ff-kayak"
-    label = "FlightsFinder (Kayak)"
+    label = "Kayak (FlightsFinder)"
     host = "ie-kayak.flightsfinder.com"
     fixed_currency = "EUR"
 

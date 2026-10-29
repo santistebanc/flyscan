@@ -112,6 +112,19 @@ export function rangeStats(groups: QueryJob[]) {
   };
 }
 
+/**
+ * True when every trip has an answer from every wanted source. Without
+ * `sources`, a trip wants whichever sources were queued for it; with them, an
+ * earlier fetch that skipped one of them leaves the trip unfinished.
+ */
+export function rangeAnswered(groups: QueryJob[], trips: number, sources?: readonly string[]): boolean {
+  return trips > 0 && groups.length === trips && groups.every((group) => {
+    const wanted = sources ?? group.sources.map((job) => job.source);
+    return wanted.length > 0
+      && wanted.every((name) => group.sources.some((job) => job.source === name && job.state === "done"));
+  });
+}
+
 export function sourceLabel(source: string): string {
   return ({ "ff-kayak": "Kayak", "ff-sky": "Skyscanner", "ff-kiwi": "Kiwi",
     momondo: "Momondo", jetradar: "Jetradar" } as Record<string, string>)[source] ?? source;

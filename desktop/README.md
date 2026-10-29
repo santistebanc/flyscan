@@ -198,7 +198,10 @@ exists. Use the desktop app when a source actually asks for a human.
   the width of its widest content across all filtered results, including
   offscreen rows, so scrolling cannot shift its alignment.
 - Colored segments use reported flight durations and same-airport connection
-  times. Missing segment timing produces a neutral summary interval. Complete
+  times. Each airline in a search's results gets its own color, and the most
+  frequent airlines get the most appealing ones. Filtering does not repaint
+  them; only past nine airlines do rare ones share a color. Missing segment
+  timing produces a neutral summary interval. Complete
   details stay visible when their sum disagrees with the reported total; a
   warning explains the difference, and both scale modes include both arrivals.
   The scale never treats naive local timestamps at different airports as
@@ -219,15 +222,25 @@ exists. Use the desktop app when a source actually asks for a human.
   Default connection preferences use neutral toolbar styling. Only changes from
   the defaults highlight a filter and reveal Reset, including choosing No limit
   or allowing routes that revisit an airport.
-  Price, layover and journey duration colors compare the minimum and maximum of the
-  matching results, including offscreen rows, independently for price, outbound
-  duration and return duration, plus connections across both directions.
-  Sorting and scrolling do not change the colors.
+  Price and journey duration colors compare each value with the best among the
+  matching results, including offscreen rows: price bands end at 10%, 25%, 50%
+  and 100% above the cheapest, duration bands at 15%, 35%, 60% and 100% longer
+  than the shortest, with outbound and return rated separately. Connections use
+  fixed thresholds instead, since a shorter wait is not always better: 1–3h is
+  best, under 1h is tight and rated like 3–6h, 6–12h is below average and over
+  12h poor. Sorting and scrolling do not change the colors.
 
-- A visible selected flight keeps its screen position when results are added,
-  removed, reordered or remeasured. Normal scrolling moves the anchor, and an
-  offscreen selection does not pull the view back. One extra selected row may
-  stay mounted outside the virtual range; the rest of the list remains virtual.
+- A visible selected flight keeps its screen position when results arrive,
+  disappear or are remeasured. Normal scrolling moves the anchor, and an
+  offscreen selection does not pull the view back. Changing the sort or a filter
+  is different: the list jumps to its top to show the new order. A pill under
+  the results bar counts flights that arrived above the first row on screen
+  ("12 new flights above") and scrolls up to them. When the selected flight is
+  out of view, a chip at the bottom gives its place ("#57 of 1,838") and scrolls
+  to it, or says the filters hide it. Those two scroll smoothly within two
+  screens and jump beyond, and never animate under reduced motion. One extra
+  selected row may stay mounted outside the virtual range; the rest of the list
+  remains virtual.
   New visible arrivals fade in for 160 ms without moving their geometry.
   Initial loads, sorting, filtering and virtual remounts do not replay that fade;
   reduced-motion preferences skip it. Hover uses a thin border highlight;

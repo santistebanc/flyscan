@@ -32,21 +32,28 @@ import { useQueue } from "./useQueue";
 import { UpdateControls } from "./UpdateControls";
 import { FetchButton, RangeStatus, rangeComplete } from "./RangeStatus";
 import { rangeStats, splitQueueGroups } from "./queueModel";
-import { Spinner } from "./Icon";
+import { Icon, Spinner } from "./Icon";
 import { flightRatings } from "./flightRatings";
 import { DEFAULT_SORT, SORT_LABELS, sortFlightRows, type SortKey } from "./flightSort";
 import { useFavorites } from "./useFavorites";
 import { FavoriteButton } from "./FavoriteButton";
 import { FlightTimeline } from "./TimelineFlight";
-import { elapsed, flightTimelines, normalizeTimelineMode, TIMELINE_MODE_KEY, type FlightTimelines, type TimelineMode } from "./flightTimeline";
+import { AirlineColors } from "./airlineColors";
+import { airlineColors, elapsed, flightTimelines, normalizeTimelineMode, TIMELINE_MODE_KEY, type FlightTimelines, type TimelineMode } from "./flightTimeline";
 import { FILTERS_KEY, FlightFiltersBar } from "./FilterBar";
 import { DEFAULT_FILTERS, FILTERS_VERSION, matchesFlight, sanitizeFilters, type ListFilters } from "./flightFilters";
 import { connectionFilterOptions, filterRanges } from "./filterSuggestions";
 import { PlaceInput } from "./PlaceInput";
 import { TravellersPicker, CABIN_LABELS } from "./TravellersPicker";
+import { SourcesPicker } from "./SourcesPicker";
+import { EditFlightDialog, type ManualFlight } from "./EditFlightDialog";
+import type { ManualActions } from "./Details";
+import type { ManualPriceValues } from "./ManualPriceForm";
+import { MANUAL_SOURCE, carrierNames, isManual } from "./manualEntry";
+import { SOURCES_KEY, chosenSources, requestedSources, rowsFromSources, sanitizeDisabled } from "./sourceSelection";
 import { CurrencyInput } from "./CurrencyInput";
 import { rememberPlace } from "./recentPlaces";
-import { useFlightArrivals, useSelectedFlightAnchor } from "./useFlightListEffects";
+import { useFlightArrivals, useListAwareness, useSelectedFlightAnchor } from "./useFlightListEffects";
 import { AirportNamesProvider } from "./AirportLabel";
 import { useOfferPrices } from "./useOfferPrices";
 import { connectionRatings } from "./connectionRatings";
@@ -156,9 +163,10 @@ type EmptyState = { title: string; body?: string; action?: { label: string; onCl
  * live in the side panel, which is what keeps a row scannable.
  */
 function Results(
-  { rows, dataset, loading, empty, openKey, onOpen, favorites, onToggleFavorite, ratings, timelines, timelineMode, layoverRatings }:
+  { rows, dataset, view, loading, empty, openKey, onOpen, favorites, onToggleFavorite, ratings, timelines, timelineMode, layoverRatings }:
   {
-    rows: FlightRow[]; dataset: FlightRow[]; loading: string | null; empty: EmptyState; openKey: string | null;
+    /** The sort and filters; a change returns the list to its top. */
+    rows: FlightRow[]; dataset: FlightRow[]; view: string; loading: string | null; empty: EmptyState; openKey: string | null;
     onOpen: (key: string) => void;
     favorites: ReadonlySet<string>; onToggleFavorite: (key: string) => void;
     ratings: ReturnType<typeof flightRatings>;
@@ -176,7 +184,7 @@ function Results(
   }), [rows, money]);
   useFareColumnWidth(list, fareContent);
   const index = openKey ? rows.findIndex((row) => row.trip_key === openKey) : -1;
-  const isAnchored = useSelectedFlightAnchor(list, openKey);
+  const isAnchored = useSelectedFlightAnchor(list, openKey, view);
   /**
    * How far down the document the list starts.
    *
@@ -186,8 +194,14 @@ function Results(
    * measured again on a resize.
    */
   const [listTop, setListTop] = useState(0);
+  // Where the pinned results bar ends, for the notice that hangs below it.
+  const [barBottom, setBarBottom] = useState(0);
   useLayoutEffect(() => {
-    const measure = () => setListTop(list.current?.offsetTop ?? 0);
+    const measure = () => {
+      setListTop(list.current?.offsetTop ?? 0);
+      const bar = document.querySelector<HTMLElement>(".results-bar");
+      setBarBottom(bar ? parseFloat(getComputedStyle(bar).top) + bar.offsetHeight : 0);
+    };
     measure();
     window.addEventListener("resize", measure);
     return () => window.removeEventListener("resize", measure);
@@ -226,6 +240,12 @@ function Results(
   // a second correction from the virtualizer while that anchor is visible.
   virtual.shouldAdjustScrollPositionOnItemSizeChange = isAnchored() ? () => false : undefined;
   useFlightArrivals(list, dataset);
+  const { newAbove, selectedOutOfView } = useListAwareness(list, rows, dataset, view, openKey);
+  const firstView = useRef(true);
+  useLayoutEffect(() => {
+    if (firstView.current) { firstView.current = false; return; }
+    if (window.scrollY > 0) window.scrollTo({ top: 0, behavior: "instant" });
+  }, [view]);
 
   // Arrow keys walk the selection past the edge of the screen, so the page has
   // to follow it. The neighbouring row is nearly always mounted thanks to the
@@ -250,8 +270,24 @@ function Results(
   }
 
   const items = virtual.getVirtualItems();
+  /** Smooth within two screens, where seeing the way you went helps; instant
+   * beyond, where a long glide only flashes rows past. Never with reduced motion. */
+  const glides = (top: number) => Math.abs(top - window.scrollY) <= 2 * window.innerHeight
+    && !window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  const toTop = () => window.scrollTo({ top: 0, behavior: glides(0) ? "smooth" : "instant" });
+  const toSelected = () => {
+    const target = virtual.getOffsetForIndex(index, "center")?.[0];
+    // Far rows are estimated, not measured; the virtualiser corrects its own jump.
+    if (target === undefined || !glides(target)) virtual.scrollToIndex(index, { align: "center" });
+    else window.scrollTo({ top: target, behavior: "smooth" });
+  };
 
-  return (
+  return (<>
+    {/* Zero-height and sticky, so the notices float over the list without moving it. */}
+    <div className="list-notice top" style={{ top: barBottom }}>
+      {newAbove > 0 && <button type="button" onClick={toTop}>
+        <Icon name="arrow-up" />{newAbove} new flight{newAbove === 1 ? "" : "s"} above</button>}
+    </div>
     <div
       className="results"
       role="grid"
@@ -316,11 +352,16 @@ function Results(
         );
       })}
     </div>
-  );
+    <div className="list-notice bottom">
+      {openKey && index < 0 ? <span>Your selected flight is hidden by the filters</span>
+        : selectedOutOfView && <button type="button" onClick={toSelected}>
+          Selected flight is #{(index + 1).toLocaleString()} of {rows.length.toLocaleString()} · Show</button>}
+    </div>
+  </>);
 }
 
-type PopoverName = "from" | "to" | "depart" | "return" | "travellers";
-const POPOVERS: PopoverName[] = ["from", "to", "depart", "return", "travellers"];
+type PopoverName = "from" | "to" | "depart" | "return" | "travellers" | "sources";
+const POPOVERS: PopoverName[] = ["from", "to", "depart", "return", "travellers", "sources"];
 
 function Shell() {
   const [api, setApi] = useState<FlightScraperApi | null>(null);
@@ -339,6 +380,16 @@ function Shell() {
   const [infants, setInfants] = useState(remembered.infants ?? 0);
   const [cabin, setCabin] = useState<Cabin>(remembered.cabin ?? "economy");
   const [askCurrency, setAskCurrency] = useState(remembered.currency ?? "EUR");
+  /** Every source the sidecar offers, and the ones Fetch is told to skip. */
+  const [knownSources, setKnownSources] = useState<{ name: SourceName; label: string; fetchable?: boolean }[]>([]);
+  const [disabledSources, setDisabledSources] = useState<string[]>(() => {
+    try { return sanitizeDisabled(JSON.parse(localStorage.getItem(SOURCES_KEY) || "null")); }
+    catch { return []; }
+  });
+  useEffect(() => {
+    try { localStorage.setItem(SOURCES_KEY, JSON.stringify(disabledSources)); }
+    catch { /* The choice still applies for this session. */ }
+  }, [disabledSources]);
 
   /** One popover of the search bar at a time. */
   const [popover, setPopover] = useState<PopoverName | null>(null);
@@ -412,7 +463,20 @@ function Shell() {
     void refreshChallenges().catch(() => {});
   }, [refreshChallenges]);
   const engine = useFlights(api, refreshChallengesInBackground);
-  const { rows: priceRows, correctPrice } = useOfferPrices(engine.rows, JSON.stringify([adults, children, infants, cabin]));
+  // Kept out of `request`: the choice changes what Fetch asks and whose
+  // prices are listed, not which stored trips or queued searches are on screen.
+  // Prices added by hand are a source to show or hide, never one to ask.
+  const sourceNames = useMemo(() => knownSources.map((source) => source.name), [knownSources]);
+  const fetchableNames = useMemo(() => knownSources.filter((source) => source.fetchable !== false)
+    .map((source) => source.name), [knownSources]);
+  const askSources = useMemo(() => requestedSources(fetchableNames, disabledSources), [fetchableNames, disabledSources]);
+  const shownSources = useMemo(() => requestedSources(sourceNames, disabledSources), [sourceNames, disabledSources]);
+  /** Every source Fetch could ask is turned off, leaving only your own prices. */
+  const nothingToAsk = fetchableNames.length > 0 && fetchableNames.every((name) => disabledSources.includes(name));
+  const wantedSources = useMemo(() => fetchableNames.length ? chosenSources(fetchableNames, disabledSources) : undefined,
+    [fetchableNames, disabledSources]);
+  const { rows: correctedRows, correctPrice } = useOfferPrices(engine.rows, JSON.stringify([adults, children, infants, cabin]));
+  const priceRows = useMemo(() => rowsFromSources(correctedRows, shownSources), [correctedRows, shownSources]);
   const { roundedIn, money } = useCurrency();
 
   const limits = useMemo(() => ({
@@ -432,6 +496,8 @@ function Shell() {
   // and favorites reuse them; suggestions still cover all loaded results.
   const ratings = useMemo(() => flightRatings(filtered), [filtered]);
   const allTimelines = useMemo(() => flightTimelines(priceRows), [priceRows]);
+  // From every fare in the search, so filtering never repaints an airline.
+  const carrierColors = useMemo(() => airlineColors(correctedRows), [correctedRows]);
   const timelines = useMemo(() => flightTimelines(filtered, allTimelines.journeys), [filtered, allTimelines]);
   const layoverRatings = useMemo(() => connectionRatings(timelines), [timelines]);
   const suggestions = useMemo(() => filterRanges(priceRows, allTimelines.journeys), [priceRows, allTimelines]);
@@ -487,13 +553,67 @@ function Shell() {
 
   const queue = useQueue(api, request, engine.running, refreshChallengesInBackground);
   const fetchRange = useCallback((refresh: boolean) => {
-    if (request && trips > 0 && !engine.running && !queue.busy) {
+    if (request && trips > 0 && !nothingToAsk && !engine.running && !queue.busy) {
       rememberPlace(request.origin);
       rememberPlace(request.destination);
       setPopover(null);
-      void engine.runSearch({ ...request, refresh });
+      void engine.runSearch({ ...request, sources: askSources, refresh });
     }
-  }, [request, trips, engine.running, engine.runSearch, queue.busy]);
+  }, [request, askSources, nothingToAsk, trips, engine.running, engine.runSearch, queue.busy]);
+
+  // -- prices added by hand ------------------------------------------------
+  const [editingFlight, setEditingFlight] = useState<FlightRow | null>(null);
+  const manualParty = useMemo(() => ({ adults, children, infants, cabin }), [adults, children, infants, cabin]);
+  const carriers = useMemo(() => carrierNames(correctedRows), [correctedRows]);
+  const reloadStored = useCallback(() => {
+    if (request && !engine.running) void engine.loadStored(request);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [request, engine.running, engine.loadStored]);
+  const addManual = useCallback(async (flight: ManualFlight, values: ManualPriceValues) => {
+    if (!api) throw new Error("The flight database is not connected yet.");
+    const added = await api.addManualOffer({ ...flight, ...values.party, price: values.eur, agent: values.agent, deeplink: values.deeplink });
+    const forThisSearch = (Object.keys(manualParty) as (keyof typeof manualParty)[])
+      .every((key) => manualParty[key] === values.party[key]);
+    if (disabledSources.includes(MANUAL_SOURCE)) setDisabledSources((was) => was.filter((name) => name !== MANUAL_SOURCE));
+    const day = flight.depart ?? flight.outbound?.[0]?.departure.slice(0, 10) ?? "";
+    const sameKind = Boolean(flight.ret || flight.inbound?.length) === Boolean(ret);
+    const onScreen = forThisSearch && sameKind && day >= start && day <= (end || start);
+    setToast(!forThisSearch ? "Price added for another party. Change Travellers to see it."
+      : !sameKind ? `Price added for a ${ret ? "one-way" : "round"} trip. Search for one to see it.`
+      : !onScreen ? "Price added for a date outside the ones on screen." : "Price added");
+    if (onScreen) pickFlight(added.trip_key);
+    reloadStored();
+  }, [api, manualParty, disabledSources, start, end, ret, pickFlight, reloadStored]);
+  const manualActions = useMemo<ManualActions | undefined>(() => api ? {
+    party: manualParty,
+    add: (row, values) => addManual({ origin: origin.trim(), destination: destination.trim(), trip_key: row.trip_key,
+      depart: row.depart_date, ret: row.return_date || null }, values),
+    update: async (entryId, values) => {
+      await api.updateManualOffer(entryId, { price: values.eur, agent: values.agent, deeplink: values.deeplink });
+      reloadStored();
+    },
+    remove: async (entryId) => {
+      await api.deleteManualOffer(entryId);
+      setToast("Price deleted");
+      reloadStored();
+    },
+    editFlight: setEditingFlight,
+  } : undefined, [api, manualParty, origin, destination, addManual, reloadStored]);
+  /** New flights for every price you added to it, then the old entries go. */
+  const replaceManualFlight = useCallback(async (row: FlightRow, flight: ManualFlight) => {
+    if (!api) throw new Error("The flight database is not connected yet.");
+    const entries = row.offers.filter((offer) => isManual(offer) && offer.entry_id != null);
+    let moved = row.trip_key;
+    for (const offer of entries) {
+      const added = await api.addManualOffer({ ...flight, ...manualParty, price: offer.price_base ?? offer.price,
+        agent: offer.agent, deeplink: offer.deeplink });
+      moved = added.trip_key;
+      await api.deleteManualOffer(offer.entry_id!);
+    }
+    setToast("Flight updated");
+    pickFlight(moved);
+    reloadStored();
+  }, [api, manualParty, pickFlight, reloadStored]);
 
   // Wait for the sidecar to come up. Nothing announces the wait: until it
   // answers there are no sources, and the queue panel says so in the one
@@ -508,6 +628,7 @@ function Shell() {
           await client.health();
           if (!live) return;
           setApi(client);
+          client.sources().then((known) => { if (live) setKnownSources(known); }).catch(() => {});
           return;
         } catch {
           await new Promise((r) => setTimeout(r, 500));
@@ -630,6 +751,8 @@ function Shell() {
 
       const focused = document.activeElement?.tagName;
       if (focused === "INPUT" || focused === "SELECT" || focused === "TEXTAREA") return;
+      // An open dialog owns the keyboard, Escape included.
+      if (document.querySelector("dialog[open]")) return;
 
       if (event.key === "Escape") {
         event.preventDefault();
@@ -652,6 +775,7 @@ function Shell() {
   }, [shown, openKey, pickFlight]);
 
   const openRow = shown.find((row) => row.trip_key === openKey) ?? null;
+  const listView = useMemo(() => JSON.stringify({ sort, filters }), [sort, filters]);
 
   /**
    * Clicking away from the list puts the flight down.
@@ -672,7 +796,7 @@ function Shell() {
       const target = event.target as HTMLElement | null;
       if (!target) return;
       if (target.closest(".results, .side")) return;
-      if (target.closest("input, select, button, label, a, .popover, .flight-filter-panel")) return;
+      if (target.closest("input, select, button, label, a, dialog, .popover, .flight-filter-panel")) return;
       pickFlight(null);
     };
     document.addEventListener("mousedown", away);
@@ -682,15 +806,20 @@ function Shell() {
   const party = describeParty(adults, children, infants, cabin);
   const stats = rangeStats(queue.selected);
   const loading = !request ? null
-    : engine.running ? "Searching every source…"
+    : engine.running ? (askSources ? "Searching the chosen sources…" : "Searching every source…")
     : !api || engine.loadingStored ? "Loading flights…" : null;
   const tripWord = `${trips} trip${trips === 1 ? "" : "s"}`;
+  const asked = askSources ? `the ${askSources.length === 1 ? "chosen source" : `${askSources.length} chosen sources`}` : "every source";
   const empty: EmptyState = connectionRecovery ? {
     title: "No flights match your connection preferences.",
     body: filters.maxLayoverMinutes !== null
       ? `Every stored flight has a connection longer than ${elapsed(filters.maxLayoverMinutes)}, or revisits an airport.`
       : "Every stored flight revisits an airport on the way.",
     action: connectionRecovery,
+  } : !priceRows.length && correctedRows.length ? {
+    title: "The chosen sources have no flights stored here.",
+    body: `${correctedRows.length.toLocaleString()} flight${correctedRows.length === 1 ? " is" : "s are"} stored from the sources you turned off.`,
+    action: { label: "Show every source", onClick: () => setDisabledSources([]) },
   } : priceRows.length ? {
     title: "Nothing matches these limits.",
     body: "Relax a filter or reset them all. Filters never delete stored results.",
@@ -699,11 +828,12 @@ function Shell() {
     title: "Nothing stored for this search yet",
     body: `No source has been asked about ${request.origin.toUpperCase()} → ${request.destination.toUpperCase()}, `
       + `${readableRange(start, end || start)}${ret ? ` / ${readableRange(ret, retEnd || ret)}` : ", one way"} for ${party}. `
-      + (trips === 1 ? "Fetch asks every source for it." : `Fetch asks every source for each of the ${tripWord}.`),
+      + (trips === 1 ? `Fetch asks ${asked} for it.` : `Fetch asks ${asked} for each of the ${tripWord}.`),
     action: trips > 0 ? { label: `Fetch ${tripWord}`, onClick: () => fetchRange(false) } : undefined,
-  } : request && rangeComplete(queue, trips) ? {
+  } : request && rangeComplete(queue, trips, wantedSources) ? {
     title: "No flights found",
-    body: "Every source answered for these dates, and none of them had a flight.",
+    body: askSources ? "The chosen sources answered for these dates, and none of them had a flight."
+      : "Every source answered for these dates, and none of them had a flight.",
   } : { title: "No flights to show." };
 
   const cheapest = shown.reduce<number | null>((low, row) => row.best?.price_base == null ? low
@@ -711,7 +841,7 @@ function Shell() {
   const activeSearches = splitQueueGroups(queue.groups, queue.busy?.groupIds).active.length;
 
   return (
-    <AirportNamesProvider api={api}><div className="app">
+    <AirportNamesProvider api={api}><AirlineColors.Provider value={carrierColors}><div className="app">
       <header className="topbar" ref={header}>
         <div className="search-bar" role="search" aria-label="Flight search">
           <PlaceInput label="From" value={origin} onChange={setOrigin} api={api}
@@ -749,14 +879,16 @@ function Shell() {
               if (next.cabin) setCabin(next.cabin);
               if (next.currency) setAskCurrency(next.currency);
             }} />
-          <FetchButton queue={queue} trips={trips} canSearch={Boolean(api && request)}
+          <SourcesPicker known={knownSources} disabled={disabledSources}
+            open={popover === "sources"} onToggle={toggles.sources} onChange={setDisabledSources} />
+          <FetchButton queue={queue} trips={trips} sources={wantedSources} canSearch={Boolean(api && request) && !nothingToAsk}
             fetching={engine.running} onFetch={fetchRange} />
         </div>
 
         <div className="topbar-actions">
           <UpdateControls busy={engine.running || Boolean(queue.busy) || queue.offline || !queue.state
             || Boolean(queue.state.scheduler.running || queue.state.scheduler.queued)} />
-          <RangeStatus queue={queue} trips={trips} canSearch={Boolean(api && request)} />
+          <RangeStatus queue={queue} trips={trips} sources={wantedSources} canSearch={Boolean(api && request)} />
         </div>
       </header>
 
@@ -776,7 +908,7 @@ function Shell() {
             </div>
           </div>
           <div className="results-controls">
-            <FlightFiltersBar filters={filters} onChange={setFilters} shown={shown.length} total={engine.rows.length}
+            <FlightFiltersBar filters={filters} onChange={setFilters} shown={shown.length} total={priceRows.length}
               roundTrip={Boolean(ret)} suggestions={suggestions} connectionOptions={connectionOptions} />
             <div className="results-view-controls">
               <button type="button" className="view-control" aria-label={`Timeline scale: ${timelineMode === "days" ? "per trip" : "shared"}`}
@@ -792,6 +924,7 @@ function Shell() {
         <Results
           rows={shown}
           dataset={priceRows}
+          view={listView}
           loading={loading}
           empty={empty}
           openKey={openKey}
@@ -830,6 +963,7 @@ function Shell() {
               rating={ratings.get(openRow.trip_key)}
               layoverRatings={layoverRatings}
               onCorrectPrice={correctPrice}
+              manual={manualActions}
               favorite={favorites.has(openRow.trip_key)}
               onToggleFavorite={toggleFavorite}
               partyLabel={party}
@@ -839,7 +973,11 @@ function Shell() {
         </div>
       </aside>
       {toast && <div className="toast" role="status">{toast}</div>}
-    </div></AirportNamesProvider>
+      <EditFlightDialog editing={editingFlight} onClose={() => setEditingFlight(null)}
+        rows={correctedRows} carriers={carriers} party={manualParty} api={api}
+        search={{ origin: origin.trim(), destination: destination.trim() }}
+        onReplace={replaceManualFlight} />
+    </div></AirlineColors.Provider></AirportNamesProvider>
   );
 }
 

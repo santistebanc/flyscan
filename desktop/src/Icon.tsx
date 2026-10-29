@@ -9,6 +9,7 @@ const drawings = {
   "chevron-down": <path d="m6 9 6 6 6-6" />,
   "chevron-left": <path d="m15 6-6 6 6 6" />,
   "arrow-right": <path d="M4 12h16m-6-6 6 6-6 6" />,
+  "arrow-up": <path d="M12 20V4m-6 6 6-6 6 6" />,
   external: <><path d="M14 4h6v6m0-6-9 9" /><path d="M10 4H6a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-4" /></>,
   done: <><circle cx="12" cy="12" r="9" /><path d="m7.5 12 3 3 6-6" /></>,
   failed: <><circle cx="12" cy="12" r="9" /><path d="M12 7v6m0 4h.01" /></>,
@@ -19,6 +20,9 @@ const drawings = {
   moon: <path d="M20 14.5A8 8 0 1 1 9.5 4a6.5 6.5 0 0 0 10.5 10.5Z" />,
   price: <><rect x="3" y="6" width="18" height="12" rx="2" /><circle cx="12" cy="12" r="3" /><path d="M6 12h.01M18 12h.01" /></>,
   stops: <><circle cx="5" cy="12" r="2" /><circle cx="19" cy="12" r="2" /><path d="M7 12h10M12 9v6" /></>,
+  plus: <path d="M12 5v14M5 12h14" />,
+  edit: <><path d="M4 20h4L19 9a2.8 2.8 0 0 0-4-4L4 16Z" /><path d="m13.5 6.5 4 4" /></>,
+  trash: <><path d="M4 7h16M10 11v6M14 11v6" /><path d="M6 7l1 12a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2l1-12M9 7V4h6v3" /></>,
   connection: <><path d="M4 7h5a3 3 0 0 1 3 3v4a3 3 0 0 0 3 3h5M16 13l4 4-4 4" /><circle cx="4" cy="7" r="2" /></>,
 };
 

@@ -232,3 +232,15 @@ test("group indicators keep failures and verification visible alongside active w
   assert.equal(input.loading, true);
   assert.equal(groupStatus([job("cancelled", { worker_busy: true })]).loading, true);
 });
+
+test("a range is answered only when every chosen source finished every trip", () => {
+  const { rangeAnswered } = load("queueModel.ts");
+  const done = (source) => job("done", { state: "done", source });
+  const trips = [group("a", [done("ff-kayak"), done("momondo")]), group("b", [done("ff-kayak")])];
+  assert.equal(rangeAnswered(trips, 2), true);
+  assert.equal(rangeAnswered(trips, 2, ["ff-kayak"]), true);
+  assert.equal(rangeAnswered(trips, 2, ["ff-kayak", "momondo"]), false, "trip b never asked momondo");
+  assert.equal(rangeAnswered(trips, 3), false, "a trip with no search yet");
+  assert.equal(rangeAnswered([group("a", [done("ff-kayak"), job("running", { state: "running", source: "ff-sky" })])], 1), false);
+  assert.equal(rangeAnswered([], 0), false);
+});

@@ -46,7 +46,7 @@ const shift = (iso: string, days: number) => {
 export const todayISO = () => key(new Date());
 
 /** "Sep 6", and "Sep 6 2027" once it is not this year any more. */
-function readable(iso: string): string {
+export function readable(iso: string): string {
   if (!iso) return "";
   const day = at(iso);
   const sameYear = day.getFullYear() === new Date().getFullYear();
@@ -83,7 +83,7 @@ function monthCells(year: number, month: number): (string | null)[] {
   return cells;
 }
 
-function Month(
+export function Month(
   { year, month, from, to, hover, drawing, cursor, min, relatedRange, nav, onPick, onHover }:
   {
     year: number; month: number;

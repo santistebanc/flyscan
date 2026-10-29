@@ -1,7 +1,8 @@
-import type { CSSProperties } from "react";
+import { useContext, type CSSProperties } from "react";
 import type { Leg } from "./api";
 import type { Rating } from "./flightRatings";
 import { AirportLabel } from "./AirportLabel";
+import { AirlineColors } from "./airlineColors";
 import { airlineColor, clock, dayOffset, elapsed, isOvernight, localMidnights, partLabel, percent, timingNote,
   timelineScaleFor, timelineScaleLabel, type JourneyTiming, type TimelineMode, type TimelineScale } from "./flightTimeline";
 
@@ -10,6 +11,7 @@ export function FlightTimeline({ label, leg, scale: sharedScale, timing, mode = 
   label: string; leg: Leg | null; scale: TimelineScale | null; timing: JourneyTiming | null | undefined;
   mode?: TimelineMode; rating?: Rating; layoverRatings?: ReadonlyMap<number, Rating>;
 }) {
+  const colors = useContext(AirlineColors);
   if (!leg) return null;
   const scale = timelineScaleFor(timing, sharedScale, mode);
   const later = dayOffset(leg.departure, leg.arrival);
@@ -34,7 +36,7 @@ export function FlightTimeline({ label, leg, scale: sharedScale, timing, mode = 
           title={partLabel(part)}
           className={`leg-part ${part.kind === "flight" ? part.detailed ? "airborne" : "summary" : part.transfer ? "layover transfer" : "layover"}`}
           style={{ left: `${percent(start, scale)}%`, width: `${(end - start) / (scale.max - scale.min) * 100}%`,
-            "--airline": part.kind === "flight" ? airlineColor(part.segment.carrier) : undefined } as CSSProperties} />)}
+            "--airline": part.kind === "flight" ? airlineColor(part.segment.carrier, colors) : undefined } as CSSProperties} />)}
       </span> : <span className="leg-unavailable">Schedule unavailable</span>}
       <span className="leg-connections">
         {waits.map(({ part }, i) => part.kind === "layover" && <span key={i} className={part.transfer ? "transfer" : undefined}

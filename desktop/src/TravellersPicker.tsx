@@ -12,7 +12,7 @@ export const CABIN_LABELS: Record<Cabin, string> = {
 
 export interface Party { adults: number; children: number; infants: number; cabin: Cabin; currency: string }
 
-function Stepper({ label, note, value, min, max, onChange }: {
+export function Stepper({ label, note, value, min, max, onChange }: {
   label: string; note: string; value: number; min: number; max: number; onChange: (next: number) => void;
 }) {
   return <div className="stepper" role="group" aria-label={label}>

@@ -41,6 +41,8 @@ interface CurrencyValue {
   /** A display-currency amount back into the stored EUR price. */
   toEur: (amount: number) => number;
   amountIn: (eur: number) => number;
+  /** An amount in any currency with a known rate into EUR, or null without one. */
+  eurFrom: (amount: number, code: string) => number | null;
 }
 
 const Ctx = createContext<CurrencyValue | null>(null);
@@ -116,6 +118,10 @@ export function CurrencyProvider(
         eur === null || eur === undefined ? 0 : Math.round(eur * rate),
       toEur: (amount) => amount / rate,
       amountIn: (eur) => eur * rate,
+      eurFrom: (amount, code) => {
+        const known = displayCurrency(rates, code);
+        return known.currency === code.trim().toUpperCase() ? amount / known.rate : null;
+      },
     };
   }, [currency, rates, setCurrency, currencies, loadingRates, rateProvider, ratesUpdatedAt]);
 

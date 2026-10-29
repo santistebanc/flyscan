@@ -1,4 +1,4 @@
-import { useLayoutEffect, useRef, type RefObject } from "react";
+import { useLayoutEffect, useMemo, useRef, useState, type RefObject } from "react";
 import type { FlightRow } from "./api";
 
 type Anchor = { key: string; top: number; height: number; scrollY: number; viewportTop: number };
@@ -8,8 +8,9 @@ type Anchor = { key: string; top: number; height: number; scrollY: number; viewp
  * Results keeps the selected row mounted even if an insertion moves its index
  * outside the virtual range, allowing a correction before the browser paints.
  */
-export function useSelectedFlightAnchor(list: RefObject<HTMLDivElement | null>, selected: string | null) {
+export function useSelectedFlightAnchor(list: RefObject<HTMLDivElement | null>, selected: string | null, view: string) {
   const anchor = useRef<Anchor | null>(null);
+  const lastView = useRef(view);
   const isAnchored = () => {
     const old = anchor.current;
     if (!old || old.key !== selected) return false;
@@ -18,6 +19,9 @@ export function useSelectedFlightAnchor(list: RefObject<HTMLDivElement | null>, 
   };
 
   useLayoutEffect(() => {
+    // A new sort or filter is a request to see the new order, not to keep your
+    // place in the old one: let go, and the list goes back to its top.
+    if (lastView.current !== view) { lastView.current = view; anchor.current = null; }
     const node = list.current?.querySelector<HTMLElement>('.flight[aria-selected="true"]');
     if (!selected || !node) { anchor.current = null; return; }
     let rect = node.getBoundingClientRect();
@@ -77,4 +81,52 @@ export function useFlightArrivals(list: RefObject<HTMLDivElement | null>, datase
       });
     }
   });
+}
+
+/** Where the list stands relative to what you can see: how many flights have
+ * arrived above the first row on screen since you last saw that part of the
+ * list, and whether the selected flight is out of view. A view change (sort or
+ * filter) starts the count again, since the list returns to its top. */
+export function useListAwareness(list: RefObject<HTMLDivElement | null>, rows: FlightRow[], dataset: FlightRow[],
+  view: string, selected: string | null) {
+  const known = useRef<Set<string> | null>(null);
+  const unseen = useRef(new Set<string>());
+  const lastDataset = useRef<FlightRow[] | null>(null);
+  const lastView = useRef(view);
+  const [state, setState] = useState({ newAbove: 0, selectedOutOfView: false });
+  const positions = useMemo(() => new Map(rows.map((row, i) => [row.trip_key, i])), [rows]);
+
+  useLayoutEffect(() => {
+    if (lastView.current !== view) { lastView.current = view; unseen.current.clear(); }
+    if (lastDataset.current !== dataset) {
+      lastDataset.current = dataset;
+      if (!dataset.length) { known.current = null; unseen.current.clear(); }
+      else {
+        const first = known.current === null;
+        known.current ??= new Set();
+        for (const row of dataset) {
+          if (!first && !known.current.has(row.trip_key)) unseen.current.add(row.trip_key);
+          known.current.add(row.trip_key);
+        }
+      }
+    }
+    const top = Math.max(0, document.querySelector(".results-bar")?.getBoundingClientRect().bottom ?? 0);
+    let firstVisible = Infinity, selectedOutOfView = Boolean(selected);
+    for (const node of list.current?.querySelectorAll<HTMLElement>(".flight[data-index]") ?? []) {
+      const rect = node.getBoundingClientRect();
+      if (rect.bottom <= top || rect.top >= window.innerHeight) continue;
+      firstVisible = Math.min(firstVisible, Number(node.dataset.index));
+      if (node.dataset.flightKey === selected) selectedOutOfView = false;
+    }
+    // Arrivals at or below the first row on screen are in view, or ahead of
+    // you as you scroll down; only those above it can be missed.
+    for (const key of unseen.current) {
+      const at = positions.get(key);
+      if (at === undefined || at >= firstVisible) unseen.current.delete(key);
+    }
+    const newAbove = unseen.current.size;
+    if (newAbove !== state.newAbove || selectedOutOfView !== state.selectedOutOfView) setState({ newAbove, selectedOutOfView });
+  });
+
+  return state;
 }

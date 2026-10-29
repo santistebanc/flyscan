@@ -11,13 +11,28 @@ export function elapsed(minutes: number | null) {
   const h = Math.floor(minutes / 60), m = minutes % 60;
   return h ? `${h}h${m ? ` ${m}m` : ""}` : `${m}m`;
 }
-const palette = ["#83baff", "#e8b378", "#ab9cff", "#72d3ba", "#ec9bbd", "#d3d17e", "#88ccdc"];
-/** Carrier identity colors, independent of price/duration quality colors. */
-export function airlineColor(code: string) {
+// Most appealing first, since airlineColors hands these out in order to the most
+// frequent carriers; neighbours contrast so the top airlines never look alike.
+const palette = ["#83baff", "#f28b82", "#72d3ba", "#ab9cff", "#e8b378", "#ec9bbd", "#a5d672", "#d892e8", "#d3d17e"];
+/** Carrier identity colors, independent of price/duration quality colors.
+ * `colors` comes from airlineColors; a carrier it doesn't cover falls back to a hash. */
+export function airlineColor(code: string, colors?: ReadonlyMap<string, string>) {
   if (!code) return "#98a9c0";
+  const assigned = colors?.get(code);
+  if (assigned) return assigned;
   let hash = 0;
   for (const c of code) hash = (hash * 31 + c.charCodeAt(0)) >>> 0;
   return palette[hash % palette.length]!;
+}
+/** A distinct color for each carrier in these results, the most frequent first.
+ * Hashing alone puts unrelated airlines on the same color; once the palette runs
+ * out, the rarest carriers share colors through the hash. */
+export function airlineColors(rows: FlightRow[]): Map<string, string> {
+  const counts = new Map<string, number>();
+  for (const row of rows) for (const leg of [row.outbound, row.inbound]) for (const segment of leg?.segments ?? [])
+    if (segment.carrier) counts.set(segment.carrier, (counts.get(segment.carrier) ?? 0) + 1);
+  const ranked = [...counts].sort(([a, x], [b, y]) => y - x || a.localeCompare(b));
+  return new Map(ranked.slice(0, palette.length).map(([code], i) => [code, palette[i]!]));
 }
 
 const isoPattern = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})(?::\d{2}(?:\.\d+)?)?(Z|[+-]\d{2}:?\d{2})?$/i;

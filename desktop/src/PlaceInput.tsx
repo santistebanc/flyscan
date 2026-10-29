@@ -7,7 +7,7 @@
  * code and pressing Enter takes it as written.
  */
 
-import { useCallback, useEffect, useId, useMemo, useRef, useState, type KeyboardEvent } from "react";
+import { Fragment, useCallback, useEffect, useId, useMemo, useRef, useState, type KeyboardEvent } from "react";
 import type { FlightScraperApi, PlaceSuggestion } from "./api";
 import { useAirportCity } from "./AirportLabel";
 import { SearchSegment, useDismiss, useKeepInView } from "./Popover";
@@ -21,12 +21,17 @@ interface SuggestRow {
   name: string;
   place?: string;
   kind?: string;
+  /** Offered by the caller rather than found by searching. */
+  suggested?: boolean;
 }
 
-function mergeSuggestions(recent: SuggestRow[], remote: SuggestRow[]): SuggestRow[] {
+/** A place the caller already has a reason to offer, with why. */
+export interface PlaceHint { code: string; note: string }
+
+function mergeSuggestions(suggested: SuggestRow[], recent: SuggestRow[], remote: SuggestRow[]): SuggestRow[] {
   const seen = new Set<string>();
   const out: SuggestRow[] = [];
-  for (const row of [...recent, ...remote]) {
+  for (const row of [...suggested, ...recent, ...remote]) {
     if (seen.has(row.code)) continue;
     seen.add(row.code);
     out.push(row);
@@ -42,13 +47,16 @@ const toRemoteRows = (matches: PlaceSuggestion[]): SuggestRow[] => matches.map((
 const toRecentRows = (matches: RecentPlace[]): SuggestRow[] =>
   matches.map((r) => ({ code: r.code, name: r.label || r.code }));
 
-export function PlaceInput({ label, value, onChange, api, open, onToggle }: {
+export function PlaceInput({ label, value, onChange, api, open, onToggle, suggested = [], suggestedCaption = "Suggested" }: {
   label: string;
   value: string;
   onChange: (next: string) => void;
   api: FlightScraperApi | null;
   open: boolean;
   onToggle: (open: boolean) => void;
+  /** Listed first, and kept while typing when the code or note matches. */
+  suggested?: PlaceHint[];
+  suggestedCaption?: string;
 }) {
   const listId = useId();
   const city = useAirportCity(value);
@@ -71,8 +79,13 @@ export function PlaceInput({ label, value, onChange, api, open, onToggle }: {
   }, [open]);
 
   const term = query.trim();
-  const suggestions = useMemo(() => mergeSuggestions(toRecentRows(filterRecentPlaces(recents, term)), remote),
-    [recents, term, remote]);
+  const offered = useMemo(() => {
+    const needle = term.toUpperCase();
+    return suggested.filter((hint) => !needle || hint.code.startsWith(needle) || hint.note.toUpperCase().includes(needle))
+      .map((hint): SuggestRow => ({ code: hint.code, name: hint.note, suggested: true }));
+  }, [suggested, term]);
+  const suggestions = useMemo(() => mergeSuggestions(offered, toRecentRows(filterRecentPlaces(recents, term)), remote),
+    [offered, recents, term, remote]);
 
   useEffect(() => {
     if (!open || !api || term.length < 2) {
@@ -98,6 +111,8 @@ export function PlaceInput({ label, value, onChange, api, open, onToggle }: {
     };
   }, [api, open, term]);
 
+  /** The name worth remembering: a suggestion's note says why it was offered, not what it is. */
+  const nameOf = (row: SuggestRow) => row.suggested ? "" : row.place ? `${row.name}, ${row.place}` : row.name;
   const pick = (code: string, name = "") => {
     onChange(code);
     rememberPlace(code, name);
@@ -113,9 +128,9 @@ export function PlaceInput({ label, value, onChange, api, open, onToggle }: {
     } else if (event.key === "Enter") {
       event.preventDefault();
       const row = suggestions[active];
-      if (row) pick(row.code, row.place ? `${row.name}, ${row.place}` : row.name);
+      if (row) pick(row.code, nameOf(row));
       else if (/^[A-Za-z]{3}$/.test(term)) pick(term.toUpperCase());
-      else if (suggestions[0]) pick(suggestions[0].code, suggestions[0].name);
+      else if (suggestions[0]) pick(suggestions[0].code, nameOf(suggestions[0]));
     }
   };
 
@@ -130,16 +145,19 @@ export function PlaceInput({ label, value, onChange, api, open, onToggle }: {
           aria-activedescendant={active >= 0 ? `${listId}-${active}` : undefined}
           onChange={(event) => { setQuery(event.target.value); setActive(-1); }} onKeyDown={onKeyDown} />
       </div>
-      {!term && suggestions.length > 0 && <div className="popover-caption">Recent</div>}
+      {!term && suggestions.length > 0 && <div className="popover-caption">{suggestions[0]!.suggested ? suggestedCaption : "Recent"}</div>}
       <ul className="place-list" id={listId} role="listbox" aria-label={`${label} suggestions`}>
-        {suggestions.map((row, index) => <li key={row.code} id={`${listId}-${index}`} role="option"
+        {suggestions.map((row, index) => <Fragment key={row.code}>
+          {!term && !row.suggested && suggestions[index - 1]?.suggested
+            && <li className="popover-caption" role="presentation">Recent</li>}
+          <li id={`${listId}-${index}`} role="option"
           aria-selected={index === active} className={!term ? "recent" : undefined}
           onMouseEnter={() => setActive(index)} onMouseDown={(event) => event.preventDefault()}
-          onClick={() => pick(row.code, row.place ? `${row.name}, ${row.place}` : row.name)}>
+          onClick={() => pick(row.code, nameOf(row))}>
           <b>{row.code}</b>
           <span className="place-name">{row.name}{row.place && <span> {row.place}</span>}</span>
           {row.kind && <span className="place-kind">{row.kind}</span>}
-        </li>)}
+        </li></Fragment>)}
         {loading && <li className="place-hint" role="presentation">Searching…</li>}
         {!loading && term.length >= 2 && !suggestions.length && <li className="place-hint" role="presentation">No matching airports</li>}
       </ul>

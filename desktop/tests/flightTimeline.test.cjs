@@ -7,7 +7,7 @@ const code = buildSync({ entryPoints: [path.join(__dirname, "../src/flightTimeli
   bundle: true, write: false, format: "cjs", platform: "node" }).outputFiles[0].text;
 const mod = { exports: {} };
 vm.runInNewContext(code, { module: mod, exports: mod.exports });
-const { partsOf, journeyTiming, flightTimelines, percent, dayOffset, scaleClock, timingNote, localMidnights, isOvernight } = mod.exports;
+const { airlineColor, airlineColors, partsOf, journeyTiming, flightTimelines, percent, dayOffset, scaleClock, timingNote, localMidnights, isOvernight } = mod.exports;
 
 test("filtered bounds shrink without reusing hidden outliers from the timing cache", () => {
   const normal = { departure: "2026-11-01T08:00", duration: "3h", segments: [] };
@@ -259,4 +259,14 @@ test("only layovers whose local clock passes midnight are overnight", () => {
   assert.equal(isOvernight(overnight), true);
   assert.equal(isOvernight(daytime), false);
   assert.equal(isOvernight(partsOf(leg("2026-12-10T08:00", "2h"))[0]), false);
+});
+
+test("each carrier in the results gets its own color, the most frequent first", () => {
+  const legOf = (...carriers) => ({ segments: carriers.map((carrier) => ({ carrier })) });
+  const rows = [{ outbound: legOf("AM", "LH"), inbound: legOf("AF", "AM") }, { outbound: legOf("AM", "LH") }];
+  const colors = airlineColors(rows);
+  assert.deepEqual([...colors.keys()], ["AM", "LH", "AF"]);
+  assert.equal(new Set(colors.values()).size, 3);
+  assert.equal(airlineColor("LH", colors), colors.get("LH"));
+  assert.match(airlineColor("ZZ", colors), /^#[0-9a-f]{6}$/, "an unranked carrier still gets a color");
 });

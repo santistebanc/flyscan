@@ -33,12 +33,13 @@ from flask import Blueprint, Response, current_app, jsonify, request
 
 from . import errorlog, fx
 from .jobs import Job
+from .manual import itinerary_from, query_from
 from .models import SearchQuery, parse_date, pretty_duration, trip_pairs
 from .places import resolve
 from .query_jobs import belongs_to as _belongs_to
 from .scheduler import FOREGROUND, default_scheduler
 from .sources import DEFAULT_SOURCES, REGISTRY
-from .store import FlightStore
+from .store import MANUAL_SOURCE, FlightStore
 from .task_queue import QueueClosed, QueueFull
 
 api = Blueprint("api_v1", __name__, url_prefix="/v1")
@@ -156,7 +157,7 @@ def _cors(response: Response) -> Response:
     response.headers.setdefault(
         "Access-Control-Allow-Headers", "Content-Type, Authorization, X-API-Key, Last-Event-ID"
     )
-    response.headers.setdefault("Access-Control-Allow-Methods", "GET, POST, DELETE, OPTIONS")
+    response.headers.setdefault("Access-Control-Allow-Methods", "GET, POST, PATCH, DELETE, OPTIONS")
     response.headers.setdefault("Access-Control-Expose-Headers", "Last-Event-ID")
     return response
 
@@ -467,10 +468,127 @@ def sources():
                 "currency": cls.fixed_currency,
                 "max_concurrency": cls.max_concurrency,
                 "min_interval": cls.min_interval,
+                "fetchable": True,
             }
             for name, cls in REGISTRY.items()
         ]
+        # Listed so its prices can be shown or hidden like any source's, and
+        # marked so nothing tries to ask it.
+        + [{"name": MANUAL_SOURCE, "label": "Added by you", "currency": None, "fetchable": False}]
     )
+
+
+# -- prices entered by hand ---------------------------------------------------
+
+
+def _manual_price(payload: Dict[str, Any]) -> float:
+    try:
+        price = float(payload.get("price"))
+    except (TypeError, ValueError):
+        raise ValueError("the price must be a number") from None
+    if not price > 0:
+        raise ValueError("the price must be more than zero")
+    return price
+
+
+@api.post("/manual-offers")
+def add_manual_offer():
+    """Add a price someone found themselves, in EUR like every stored price.
+
+    Either on a stored flight (``trip_key``, with the search it belongs to) or
+    on a typed one (``outbound`` and optionally ``inbound`` flights), which
+    joins the stored flight with the same airports and times if there is one.
+    """
+    payload = request.get_json(force=True, silent=True) or {}
+    store = FlightStore(payload.get("db") or "flights.db")
+    try:
+        price = _manual_price(payload)
+        details = {
+            "agent": str(payload.get("agent") or ""),
+            "deeplink": str(payload.get("deeplink") or ""),
+        }
+        if payload.get("trip_key"):
+            entry = store.add_manual_offer(
+                query_from(payload), price, trip_key=str(payload["trip_key"]), **details
+            )
+        else:
+            itinerary = itinerary_from(payload, payload)
+            entry = store.add_manual_offer(itinerary.query, price, itinerary=itinerary, **details)
+    except LookupError as exc:
+        return jsonify({"error": str(exc)}), 404
+    except ValueError as exc:
+        return jsonify({"error": str(exc)}), 400
+    finally:
+        store.close()
+    return jsonify(entry), 201
+
+
+@api.get("/trips")
+def find_trips():
+    """Stored trips from every search that fit a flight being typed in by hand.
+
+    Loose on purpose, and capped: the caller narrows them down as it types.
+    """
+    args = request.args
+    try:
+        round_trip = {"1": True, "0": False}.get(args.get("round") or "")
+        party = {
+            "adults": max(1, int(args.get("adults") or 1)),
+            "children": max(0, int(args.get("children") or 0)),
+            "infants": max(0, int(args.get("infants") or 0)),
+        }
+        limit = int(args.get("limit") or 150)
+    except ValueError as exc:
+        return jsonify({"error": f"bad filter: {exc}"}), 400
+    airports = [code for code in args.getlist("airport") if re.fullmatch(r"[A-Za-z]{3}", code)]
+    store = FlightStore(args.get("db") or "flights.db")
+    try:
+        trips = store.find_trips(
+            number=args.get("number") or "",
+            airports=airports,
+            day=args.get("day")
+            if re.fullmatch(r"\d{4}-\d{2}-\d{2}", args.get("day") or "")
+            else "",
+            round_trip=round_trip,
+            cabin=args.get("cabin") or "economy",
+            limit=limit,
+            **party,
+        )
+    finally:
+        store.close()
+    return jsonify({"results": [_stored_row(trip) for trip in trips]})
+
+
+@api.patch("/manual-offers/<int:entry_id>")
+def update_manual_offer(entry_id: int):
+    payload = request.get_json(force=True, silent=True) or {}
+    store = FlightStore(payload.get("db") or "flights.db")
+    try:
+        changed = store.update_manual_offer(
+            entry_id,
+            _manual_price(payload),
+            str(payload.get("agent") or ""),
+            str(payload.get("deeplink") or ""),
+        )
+    except ValueError as exc:
+        return jsonify({"error": str(exc)}), 400
+    finally:
+        store.close()
+    if not changed:
+        return jsonify({"error": "no such price"}), 404
+    return jsonify({"entry_id": entry_id})
+
+
+@api.delete("/manual-offers/<int:entry_id>")
+def delete_manual_offer(entry_id: int):
+    store = FlightStore(request.args.get("db") or "flights.db")
+    try:
+        deleted = store.delete_manual_offer(entry_id)
+    finally:
+        store.close()
+    if not deleted:
+        return jsonify({"error": "no such price"}), 404
+    return jsonify({"entry_id": entry_id})
 
 
 @api.post("/searches")
@@ -829,6 +947,7 @@ def _stored_offer(offer: Dict[str, Any]) -> Dict[str, Any]:
         "currency": "EUR",
         "price_base": price,
         "deeplink": offer.get("deeplink", ""),
+        **{key: offer[key] for key in ("entry_id", "added_at") if key in offer},
     }
 
 

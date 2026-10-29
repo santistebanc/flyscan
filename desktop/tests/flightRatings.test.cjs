@@ -12,46 +12,45 @@ const row = (id, price, duration = "1h 00m", back = "") => ({
   trip_key: id, best: { price_base: price }, duration, return_duration: back,
 });
 
-test("prices and each journey direction receive five independent relative ratings", () => {
-  const rows = [1, 2, 3, 4, 5].map((i) => row(String(i), i * 100, `${6 - i}h 00m`, `${i}h 00m`));
+test("prices are rated by how far above the cheapest fare they are", () => {
+  // Bands end at +10%, +25%, +50% and +100%; beyond that is Poor.
+  const rows = [100, 110, 111, 125, 150, 200, 201].map((price) => row(String(price), price));
   const ratings = flightRatings(rows);
-  for (let i = 1; i <= 5; i++) {
-    const result = ratings.get(String(i));
-    assert.equal(result.price.level, i);
-    assert.equal(result.outbound.level, 6 - i);
-    assert.equal(result.inbound.level, i);
-  }
-  assert.equal(ratings.get("1").price.description, "Excellent · Lowest prices in this list");
-  assert.equal(ratings.get("1").outbound.description, "Poor · Longest journeys in this list");
+  assert.deepEqual(rows.map((r) => ratings.get(r.trip_key).price.level), [1, 1, 2, 2, 3, 4, 5]);
+  assert.equal(ratings.get("100").price.description, "Excellent · The cheapest in this list");
+  assert.equal(ratings.get("125").price.description, "Good · 25% above the cheapest in this list");
 });
 
-test("ratings use the actual min/max range, with equal ratings for ties regardless of sorting", () => {
-  const rows = [10, 20, 30, 40, 1000000, 10].map((price, i) => row(String(i), price));
+test("one extreme fare does not squash every other fare into the best band", () => {
+  const rows = [893, 1069, 1596, 2021, 11176].map((price) => row(String(price), price));
   const ratings = flightRatings(rows);
-  assert.equal(ratings.get("0").price.level, ratings.get("5").price.level);
-  assert.equal(ratings.get("3").price.level, 1);
-  assert.equal(ratings.get("4").price.level, 5);
+  assert.deepEqual(rows.map((r) => ratings.get(r.trip_key).price.level), [1, 2, 4, 5, 5]);
+});
+
+test("durations use wider bands than prices, independently per direction", () => {
+  // Bands end at +15%, +35%, +60% and +100%.
+  const rows = [["a", "10h", "2h"], ["b", "11h 30m", "2h 42m"], ["c", "13h 30m", "3h 12m"],
+    ["d", "16h", "4h"], ["e", "20h 06m", "2h"]].map(([id, out, back]) => row(id, 100, out, back));
+  const ratings = flightRatings(rows);
+  assert.deepEqual(rows.map((r) => ratings.get(r.trip_key).outbound.level), [1, 1, 2, 3, 5]);
+  assert.deepEqual(rows.map((r) => ratings.get(r.trip_key).inbound.level), [1, 2, 3, 4, 1]);
+  assert.equal(ratings.get("d").outbound.description, "Average · 60% longer than the shortest in this list");
+});
+
+test("only the exact best value is called the cheapest; ties share a rating regardless of order", () => {
+  const rows = [row("a", 1000), row("b", 1004), row("c", 1000)];
+  const ratings = flightRatings(rows);
+  assert.match(ratings.get("b").price.description, /1% above the cheapest/);
+  assert.equal(ratings.get("a").price.description, ratings.get("c").price.description);
   const reversed = flightRatings([...rows].reverse());
-  for (const item of rows) assert.equal(ratings.get(item.trip_key).price.level, reversed.get(item.trip_key).price.level);
+  for (const item of rows) assert.deepEqual(ratings.get(item.trip_key).price, reversed.get(item.trip_key).price);
 });
 
-test("new minimums and maximums immediately rescale existing prices and durations", () => {
-  const rows = [row("a", 100, "1h"), row("b", 200, "2h"), row("c", 300, "3h")];
-  assert.equal(flightRatings(rows).get("b").price.level, 3);
-  const higher = flightRatings([...rows, row("new-max", 1000, "10h")]);
-  assert.equal(higher.get("b").price.level, 1);
-  assert.equal(higher.get("b").outbound.level, 1);
-  const lower = flightRatings([...rows.slice(1), row("new-min", 50, "30m")]);
-  assert.equal(lower.get("b").price.level, 4);
-  assert.equal(lower.get("b").outbound.level, 4);
-});
-
-test("missing and invalid data are unrated; a single value or equal list uses the middle tier", () => {
-  const rows = [row("valid", 10), row("tie", 10), row("none", null, "", ""),
+test("missing and invalid data are unrated; a single value is the best", () => {
+  const rows = [row("valid", 10), row("none", null, "", ""),
     row("bad", NaN, "unknown", "0h 00m"), row("negative", -5, "-1h", "")];
   const ratings = flightRatings(rows);
-  assert.equal(ratings.get("valid").price.level, 3);
-  assert.match(ratings.get("valid").price.description, /No price difference/);
+  assert.equal(ratings.get("valid").price.level, 1);
   for (const id of ["none", "bad", "negative"]) {
     assert.equal(ratings.get(id).price, undefined);
     assert.equal(ratings.get(id).outbound, undefined);
@@ -61,10 +60,9 @@ test("missing and invalid data are unrated; a single value or equal list uses th
 });
 
 test("ratings use only the filtered list passed in and recalculate when it changes", () => {
-  const rows = [row("a", 10), row("b", 20), row("c", 30)];
+  const rows = [row("a", 100), row("b", 130), row("c", 300)];
   assert.equal(flightRatings(rows).get("b").price.level, 3);
   assert.equal(flightRatings(rows.slice(1)).get("b").price.level, 1);
-  assert.equal(flightRatings(rows.slice(0, 2)).get("b").price.level, 5);
 });
 
 test("display duration parsing handles multi-day journeys and rejects unknown or zero durations", () => {

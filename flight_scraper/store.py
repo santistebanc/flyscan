@@ -32,6 +32,7 @@ import csv
 import hashlib
 import json
 import sqlite3
+import uuid
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any, Dict, Iterable, List, Optional, Sequence
@@ -117,6 +118,11 @@ CREATE INDEX IF NOT EXISTS idx_offers_trip  ON offers (trip_id, price);
 CREATE INDEX IF NOT EXISTS idx_offers_fetch ON offers (fetch_id);
 CREATE INDEX IF NOT EXISTS idx_offers_price ON offers (price);
 """
+
+#: Prices a person entered by hand. A source in the database's eyes, so its
+#: offers are read, filtered and compared like any other, but never planned or
+#: asked: nothing can be fetched from it.
+MANUAL_SOURCE = "manual"
 
 #: Columns exported to CSV/JSON, in order.
 _EXPORT_COLUMNS = [
@@ -533,6 +539,115 @@ class FlightStore:
             )
         return int(row["id"])
 
+    # -- prices entered by hand --------------------------------------------
+
+    def add_manual_offer(
+        self,
+        query: SearchQuery,
+        price_eur: float,
+        agent: str = "",
+        deeplink: str = "",
+        *,
+        trip_key: Optional[str] = None,
+        itinerary: Optional[Itinerary] = None,
+    ) -> Dict[str, Any]:
+        """Store one hand-entered price and return its entry.
+
+        Each entry is a fetch of its own. A scraper's fetch owns every offer it
+        found and replaces them all when asked again; an entry owns one price,
+        so adding a second never disturbs the first, deleting one is deleting
+        its fetch, and the fetch's party, cabin and timestamp say who the price
+        is for and when it was added.
+
+        ``trip_key`` puts the price on a flight that is already stored;
+        ``itinerary`` describes a flight that may not be, and joins one that is
+        when its key matches.
+        """
+        if (trip_key is None) == (itinerary is None):
+            raise ValueError("give either a stored flight or an itinerary")
+        if not price_eur or price_eur <= 0:
+            raise ValueError("the price must be more than zero")
+        fingerprint = query_fingerprint(query)
+        now = datetime.now(timezone.utc).isoformat(timespec="seconds")
+        # Unique per entry, never per search: two prices for one search are two entries.
+        key = f"{MANUAL_SOURCE}:{uuid.uuid4().hex}"
+        with self.conn:
+            if trip_key is not None:
+                row = self.conn.execute(
+                    "SELECT id, trip_key FROM trips WHERE trip_key = ?", (trip_key,)
+                ).fetchone()
+                if row is None:
+                    raise LookupError("that flight is not stored")
+                trip_id = int(row["id"])
+            else:
+                trip_id = self._upsert_trip(itinerary)
+            cursor = self.conn.execute(
+                """
+                INSERT INTO fetches (query_key, origin, destination, depart_date,
+                                     return_date, adults, children, infants, cabin,
+                                     currency, source, status, count, last_fetched)
+                VALUES (?,?,?,?,?,?,?,?,?,?,?, 'success', 1, ?)
+                """,
+                (
+                    key,
+                    fingerprint["origin"],
+                    fingerprint["destination"],
+                    fingerprint["depart"],
+                    fingerprint["ret"],
+                    fingerprint["adults"],
+                    fingerprint["children"],
+                    fingerprint["infants"],
+                    fingerprint["cabin"],
+                    STORED_CURRENCY,
+                    MANUAL_SOURCE,
+                    now,
+                ),
+            )
+            entry = int(cursor.lastrowid)
+            self.conn.execute(
+                "INSERT INTO offers (fetch_id, trip_id, agent, price, deeplink) VALUES (?,?,?,?,?)",
+                (entry, trip_id, agent.strip(), round(price_eur, 2), deeplink.strip()),
+            )
+            stored = self.conn.execute(
+                "SELECT trip_key FROM trips WHERE id = ?", (trip_id,)
+            ).fetchone()
+        return {"entry_id": entry, "trip_key": stored["trip_key"], "added_at": now}
+
+    def update_manual_offer(
+        self, entry_id: int, price_eur: float, agent: str = "", deeplink: str = ""
+    ) -> bool:
+        """Change a hand-entered price, seller or link. The flight stays put."""
+        if not price_eur or price_eur <= 0:
+            raise ValueError("the price must be more than zero")
+        with self.conn:
+            cursor = self.conn.execute(
+                """
+                UPDATE offers SET price = ?, agent = ?, deeplink = ?
+                WHERE fetch_id = (SELECT id FROM fetches WHERE id = ? AND source = ?)
+                """,
+                (round(price_eur, 2), agent.strip(), deeplink.strip(), entry_id, MANUAL_SOURCE),
+            )
+        return cursor.rowcount > 0
+
+    def delete_manual_offer(self, entry_id: int) -> bool:
+        """Remove a hand-entered price, and its flight if nothing else sells it."""
+        with self.conn:
+            trips = [
+                row["trip_id"]
+                for row in self.conn.execute(
+                    "SELECT trip_id FROM offers WHERE fetch_id = ?", (entry_id,)
+                )
+            ]
+            deleted = self.conn.execute(
+                "DELETE FROM fetches WHERE id = ? AND source = ?", (entry_id, MANUAL_SOURCE)
+            ).rowcount
+            for trip_id in trips if deleted else []:
+                self.conn.execute(
+                    "DELETE FROM trips WHERE id = ? AND id NOT IN (SELECT trip_id FROM offers)",
+                    (trip_id,),
+                )
+        return deleted > 0
+
     # -- reading ------------------------------------------------------------
 
     def offers_for_search(self, query: SearchQuery) -> List[Offer]:
@@ -640,7 +755,8 @@ class FlightStore:
 
         rows = self.conn.execute(
             f"""
-            SELECT t.*, o.price, o.deeplink, o.agent, f.source, f.last_fetched
+            SELECT t.*, o.price, o.deeplink, o.agent, f.source, f.last_fetched,
+                   f.id AS fetch_id
             FROM offers o
             JOIN trips t   ON t.id = o.trip_id
             JOIN fetches f ON f.id = o.fetch_id
@@ -651,6 +767,7 @@ class FlightStore:
         )
 
         # One entry per trip, its offers cheapest first (the query is sorted).
+        offer_columns = ("price", "deeplink", "agent", "source", "last_fetched", "fetch_id")
         trips: Dict[int, Dict[str, Any]] = {}
         for row in rows:
             data = self._row(row)
@@ -658,29 +775,118 @@ class FlightStore:
             if trip is None:
                 if limit is not None and len(trips) >= limit:
                     continue
-                trip = {
-                    key: value
-                    for key, value in data.items()
-                    if key not in ("price", "deeplink", "agent", "source", "last_fetched")
-                }
+                trip = {key: value for key, value in data.items() if key not in offer_columns}
                 trip["offers"] = []
-                trip["last_fetched"] = data["last_fetched"]
+                trip["last_fetched"] = None
                 trips[data["id"]] = trip
-            trip["offers"].append(
-                {
-                    "source": data["source"],
-                    "agent": data["agent"] or "",
-                    "price": float(data["price"]),
-                    "deeplink": data["deeplink"] or "",
-                }
-            )
-            if (data["last_fetched"] or "") > (trip["last_fetched"] or ""):
+            offer = {
+                "source": data["source"],
+                "agent": data["agent"] or "",
+                "price": float(data["price"]),
+                "deeplink": data["deeplink"] or "",
+            }
+            if data["source"] == MANUAL_SOURCE:
+                # What editing it needs. Being typed in is not being confirmed
+                # by a seller, so it says nothing about how fresh the flight is.
+                offer.update(entry_id=data["fetch_id"], added_at=data["last_fetched"])
+            elif (data["last_fetched"] or "") > (trip["last_fetched"] or ""):
                 trip["last_fetched"] = data["last_fetched"]
+            trip["offers"].append(offer)
 
         return sorted(
             trips.values(),
             key=lambda t: t["offers"][0]["price"] if t["offers"] else float("inf"),
         )
+
+    def find_trips(
+        self,
+        *,
+        number: str = "",
+        airports: Sequence[str] = (),
+        day: str = "",
+        round_trip: Optional[bool] = None,
+        adults: int = 1,
+        children: int = 0,
+        infants: int = 0,
+        cabin: str = "economy",
+        limit: int = 150,
+    ) -> List[Dict[str, Any]]:
+        """Stored trips from any search that mention a flight, airport or day.
+
+        For suggesting what a person may be typing in, so it is deliberately
+        loose: a text match over each trip's flights, which the caller narrows
+        down. A number matches on its digits, since one flight is sold under
+        several airlines' codes. Trips come back whatever party they were found
+        for; their prices only for the party given, so none is misleading.
+        """
+        haystack = (
+            "(COALESCE(t.depart_segments, '') || ' ' || COALESCE(t.return_segments, '')"
+            " || ' ' || COALESCE(t.flight_numbers, '') || ' ' || t.origin || ' ' || t.destination"
+            " || ' ' || COALESCE(t.departure_time, ''))"
+        )
+        where: List[str] = []
+        params: List[Any] = []
+        typed = "".join(number.split()).upper()
+        # The airline code can hold a digit (U2), so the number is what follows it.
+        digits = (
+            typed if typed.isdigit() else "".join(ch for ch in typed[2:] if ch.isdigit())
+        ).lstrip("0")
+        if typed:
+            # Only flight numbers: the whole number as typed so far, or its
+            # digits after a two- or three-character airline code.
+            numbers = (
+                "(COALESCE(t.depart_segments, '') || COALESCE(t.return_segments, '')"
+                " || ',' || COALESCE(t.flight_numbers, ''))"
+            )
+            patterns = [] if typed.isdigit() else [f'%"flight_number": "{typed}%', f"%,{typed}%"]
+            if digits and (
+                typed.isdigit() or len(digits) >= 3
+            ):  # "FR1" is a prefix, not a codeshare
+                patterns += [f'%"flight_number": "{code}{digits}%' for code in ("__", "___")]
+            where.append("(" + " OR ".join(f"{numbers} LIKE ?" for _ in patterns) + ")")
+            params.extend(patterns)
+        for code in airports:
+            where.append(f"{haystack} LIKE ?")
+            params.append(f'%"{code.upper()}"%')
+        if day:
+            where.append(f"{haystack} LIKE ?")
+            params.append(f"%{day}%")
+        if round_trip is not None:
+            where.append("t.return_date IS NOT NULL" if round_trip else "t.return_date IS NULL")
+        found = self.conn.execute(
+            f"SELECT t.* FROM trips t {'WHERE ' + ' AND '.join(where) if where else ''}"
+            " ORDER BY t.depart_date, t.departure_time LIMIT ?",
+            params + [max(1, min(limit, 500))],
+        ).fetchall()
+        trips = {row["id"]: {**self._row(row), "offers": [], "last_fetched": None} for row in found}
+        if not trips:
+            return []
+        marks = ", ".join("?" * len(trips))
+        offers = self.conn.execute(
+            f"""
+            SELECT o.trip_id, o.price, o.deeplink, o.agent, f.source, f.last_fetched,
+                   f.id AS fetch_id
+            FROM offers o JOIN fetches f ON f.id = o.fetch_id
+            WHERE o.trip_id IN ({marks})
+              AND f.adults = ? AND f.children = ? AND f.infants = ? AND f.cabin = ?
+            ORDER BY o.price
+            """,
+            [*trips, adults, children, infants, cabin],
+        )
+        for data in offers:
+            trip = trips[data["trip_id"]]
+            offer = {
+                "source": data["source"],
+                "agent": data["agent"] or "",
+                "price": float(data["price"]),
+                "deeplink": data["deeplink"] or "",
+            }
+            if data["source"] == MANUAL_SOURCE:
+                offer.update(entry_id=data["fetch_id"], added_at=data["last_fetched"])
+            elif (data["last_fetched"] or "") > (trip["last_fetched"] or ""):
+                trip["last_fetched"] = data["last_fetched"]
+            trip["offers"].append(offer)
+        return list(trips.values())
 
     def cheapest(
         self,

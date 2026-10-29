@@ -1,27 +1,39 @@
 import type { FlightRow } from "./api";
 
 export type Rating = { level: number; description: string };
-type Metric = "price" | "duration" | "layover";
+type Metric = "price" | "duration";
 const labels = ["Excellent", "Good", "Average", "Below average", "Poor"];
-const descriptions = {
-  price: ["Lowest prices", "Lower prices", "Mid-range prices", "Higher prices", "Highest prices"],
-  duration: ["Shortest journeys", "Shorter journeys", "Mid-range duration", "Longer journeys", "Longest journeys"],
-  layover: ["Shortest connections", "Shorter connections", "Mid-range connections", "Longer connections", "Longest connections"],
+/** Upper bounds of levels 1–4 as a multiple of the best value; beyond the last is Poor.
+ * Duration bands are wider: an extra hour matters less on a long journey. */
+const cuts: Record<Metric, number[]> = { price: [1.1, 1.25, 1.5, 2], duration: [1.15, 1.35, 1.6, 2] };
+const wording: Record<Metric, { best: string; above: string }> = {
+  price: { best: "The cheapest", above: "above the cheapest" },
+  duration: { best: "The shortest", above: "longer than the shortest" },
 };
 
-/** Five equal bands across the full list's minimum and maximum; lower is better. */
+/** Each value against the list's best (lowest), as a ratio: "20% above the cheapest"
+ * reads the same for any fare, and one extreme outlier cannot squash every other
+ * value into a single band the way a min–max scale does. */
 export function rateValues(values: (number | null | undefined)[], metric: Metric) {
-  const valid = new Set(values.filter((value): value is number =>
-    typeof value === "number" && Number.isFinite(value) && (value > 0 || (metric === "layover" && value === 0))));
-  let min = Infinity, max = -Infinity;
-  for (const value of valid) { min = Math.min(min, value); max = Math.max(max, value); }
+  const valid = new Set(values.filter((value): value is number => typeof value === "number" && Number.isFinite(value) && value > 0));
+  const best = Math.min(...valid);
   return new Map([...valid].map((value) => {
-    const level = min === max ? 3 : Math.min(5, Math.floor((value - min) / (max - min) * 5) + 1);
-    const description = min === max
-      ? `No ${metric} difference to compare in this list`
-      : `${labels[level - 1]} · ${descriptions[metric][level - 1]} in this list`;
-    return [value, { level, description } satisfies Rating] as const;
+    const ratio = value / best;
+    const level = cuts[metric].findIndex((cut) => ratio <= cut) + 1 || 5;
+    const where = value === best ? wording[metric].best
+      : `${Math.max(1, Math.round((ratio - 1) * 100))}% ${wording[metric].above}`;
+    return [value, { level, description: `${labels[level - 1]} · ${where} in this list` } satisfies Rating] as const;
   }));
+}
+
+/** Connections are judged on their own, not against the list: a shorter wait is
+ * not always better, since under an hour leaves little margin for a late arrival. */
+export function rateConnection(minutes: number): Rating {
+  if (minutes < 60) return { level: 3, description: "Tight · Under 1h, little margin if the first flight is late" };
+  if (minutes <= 180) return { level: 1, description: "Excellent · 1–3h, time to connect without a long wait" };
+  if (minutes <= 360) return { level: 3, description: "Average · 3–6h wait" };
+  if (minutes <= 720) return { level: 4, description: "Below average · 6–12h wait" };
+  return { level: 5, description: "Poor · Over 12h wait" };
 }
 
 /** Use the displayed elapsed duration, which already accounts for airport time zones. */

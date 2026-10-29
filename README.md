@@ -135,9 +135,9 @@ is one shared step instead of six.
 
 | Source | `--sources` name | How the search is expressed |
 |---|---|---|
-| [FlightsFinder (Kayak)](https://ie-kayak.flightsfinder.com) | `ff-kayak` | `POST /i/api/search/dynamic/flights/poll` |
-| [FlightsFinder (Sky)](https://www.flightsfinder.com/portal/sky) | `ff-sky` | `POST /portal/sky/poll` |
-| [FlightsFinder (Kiwi)](https://www.flightsfinder.com/portal/kiwi) | `ff-kiwi` | `POST /portal/kiwi/search` |
+| [Kayak (FlightsFinder)](https://ie-kayak.flightsfinder.com) | `ff-kayak` | `POST /i/api/search/dynamic/flights/poll` |
+| [Sky (FlightsFinder)](https://www.flightsfinder.com/portal/sky) | `ff-sky` | `POST /portal/sky/poll` |
+| [Kiwi (FlightsFinder)](https://www.flightsfinder.com/portal/kiwi) | `ff-kiwi` | `POST /portal/kiwi/search` |
 | [Momondo](https://www.momondo.ie) | `momondo` | same engine as `ff-kayak`, under `/flight-search/` |
 | [Jetradar](https://jetradeu.cheapflightsfinder.com) | `jetradar` | Travelpayouts sign → start → poll |
 

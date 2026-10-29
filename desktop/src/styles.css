@@ -186,8 +186,8 @@ button.primary:hover:not(:disabled) { background: var(--accent-strong); }
 .cal-week, .cal-grid { display: grid; grid-template-columns: repeat(7, 1fr); }
 .cal-week span { padding-bottom: 4px; font-size: 9.5px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); text-align: center; }
 .cal-grid { row-gap: 4px; }
-/* A cell has no border of its own: the range is a band through the cells,
-   and the other range is an underline, each rounded where it starts and ends. */
+/* A cell has no border of its own: the range is a band through the cells, and
+   the other range a fainter amber pill behind it with ringed ends. */
 .cal-day {
   position: relative; display: flex; align-items: center; justify-content: center; height: 32px;
   font-size: 12.5px; font-variant-numeric: tabular-nums; color: var(--ink-soft);
@@ -202,11 +202,11 @@ button.primary:hover:not(:disabled) { background: var(--accent-strong); }
 .cal-day.band-start.band-end::before { display: none; }
 .cal-day.inside.band-start:not(.edge)::before { left: 3px; border-radius: 15px 0 0 15px; }
 .cal-day.inside.band-end:not(.edge)::before { right: 3px; border-radius: 0 15px 15px 0; }
-.cal-day.related::after { content: ""; position: absolute; left: 0; right: 0; bottom: 1px; height: 2px; background: var(--warn); }
-.cal-day.related-start::after { left: 50%; }
-.cal-day.related-end::after { right: 50%; }
-.cal-day.related-start.related-end::after { left: 35%; right: 35%; }
+.cal-day.related::after { content: ""; position: absolute; inset: 3px 0; background: color-mix(in srgb, var(--warn) 13%, transparent); }
+.cal-day.related-start::after { left: 3px; border-top-left-radius: 13px; border-bottom-left-radius: 13px; }
+.cal-day.related-end::after { right: 3px; border-top-right-radius: 13px; border-bottom-right-radius: 13px; }
 .cal-day.related:not(.edge):not(.inside) { color: var(--warn); }
+.cal-day.related-start:not(.edge) > span, .cal-day.related-end:not(.edge) > span { box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--warn) 60%, transparent); }
 .cal-day.today > span { text-decoration: underline; text-underline-offset: 3px; }
 .cal-day.edge { color: var(--bg); font-weight: 700; }
 .cal-day.edge > span { background: var(--accent); }
@@ -216,7 +216,7 @@ button.primary:hover:not(:disabled) { background: var(--accent-strong); }
   margin-top: 8px; padding-top: 8px; border-top: 1px solid var(--line-soft); font-size: 12px;
 }
 .cal-related-legend { display: inline-flex; align-items: center; gap: 6px; color: var(--warn); }
-.cal-related-legend i { width: 14px; height: 2px; border-radius: 1px; background: var(--warn); }
+.cal-related-legend i { width: 16px; height: 10px; border-radius: 5px; background: color-mix(in srgb, var(--warn) 13%, transparent); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--warn) 60%, transparent); }
 .cal-note { margin-left: auto; color: var(--muted); }
 .cal-plain { padding: 4px 12px; border: 1px solid var(--line); border-radius: 4px; font-weight: 600; color: var(--ink-soft); white-space: nowrap; }
 .cal-plain:hover { background: var(--line-soft); color: var(--ink); }
@@ -240,6 +240,13 @@ button.primary:hover:not(:disabled) { background: var(--accent-strong); }
 .filter-dayparts button[aria-pressed="true"], .filter-direction-tabs button[aria-pressed="true"] {
   border-color: var(--accent); background: var(--accent-soft); color: var(--accent);
 }
+.sources-popover { width: 240px; padding: 12px 16px 16px; }
+.sources-list { display: flex; flex-direction: column; }
+.source-option { display: flex; align-items: center; gap: 10px; padding: 6px 0; font-size: 14px; cursor: pointer; }
+.source-option input { width: 16px; height: 16px; margin: 0; accent-color: var(--accent); }
+.source-option:has(input:disabled) { cursor: default; }
+.sources-all { margin-top: 6px; padding: 5px 10px; border: 1px solid var(--line); border-radius: 5px; font-size: 12px; color: var(--ink-soft); }
+.sources-all:hover { background: var(--line-soft); color: var(--ink); }
 .quote-field { display: flex; align-items: center; justify-content: space-between; margin-top: 14px; font-size: 12px; font-weight: 500; color: var(--ink-soft); }
 .quote-field select, .filter-time-bound-label select {
   height: 32px; padding: 0 8px; border: 1px solid var(--line); border-radius: 6px; background: var(--bg); font-size: 13px;
@@ -341,6 +348,22 @@ button.primary:hover:not(:disabled) { background: var(--accent-strong); }
 /* Only the visible rows exist: the container has the height the whole list
    would have, and each row is placed into it. */
 .results { position: relative; overflow-anchor: none; }
+/* Notices pinned over the list, under the results bar and at the bottom of the
+   window. Their wrappers have no height, so showing one never moves a row. */
+.list-notice { position: sticky; z-index: 25; height: 0; display: flex; justify-content: center; pointer-events: none; }
+.list-notice.top { top: 0; }
+.list-notice.bottom { bottom: 0; }
+.list-notice > * {
+  position: absolute; display: inline-flex; align-items: center; gap: 6px; padding: 6px 12px;
+  border: 1px solid var(--accent-edge); border-radius: 999px; background: var(--raised);
+  box-shadow: 0 4px 16px rgb(0 0 0 / .35); font-size: 12px; font-weight: 500; color: var(--accent);
+  white-space: nowrap; pointer-events: auto;
+}
+.list-notice.top > * { top: 10px; }
+.list-notice.bottom > * { bottom: 16px; }
+.list-notice > span { border-color: var(--line); color: var(--muted); }
+.list-notice > button:hover { background: var(--accent-soft); }
+.list-notice svg { width: 14px; height: 14px; }
 .results .flight {
   display: grid; grid-template-columns: 24px max(104px, var(--flight-fare-width, 104px)) minmax(0, 1fr);
   align-items: center; gap: 16px; padding: 14px 20px 14px 12px;
@@ -352,8 +375,8 @@ button.primary:hover:not(:disabled) { background: var(--accent-strong); }
 @media (hover: hover) and (pointer: fine) {
   .results .flight:hover { box-shadow: inset 0 0 0 1px #3c5678; }
 }
-.results .flight.picked { background: var(--raised); }
-.results .flight.picked::before { content: ""; position: absolute; left: 0; top: 0; bottom: 0; width: 3px; background: var(--accent); }
+/* Outline only: a filled background would compete with the row's own colors. */
+.results .flight.picked { box-shadow: inset 0 0 0 1px var(--accent); }
 
 .favorite-cell { display: flex; }
 .favorite-button { display: flex; align-items: center; justify-content: center; width: 24px; height: 24px; border-radius: 4px; color: var(--faint); }
@@ -589,4 +612,160 @@ button.primary:hover:not(:disabled) { background: var(--accent-strong); }
 @media (prefers-reduced-motion: reduce) {
   .spinner, .favorite-button .icon { animation: none !important; }
   *, *::before, *::after { transition: none !important; }
+}
+
+/* -- prices added by hand ------------------------------------------------- */
+
+.source-option-note { margin-left: auto; font-size: 11px; color: var(--muted); }
+
+.detail-manual-actions { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; }
+.detail-manual-actions button {
+  display: inline-flex; align-items: center; gap: 6px; padding: 5px 10px;
+  border: 1px solid var(--line); border-radius: 5px; font-size: 12px; color: var(--ink-soft);
+}
+.detail-manual-actions button:hover { background: var(--line-soft); color: var(--ink); }
+.detail-confirm { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin-top: 6px; font-size: 12px; color: var(--ink-soft); }
+.detail-confirm span { flex-basis: 100%; }
+.detail-confirm button { padding: 4px 10px; border: 1px solid var(--line); border-radius: 4px; font-size: 12px; }
+.detail-confirm button.danger { border-color: var(--bad); color: var(--bad); }
+
+.manual-price-form { display: flex; flex-direction: column; gap: 10px; padding: 12px; background: var(--bg); border: 1px solid var(--line); border-radius: 6px; }
+.manual-price-form label { display: flex; flex-direction: column; gap: 4px; font-size: 12px; color: var(--ink-soft); }
+.manual-price-form input, .manual-price-form select {
+  height: 34px; padding: 0 10px; border: 1px solid var(--line); border-radius: 5px; background: var(--panel); font-size: 14px; color: var(--ink);
+}
+.manual-price-form input:focus { border-color: var(--accent); }
+.manual-price-amount { display: grid; grid-template-columns: minmax(0, 1fr) 96px; gap: 8px; }
+.manual-price-amount input { font-family: var(--mono); }
+.manual-optional { font-weight: 400; color: var(--muted); }
+.manual-party { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; font-size: 12px; color: var(--ink-soft); }
+.manual-party-panel { flex-basis: 100%; padding-top: 4px; }
+.manual-link { padding: 0; font-size: 12px; color: var(--accent); }
+.manual-link:hover { color: var(--accent-strong); text-decoration: underline; }
+.manual-note { margin: 0; font-size: 12px; line-height: 17px; color: var(--muted); text-wrap: pretty; }
+
+.manual-dialog {
+  width: min(1180px, calc(100vw - 32px)); max-height: calc(100vh - 40px); padding: 0; overflow: auto;
+  border: 1px solid var(--line); border-radius: 10px; background: var(--panel); color: var(--ink); box-shadow: var(--shadow);
+}
+.manual-dialog::backdrop { background: #05080dcc; }
+.manual-dialog-body { display: flex; flex-direction: column; gap: 12px; padding: 16px 20px 20px; }
+.manual-dialog-head { display: flex; align-items: center; justify-content: space-between; }
+.manual-dialog-head h2 { margin: 0; font-size: 16px; font-weight: 600; }
+.manual-dialog-actions { justify-content: flex-end; margin-top: 4px; }
+
+/* Builder on the left, suggestions on the right; stacked when narrow. */
+/* The dialog scrolls as a whole, so popovers are never clipped; suggestions stay beside the form. */
+.manual-layout { display: grid; grid-template-columns: minmax(0, 1fr) 380px; align-items: start; gap: 20px; }
+.manual-builder { display: flex; flex-direction: column; gap: 12px; min-width: 0; }
+
+/* The trip's dates, in the same field the search bar uses. */
+.manual-trip-dates { display: flex; align-self: flex-start; border: 1px solid var(--line); border-radius: 8px; background: var(--bg); }
+.manual-trip-dates .search-segment-trigger { border-radius: 7px; }
+.manual-trip-kind { display: inline-flex; margin: 0 0 10px; padding: 3px; gap: 2px; border: 1px solid var(--line); border-radius: 7px; background: var(--bg); }
+.manual-trip-kind button { padding: 4px 12px; border-radius: 5px; font-size: 12px; color: var(--ink-soft); }
+.manual-trip-kind button[aria-pressed="true"] { background: var(--accent-soft); color: var(--accent); }
+
+/* Which way the form adds flights for, each with its day. */
+.manual-direction { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.manual-direction button {
+  display: grid; grid-template-columns: auto 1fr; align-items: baseline; gap: 2px 8px; padding: 8px 12px; text-align: left;
+  border: 1px solid var(--line); border-radius: 7px; background: var(--bg); color: var(--ink-soft);
+}
+.manual-direction button b { font-size: 13px; color: var(--ink); }
+.manual-direction button span { font-size: 12px; }
+.manual-direction .manual-direction-count { grid-column: 1 / -1; font-size: 11px; color: var(--muted); }
+.manual-direction button[aria-selected="true"] { border-color: var(--accent); background: var(--accent-soft); }
+.manual-direction button[aria-selected="true"] b { color: var(--accent); }
+.manual-direction button:hover:not(:disabled):not([aria-selected="true"]) { background: var(--line-soft); }
+.manual-direction button:disabled { opacity: .55; cursor: not-allowed; }
+.manual-tabs { display: inline-flex; padding: 3px; gap: 2px; border: 1px solid var(--line); border-radius: 7px; background: var(--bg); }
+.manual-tabs button { display: inline-flex; align-items: center; gap: 6px; padding: 5px 12px; border-radius: 5px; font-size: 13px; color: var(--ink-soft); }
+.manual-tabs button span { font: 11px var(--mono); color: var(--muted); }
+.manual-tabs button[aria-selected="true"] { background: var(--accent-soft); color: var(--accent); }
+.manual-tabs button:hover:not([aria-selected="true"]) { background: var(--line-soft); color: var(--ink); }
+
+.manual-caption { margin: 4px 0 0; font-size: 11px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); }
+.manual-leg-form {
+  display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 10px 8px; padding: 12px;
+  border: 1px solid var(--line-soft); border-radius: 8px; background: var(--bg);
+}
+.manual-number, .manual-airport, .manual-time, .manual-duration { grid-column: span 2; }
+/* From and To are the search bar's place pickers, framed like the other fields. */
+.manual-airport .search-segment { width: 100%; }
+.manual-airport .search-segment-trigger {
+  width: 100%; min-height: 50px; border: 1px solid var(--line); border-radius: 5px; background: var(--panel);
+}
+.manual-airport .search-segment-trigger[aria-expanded="true"] { border-color: var(--accent); }
+.manual-leg-form-actions { grid-column: 1 / -1; display: flex; flex-wrap: wrap; align-items: center; justify-content: flex-end; gap: 8px; }
+.manual-leg-form-actions p { flex: 1; margin: 0; }
+.manual-leg-form-actions button { display: inline-flex; align-items: center; gap: 6px; padding: 6px 12px; border: 1px solid var(--line); border-radius: 5px; font-size: 13px; }
+.manual-leg-form-actions button.primary { border-color: var(--accent); }
+
+.manual-field { position: relative; display: flex; flex-direction: column; gap: 4px; min-width: 0; font-size: 12px; color: var(--ink-soft); }
+.manual-field input, .manual-field select {
+  width: 100%; height: 34px; padding: 0 10px; border: 1px solid var(--line); border-radius: 5px; background: var(--panel); font-size: 14px; color: var(--ink);
+}
+.manual-field input:focus, .manual-field select:focus { border-color: var(--accent); }
+.manual-number input { font-family: var(--mono); text-transform: uppercase; }
+.manual-number input::placeholder { text-transform: none; font-family: inherit; }
+.manual-field-options {
+  position: absolute; top: calc(100% + 4px); left: 0; z-index: 5; min-width: 100%; width: max-content; max-width: 320px;
+  margin: 0; padding: 4px; list-style: none; border: 1px solid var(--line); border-radius: 7px; background: var(--raised); box-shadow: var(--shadow);
+}
+.manual-field-options li { display: flex; flex-direction: column; padding: 6px 8px; border-radius: 5px; cursor: pointer; }
+.manual-field-options li b { font: 500 13px var(--mono); color: var(--ink); }
+.manual-field-options li span { font-size: 11px; color: var(--muted); }
+.manual-field-options li[aria-selected="true"] { background: var(--accent-soft); }
+.manual-field-options .manual-field-hint { cursor: default; font-size: 12px; color: var(--muted); }
+
+.manual-added { display: flex; flex-direction: column; gap: 4px; margin: 0; padding: 0; list-style: none; }
+.manual-added li { display: flex; flex-direction: column; gap: 4px; }
+.manual-added-row {
+  display: flex; align-items: center; gap: 10px; padding: 6px 6px 6px 12px;
+  border: 1px solid var(--line-soft); border-radius: 6px; font-size: 13px;
+}
+.manual-added li[data-editing] .manual-added-row { border-color: var(--accent-edge); background: var(--accent-soft); }
+.manual-added-row b { font: 600 13px var(--mono); }
+.manual-added-row span { flex: 1; min-width: 0; }
+.manual-added-wait { padding-left: 12px; font-size: 11px; color: var(--muted); }
+
+.manual-preview { padding: 12px; border: 1px solid var(--line-soft); border-radius: 8px; }
+.manual-preview-empty { margin: 0; padding: 14px; border: 1px dashed var(--line); border-radius: 8px; font-size: 12px; color: var(--muted); text-align: center; }
+
+.manual-suggestions {
+  position: sticky; top: 0; display: flex; flex-direction: column; max-height: calc(100vh - 130px);
+  border-left: 1px solid var(--line-soft); padding-left: 20px;
+}
+.manual-suggestions-head { display: flex; flex-direction: column; gap: 8px; padding-bottom: 10px; }
+.manual-suggestions-head h3 { margin: 0; font-size: 13px; font-weight: 600; }
+.manual-suggestions-body { display: flex; flex-direction: column; gap: 6px; min-height: 0; overflow: auto; padding-right: 4px; }
+.manual-empty { margin: 8px 0; font-size: 13px; color: var(--muted); }
+.manual-choice, .manual-leg-choice {
+  display: flex; align-items: center; gap: 12px; width: 100%; padding: 8px 12px; text-align: left;
+  border: 1px solid var(--line-soft); border-radius: 6px; background: var(--bg);
+}
+.manual-choice:hover, .manual-leg-choice:hover { border-color: var(--accent-edge); background: var(--raised); }
+.manual-choice-legs { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 4px; }
+.manual-leg { display: grid; grid-template-columns: 34px minmax(0, 1fr); column-gap: 8px; font-size: 12px; }
+.manual-leg-label { grid-row: span 2; font-size: 11px; color: var(--muted); padding-top: 1px; }
+.manual-leg-meta { display: block; font-size: 11px; color: var(--muted); }
+.manual-choice-price { display: flex; flex-direction: column; align-items: flex-end; font: 600 14px var(--mono); }
+.manual-choice-price span { font-family: inherit; font-size: 11px; font-weight: 400; color: var(--accent); }
+.manual-leg-choice > span:first-child { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.manual-segment { font-size: 13px; }
+.manual-segment b { font-family: var(--mono); }
+.manual-leg-count { display: inline-flex; align-items: center; gap: 2px; font-size: 11px; color: var(--accent); white-space: nowrap; }
+.manual-opened-leg { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 8px 12px; border: 1px solid var(--accent-edge); border-radius: 6px; }
+.manual-switch { display: inline-flex; align-items: center; gap: 4px; align-self: flex-start; font-size: 13px; color: var(--accent); }
+.manual-switch:hover { color: var(--accent-strong); }
+
+@media (max-width: 900px) {
+  .manual-layout { grid-template-columns: minmax(0, 1fr); }
+  .manual-suggestions-body { overflow: visible; }
+  .manual-suggestions { position: static; max-height: none; border-left: 0; padding-left: 0; border-top: 1px solid var(--line-soft); padding-top: 12px; }
+}
+@media (max-width: 560px) {
+  .manual-leg-form { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .manual-leg-form .manual-field { grid-column: span 1; }
 }

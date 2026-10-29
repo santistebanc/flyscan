@@ -13,7 +13,9 @@ export type SourceName =
   | "ff-sky"
   | "ff-kiwi"
   | "momondo"
-  | "jetradar";
+  | "jetradar"
+  /** Prices a person typed in. Shown like any source, never asked. */
+  | "manual";
 
 export type Cabin = "economy" | "premiumeconomy" | "business" | "first";
 
@@ -138,6 +140,9 @@ export interface Offer {
   deeplink: string;
   manual_price?: boolean;
   original_price_base?: number | null;
+  /** Set on prices typed in by hand: what editing or deleting one needs. */
+  entry_id?: number;
+  added_at?: string;
 }
 
 export interface Segment {
@@ -189,6 +194,38 @@ export interface FlightRow {
   /** Gap between the cheapest and dearest quote for the same seat, in EUR. */
   spread: number | null;
   offers: Offer[];
+}
+
+/** A hand-entered price. Always EUR, like everything stored. */
+export interface ManualPrice { price: number; agent?: string; deeplink?: string }
+
+/** One flight typed in, in local airport time. */
+export interface ManualSegment {
+  flight_number: string;
+  carrier_name?: string;
+  origin: string;
+  destination: string;
+  departure: string;
+  arrival: string;
+  duration_minutes: number | null;
+}
+
+/**
+ * A hand-entered price and the search it belongs to: on a stored flight
+ * (`trip_key` and its dates) or on typed flights.
+ */
+export interface ManualOfferRequest extends ManualPrice {
+  origin: string;
+  destination: string;
+  adults: number;
+  children: number;
+  infants: number;
+  cabin: Cabin;
+  trip_key?: string;
+  depart?: string;
+  ret?: string | null;
+  outbound?: ManualSegment[];
+  inbound?: ManualSegment[];
 }
 
 export type SearchStatus = "queued" | "running" | "done" | "failed" | "cancelled";
@@ -421,8 +458,40 @@ export class FlightScraperApi {
 
   sources() {
     return this.json<
-      { name: SourceName; label: string; currency: string | null }[]
+      { name: SourceName; label: string; currency: string | null; fetchable?: boolean }[]
     >("/sources");
+  }
+
+  /** Store a price found by hand, on a stored flight or on one typed in. */
+  addManualOffer(entry: ManualOfferRequest) {
+    return this.json<{ entry_id: number; trip_key: string; added_at: string }>("/manual-offers", {
+      method: "POST", body: JSON.stringify(entry),
+    });
+  }
+
+  /**
+   * Stored trips from every search that mention a flight number, airports or
+   * a day. Loose by design and capped; prices are only for the party given.
+   */
+  findTrips(filters: { number?: string; airports?: string[]; day?: string; roundTrip?: boolean;
+    adults: number; children: number; infants: number; cabin: Cabin }, signal?: AbortSignal) {
+    const query = new URLSearchParams({
+      adults: String(filters.adults), children: String(filters.children),
+      infants: String(filters.infants), cabin: filters.cabin,
+    });
+    if (filters.number) query.set("number", filters.number);
+    for (const code of filters.airports ?? []) query.append("airport", code);
+    if (filters.day) query.set("day", filters.day);
+    if (filters.roundTrip !== undefined) query.set("round", filters.roundTrip ? "1" : "0");
+    return this.json<{ results: FlightRow[] }>(`/trips?${query}`, { signal });
+  }
+
+  updateManualOffer(id: number, change: ManualPrice) {
+    return this.json<{ entry_id: number }>(`/manual-offers/${id}`, { method: "PATCH", body: JSON.stringify(change) });
+  }
+
+  deleteManualOffer(id: number) {
+    return this.json<{ entry_id: number }>(`/manual-offers/${id}`, { method: "DELETE" });
   }
 
   places(term: string) {

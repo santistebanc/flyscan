@@ -546,7 +546,7 @@ class FlightsFinderSky(_FlightsFinderPortal):
     """FlightsFinder's Skyscanner-fed portal."""
 
     name = "ff-sky"
-    label = "FlightsFinder (Sky)"
+    label = "Sky (FlightsFinder)"
     portal = "sky"
 
     CABINS = {
@@ -574,7 +574,7 @@ class FlightsFinderKiwi(_FlightsFinderPortal):
     """FlightsFinder's Kiwi-fed portal, which reaches the low-cost carriers."""
 
     name = "ff-kiwi"
-    label = "FlightsFinder (Kiwi)"
+    label = "Kiwi (FlightsFinder)"
     portal = "kiwi"
 
     CABINS = {"economy": "M", "premiumeconomy": "W", "business": "C", "first": "F"}
