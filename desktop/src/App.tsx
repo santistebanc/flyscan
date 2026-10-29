@@ -38,8 +38,7 @@ import { DEFAULT_SORT, SORT_LABELS, sortFlightRows, type SortKey } from "./fligh
 import { useFavorites } from "./useFavorites";
 import { FavoriteButton } from "./FavoriteButton";
 import { FlightTimeline } from "./TimelineFlight";
-import { AirlineColors } from "./airlineColors";
-import { airlineColors, elapsed, flightTimelines, normalizeTimelineMode, TIMELINE_MODE_KEY, type FlightTimelines, type TimelineMode } from "./flightTimeline";
+import { elapsed, flightTimelines, normalizeTimelineMode, TIMELINE_MODE_KEY, type FlightTimelines, type TimelineMode } from "./flightTimeline";
 import { FILTERS_KEY, FlightFiltersBar } from "./FilterBar";
 import { DEFAULT_FILTERS, FILTERS_VERSION, matchesFlight, sanitizeFilters, type ListFilters } from "./flightFilters";
 import { connectionFilterOptions, filterRanges } from "./filterSuggestions";
@@ -58,6 +57,7 @@ import { AirportNamesProvider } from "./AirportLabel";
 import { useOfferPrices } from "./useOfferPrices";
 import { connectionRatings } from "./connectionRatings";
 import { useFareColumnWidth } from "./useFareColumnWidth";
+import { PriceMark, priceMarks } from "./PriceMark";
 
 /** Default to a couple of weeks out: today's flights are mostly gone. */
 function defaultDate(): string {
@@ -179,7 +179,7 @@ function Results(
   const list = useRef<HTMLDivElement | null>(null);
   const fareContent = useMemo(() => rows.map((row) => {
     const returnDate = returnDateOf(row);
-    return { price: money(row.best?.price_base),
+    return { price: money(row.best?.price_base), marks: priceMarks(row, money).length,
       dates: readableDay(row.depart_date) + (returnDate ? ` – ${readableDay(returnDate)}` : "") };
   }), [rows, money]);
   useFareColumnWidth(list, fareContent);
@@ -304,6 +304,7 @@ function Results(
         const isOpen = row.trip_key === openKey;
         const rating = ratings.get(row.trip_key);
         const returnDate = returnDateOf(row);
+        const marks = priceMarks(row, money);
         return (
           <div
             key={item.key}
@@ -324,12 +325,14 @@ function Results(
               <FavoriteButton row={row} favorite={favorites.has(row.trip_key)} onToggle={onToggleFavorite} />
             </span>
             <span className="fare-cell" role="gridcell">
-              <span className="price" data-rating={rating?.price?.level} title={rating?.price?.description}>{money(row.best?.price_base)}</span>
+              <span className="fare-price">
+                <span className="price" data-rating={rating?.price?.level} title={rating?.price?.description}>{money(row.best?.price_base)}</span>
+                {marks.map((mark) => <PriceMark key={mark.kind} {...mark} />)}
+              </span>
               <span className="fare-dates">
                 <time dateTime={row.depart_date} title={`Departure: ${row.depart_date}`}>{readableDay(row.depart_date)}</time>
                 {returnDate && <> – <time dateTime={returnDate} title={`Return: ${returnDate}`}>{readableDay(returnDate)}</time></>}
               </span>
-              {row.best?.manual_price && <span className="fare-corrected">Corrected price</span>}
             </span>
             <span className="trip" role="gridcell">
               <FlightTimeline label="Outbound" leg={row.outbound} scale={timelines.outbound} timing={timelines.journeys.get(row.outbound)}
@@ -498,8 +501,6 @@ function Shell() {
   // and favorites reuse them; suggestions still cover all loaded results.
   const ratings = useMemo(() => flightRatings(filtered), [filtered]);
   const allTimelines = useMemo(() => flightTimelines(priceRows), [priceRows]);
-  // From every fare in the search, so filtering never repaints an airline.
-  const carrierColors = useMemo(() => airlineColors(correctedRows), [correctedRows]);
   const timelines = useMemo(() => flightTimelines(filtered, allTimelines.journeys), [filtered, allTimelines]);
   const layoverRatings = useMemo(() => connectionRatings(timelines), [timelines]);
   const suggestions = useMemo(() => filterRanges(priceRows, allTimelines.journeys), [priceRows, allTimelines]);
@@ -843,7 +844,7 @@ function Shell() {
   const activeSearches = splitQueueGroups(queue.groups, queue.busy?.groupIds).active.length;
 
   return (
-    <AirportNamesProvider api={api}><AirlineColors.Provider value={carrierColors}><div className="app">
+    <AirportNamesProvider api={api}><div className="app">
       <header className="topbar" ref={header}>
         <div className="search-bar" role="search" aria-label="Flight search">
           <PlaceInput label="From" value={origin} onChange={setOrigin} api={api}
@@ -980,7 +981,7 @@ function Shell() {
         rows={correctedRows} carriers={carriers} party={manualParty} api={api}
         search={{ origin: origin.trim(), destination: destination.trim() }}
         onReplace={replaceManualFlight} />
-    </div></AirlineColors.Provider></AirportNamesProvider>
+    </div></AirportNamesProvider>
   );
 }
 

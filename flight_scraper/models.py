@@ -14,7 +14,7 @@ from __future__ import annotations
 import hashlib
 import re
 from dataclasses import asdict, dataclass, field
-from datetime import date, datetime, timedelta
+from datetime import date, datetime, timedelta, timezone
 from typing import Any, Dict, List, Optional, Tuple
 
 CABIN_CLASSES = ("economy", "premiumeconomy", "business", "first")
@@ -260,6 +260,11 @@ class Offer:
     deeplink: str = ""
     source_id: str = ""  # the source's own id, kept for debugging
     price_eur: Optional[float] = None
+    # When the source quoted this price: a fresh offer is stamped as it is made,
+    # a stored one carries the time it was scraped.
+    seen_at: str = field(
+        default_factory=lambda: datetime.now(timezone.utc).isoformat(timespec="seconds")
+    )
 
     @property
     def trip_key(self) -> str:

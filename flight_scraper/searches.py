@@ -30,6 +30,7 @@ def _offer_row(offer: Offer) -> Dict[str, Any]:
         "currency": offer.currency,
         "price_base": offer.price_eur,
         "deeplink": offer.deeplink,
+        "seen_at": offer.seen_at,
     }
 
 

@@ -1,17 +1,18 @@
 ﻿/** The selected journey: booking up front, then each leg in the list's carrier colors. */
-import { useContext, useState, type CSSProperties } from "react";
+import { useState, type CSSProperties } from "react";
 import type { FlightRow, Leg, Offer, Segment } from "./api";
 import type { Rating } from "./flightRatings";
 import { openExternal } from "./platform";
 import { useCurrency } from "./currency";
 import { Icon } from "./Icon";
 import { FavoriteButton } from "./FavoriteButton";
-import { AirlineColors } from "./airlineColors";
 import { airlineColor, clock, dayOffset, elapsed, isOvernight, journeyTiming, partsOf, partLabel, timingNote } from "./flightTimeline";
 import { AirportLabel } from "./AirportLabel";
 import { OfferPriceEditor, type CorrectOfferPrice } from "./OfferPriceEditor";
 import { formatCurrencyAmount } from "./currencyOptions";
-import { MANUAL_LABEL, addedAgo, isManual, onlyManual } from "./manualEntry";
+import { MANUAL_LABEL, isManual, onlyManual } from "./manualEntry";
+import { fullTime, timeAgo } from "./relativeTime";
+import { PriceMark, priceMarks } from "./PriceMark";
 import { ManualPriceForm, type ManualParty, type ManualPriceValues } from "./ManualPriceForm";
 
 /** What the panel needs to add, change and remove prices typed in by hand. */
@@ -43,9 +44,8 @@ function FlightSegment({ segment, summary = false }: { segment: Segment; summary
     : [segment.carrier_name || segment.carrier || "Airline unavailable", segment.flight_number].filter(Boolean).join(" ")
       + (segment.duration ? ` · ${segment.duration}` : "");
   const arrives = later(segment.departure, segment.arrival);
-  const colors = useContext(AirlineColors);
   return <div className={`detail-flight${summary ? " summary" : ""}`}
-    style={{ "--airline": airlineColor(segment.carrier, colors) } as CSSProperties}>
+    style={{ "--airline": airlineColor(segment.carrier) } as CSSProperties}>
     <span className="detail-times">
       <time dateTime={segment.departure} title={`${dateLabel(segment.departure, true)} · Local airport time`}>{clock(segment.departure)}</time>
       <time dateTime={segment.arrival} title={`${dateLabel(segment.arrival, true)} · Local airport time`}>{clock(segment.arrival)}</time>
@@ -108,10 +108,15 @@ function Booking({ trip, offer, cheapest, onCorrectPrice, onOpen, manual }: {
   const typed = isManual(offer);
   const entry = typed && manual && offer.entry_id != null ? offer.entry_id : null;
   const seller = offer.agent || (typed ? MANUAL_LABEL : offer.source);
-  const meta = typed ? [offer.agent ? MANUAL_LABEL : "", addedAgo(offer.added_at) && `added ${addedAgo(offer.added_at)}`]
-    .filter(Boolean).join(" · ")
-    : [offer.agent && offer.agent !== offer.source ? `via ${offer.source}` : "",
-      !offer.manual_price && native ? `quoted ${native}` : ""].filter(Boolean).join(" · ");
+  const stale = offer.stale_price_base;
+  const changed = typed && Date.parse(offer.seen_at ?? "") - Date.parse(offer.added_at ?? "") > 60_000;
+  const via = !typed && offer.agent && offer.agent !== offer.source ? offer.source : "";
+  // Each phrase stays whole: a narrow panel breaks the line between them, and
+  // the separating dot is drawn by CSS so one starting a line can be hidden.
+  const meta = (typed ? [offer.agent ? MANUAL_LABEL : null, when("added", offer.added_at), changed ? when("changed", offer.seen_at) : null]
+    : [!offer.manual_price && native ? `quoted ${native}` : null,
+      offer.manual_price ? when("corrected", offer.corrected_at) : when("seen", offer.seen_at)])
+    .filter(Boolean).map((part, index) => <span key={index} className="detail-meta-part">{part}</span>);
   if (entry !== null && editing) {
     return <div className="detail-booking">
       <ManualPriceForm initial={{ eur: offer.price_base, agent: offer.agent, deeplink: offer.deeplink }}
@@ -123,23 +128,31 @@ function Booking({ trip, offer, cheapest, onCorrectPrice, onOpen, manual }: {
   return <div className="detail-booking">
     <div className="detail-booking-row">
       <span className="detail-seller">
-        <span>{seller}</span>
-        {meta && <span className="detail-booking-meta">{meta}</span>}
+        <span>{seller}{via && <span className="detail-booking-via"> via {via}</span>}</span>
+        {meta.length > 0 && <span className="detail-booking-meta"><span className="detail-meta-parts">{meta}</span></span>}
         {error && <span className="detail-booking-error" role="alert">{error}</span>}
       </span>
-      {original && <s className="detail-booking-original" title="Original source quote"><span className="sr-only">Original source quote: </span>{original}</s>}
-      <span className="detail-booking-price" data-cheapest={cheapest || undefined}>{money(offer.price_base)}</span>
-      {entry !== null ? <button type="button" className="detail-icon-button" aria-label={`Edit the price you added for ${seller}`}
-        title="Edit this price" onClick={() => setEditing(true)}><Icon name="edit" /></button>
-        : onCorrectPrice && !typed && <button type="button" className="detail-icon-button" aria-label={`Correct price for ${seller}`}
-        title={`Correct price for ${seller}`} aria-expanded={editing} onClick={() => setEditing((value) => !value)}><Icon name="price" /></button>}
-      {entry !== null && <button type="button" className="detail-icon-button" aria-label={`Delete the price you added for ${seller}`}
-        title="Delete this price" aria-expanded={confirming} onClick={() => setConfirming((value) => !value)}><Icon name="trash" /></button>}
-      {offer.deeplink ? <button type="button" className="detail-icon-button"
-        aria-label={`Open booking with ${seller}`} title={`Open booking with ${seller}`}
-        onClick={() => onOpen(offer).catch((e: Error) => setError(e.message))}>
-        <Icon name="external" />
-      </button> : <span className="detail-icon-button unavailable" title="Booking link unavailable"><Icon name="input" /></span>}
+      <span className="detail-booking-end">
+        {original && <s className="detail-booking-original" title={`Source quote${offer.seen_at ? `, seen ${timeAgo(offer.seen_at)}` : ""}`}><span className="sr-only">Original source quote: </span>{original}</s>}
+        {stale !== undefined && <s className="detail-booking-stale"
+          title={`Your correction${offer.corrected_at ? ` from ${timeAgo(offer.corrected_at)}` : ""}. The source quoted again after it.`}>
+          <span className="sr-only">Your earlier correction: </span>{money(stale)}</s>}
+        <span className="detail-booking-price" data-cheapest={cheapest || undefined}>{money(offer.price_base)}</span>
+        {offer.manual_price && <PriceMark kind="corrected" note={`Your corrected price. The source quoted ${original}.`} />}
+        {stale !== undefined && <PriceMark kind="requoted"
+          note={`The source quoted this after you corrected it to ${money(stale)}. Use the price button to reapply it.`} />}
+        {entry !== null ? <button type="button" className="detail-icon-button" aria-label={`Edit the price you added for ${seller}`}
+          title="Edit this price" onClick={() => setEditing(true)}><Icon name="edit" /></button>
+          : onCorrectPrice && !typed && <button type="button" className="detail-icon-button" aria-label={`Correct price for ${seller}`}
+          title={stale !== undefined ? `Reapply or replace your correction for ${seller}` : `Correct price for ${seller}`} aria-expanded={editing} onClick={() => setEditing((value) => !value)}><Icon name="price" /></button>}
+        {entry !== null && <button type="button" className="detail-icon-button" aria-label={`Delete the price you added for ${seller}`}
+          title="Delete this price" aria-expanded={confirming} onClick={() => setConfirming((value) => !value)}><Icon name="trash" /></button>}
+        {offer.deeplink ? <button type="button" className="detail-icon-button"
+          aria-label={`Open booking with ${seller}`} title={`Open booking with ${seller}`}
+          onClick={() => onOpen(offer).catch((e: Error) => setError(e.message))}>
+          <Icon name="external" />
+        </button> : <span className="detail-icon-button unavailable" title="Booking link unavailable"><Icon name="input" /></span>}
+      </span>
     </div>
     {editing && onCorrectPrice && !typed && <OfferPriceEditor trip={trip} offer={offer} onSave={onCorrectPrice} onClose={() => setEditing(false)} />}
     {confirming && entry !== null && <div className="detail-confirm" role="group" aria-label="Delete this price">
@@ -151,6 +164,12 @@ function Booking({ trip, offer, cheapest, onCorrectPrice, onOpen, manual }: {
       <button type="button" onClick={() => setConfirming(false)}>Keep</button>
     </div>}
   </div>;
+}
+
+/** "seen 3 hours ago", with the exact time on hover. */
+function when(label: string, iso: string | undefined) {
+  const ago = timeAgo(iso);
+  return ago ? <time key={label} dateTime={iso} title={fullTime(iso)}>{label} {ago}</time> : null;
 }
 
 /** "Add a price" under the sellers, and the form it opens. */
@@ -196,17 +215,25 @@ export function Details({ row, partyLabel, favorite, onToggleFavorite, rating, l
   return <section className="detail" aria-label="Selected journey">
     <div className="detail-summary">
       <div className="detail-summary-line">
-        <span>{[dates, partyLabel].filter(Boolean).join(" · ")}</span>
+        <div className="detail-summary-trip">
+          <span className="detail-route">{from} → {to}</span>
+          <span>{[dates, partyLabel].filter(Boolean).join(" · ")}</span>
+        </div>
         <FavoriteButton row={row} favorite={favorite} onToggle={onToggleFavorite} />
       </div>
       <div className="detail-fare">
-        <h2 className="detail-price" data-rating={rating?.price?.level} title={rating?.price?.description}>{money(row.best?.price_base) || "Price unavailable"}</h2>
-        <span className="detail-route">{from} → {to}</span>
-      </div>
-      {best && <button type="button" className="detail-book" onClick={() => {
+        <span className="detail-price-line">
+          <h2 className="detail-price" data-rating={rating?.price?.level} title={rating?.price?.description}>{money(row.best?.price_base) || "Price unavailable"}</h2>
+          {priceMarks(row, money).map((mark) => <PriceMark key={mark.kind} {...mark} />)}
+        </span>
+        {best && <button type="button" className="detail-book" onClick={() => {
         setBookError("");
         open(best).catch((e: Error) => setBookError(e.message));
-      }}>Book on {sellerName(best)}<Icon name="external" /></button>}
+        }}>
+          <span className="detail-book-title">Book<Icon name="external" /></span>
+          <span className="detail-book-source">{sellerName(best)}{!isManual(best) && best.agent && best.agent !== best.source ? ` via ${best.source}` : ""}</span>
+        </button>}
+      </div>
       {bookError && <p className="detail-booking-error" role="alert">{bookError}</p>}
       <h3 className="detail-bookings-title">Booking options<span>{row.offers.length}</span></h3>
       {offers.map((offer, index) => <Booking key={`${row.trip_key}-${offer.source}-${offer.agent}-${offer.entry_id ?? ""}`} trip={row.trip_key}

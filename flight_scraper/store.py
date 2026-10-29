@@ -123,7 +123,14 @@ CREATE INDEX IF NOT EXISTS idx_offers_price ON offers (price);
 #: many it has taken (``PRAGMA user_version``) and takes the rest when opened,
 #: each in its own transaction. Append only: never edit, reorder or remove one
 #: that has been released, because a database somewhere has already run it.
-MIGRATIONS: List[str] = []
+MIGRATIONS: List[str] = [
+    # 1: when each price was quoted. Offers older than this take their fetch's
+    # last attempt, the closest record there is.
+    """
+    ALTER TABLE offers ADD COLUMN seen_at TEXT;
+    UPDATE offers SET seen_at = (SELECT last_fetched FROM fetches WHERE fetches.id = offers.fetch_id);
+    """,
+]
 
 #: Prices a person entered by hand. A source in the database's eyes, so its
 #: offers are read, filtered and compared like any other, but never planned or
@@ -433,17 +440,24 @@ class FlightStore:
                     if price < seen[mark]:
                         seen[mark] = price
                         self.conn.execute(
-                            "UPDATE offers SET price = ?, deeplink = ?"
+                            "UPDATE offers SET price = ?, deeplink = ?, seen_at = ?"
                             " WHERE fetch_id = ? AND trip_id = ? AND agent = ?",
-                            (price, offer.deeplink, fetch_id, trip_id, offer.agent),
+                            (
+                                price,
+                                offer.deeplink,
+                                offer.seen_at or now,
+                                fetch_id,
+                                trip_id,
+                                offer.agent,
+                            ),
                         )
                     continue
 
                 seen[mark] = price
                 self.conn.execute(
-                    "INSERT INTO offers (fetch_id, trip_id, agent, price, deeplink)"
-                    " VALUES (?,?,?,?,?)",
-                    (fetch_id, trip_id, offer.agent, price, offer.deeplink),
+                    "INSERT INTO offers (fetch_id, trip_id, agent, price, deeplink, seen_at)"
+                    " VALUES (?,?,?,?,?,?)",
+                    (fetch_id, trip_id, offer.agent, price, offer.deeplink, offer.seen_at or now),
                 )
                 written += 1
 
@@ -629,8 +643,9 @@ class FlightStore:
             )
             entry = int(cursor.lastrowid)
             self.conn.execute(
-                "INSERT INTO offers (fetch_id, trip_id, agent, price, deeplink) VALUES (?,?,?,?,?)",
-                (entry, trip_id, agent.strip(), round(price_eur, 2), deeplink.strip()),
+                "INSERT INTO offers (fetch_id, trip_id, agent, price, deeplink, seen_at)"
+                " VALUES (?,?,?,?,?,?)",
+                (entry, trip_id, agent.strip(), round(price_eur, 2), deeplink.strip(), now),
             )
             stored = self.conn.execute(
                 "SELECT trip_key FROM trips WHERE id = ?", (trip_id,)
@@ -643,13 +658,21 @@ class FlightStore:
         """Change a hand-entered price, seller or link. The flight stays put."""
         if not price_eur or price_eur <= 0:
             raise ValueError("the price must be more than zero")
+        now = datetime.now(timezone.utc).isoformat(timespec="seconds")
         with self.conn:
             cursor = self.conn.execute(
                 """
-                UPDATE offers SET price = ?, agent = ?, deeplink = ?
+                UPDATE offers SET price = ?, agent = ?, deeplink = ?, seen_at = ?
                 WHERE fetch_id = (SELECT id FROM fetches WHERE id = ? AND source = ?)
                 """,
-                (round(price_eur, 2), agent.strip(), deeplink.strip(), entry_id, MANUAL_SOURCE),
+                (
+                    round(price_eur, 2),
+                    agent.strip(),
+                    deeplink.strip(),
+                    now,
+                    entry_id,
+                    MANUAL_SOURCE,
+                ),
             )
         return cursor.rowcount > 0
 
@@ -682,7 +705,7 @@ class FlightStore:
         """
         rows = self.conn.execute(
             """
-            SELECT t.*, o.price, o.deeplink, o.agent, f.source
+            SELECT t.*, o.price, o.deeplink, o.agent, o.seen_at, f.source
             FROM offers o
             JOIN trips t   ON t.id = o.trip_id
             JOIN fetches f ON f.id = o.fetch_id
@@ -720,6 +743,7 @@ class FlightStore:
                     agent=data["agent"] or "",
                     deeplink=data["deeplink"] or "",
                     price_eur=float(data["price"]),
+                    seen_at=data["seen_at"] or "",
                 )
             )
         return offers
@@ -779,7 +803,7 @@ class FlightStore:
 
         rows = self.conn.execute(
             f"""
-            SELECT t.*, o.price, o.deeplink, o.agent, f.source, f.last_fetched,
+            SELECT t.*, o.price, o.deeplink, o.agent, o.seen_at, f.source, f.last_fetched,
                    f.id AS fetch_id
             FROM offers o
             JOIN trips t   ON t.id = o.trip_id
@@ -791,7 +815,15 @@ class FlightStore:
         )
 
         # One entry per trip, its offers cheapest first (the query is sorted).
-        offer_columns = ("price", "deeplink", "agent", "source", "last_fetched", "fetch_id")
+        offer_columns = (
+            "price",
+            "deeplink",
+            "agent",
+            "seen_at",
+            "source",
+            "last_fetched",
+            "fetch_id",
+        )
         trips: Dict[int, Dict[str, Any]] = {}
         for row in rows:
             data = self._row(row)
@@ -808,6 +840,7 @@ class FlightStore:
                 "agent": data["agent"] or "",
                 "price": float(data["price"]),
                 "deeplink": data["deeplink"] or "",
+                "seen_at": data["seen_at"],
             }
             if data["source"] == MANUAL_SOURCE:
                 # What editing it needs. Being typed in is not being confirmed
@@ -888,7 +921,7 @@ class FlightStore:
         marks = ", ".join("?" * len(trips))
         offers = self.conn.execute(
             f"""
-            SELECT o.trip_id, o.price, o.deeplink, o.agent, f.source, f.last_fetched,
+            SELECT o.trip_id, o.price, o.deeplink, o.agent, o.seen_at, f.source, f.last_fetched,
                    f.id AS fetch_id
             FROM offers o JOIN fetches f ON f.id = o.fetch_id
             WHERE o.trip_id IN ({marks})
@@ -904,6 +937,7 @@ class FlightStore:
                 "agent": data["agent"] or "",
                 "price": float(data["price"]),
                 "deeplink": data["deeplink"] or "",
+                "seen_at": data["seen_at"],
             }
             if data["source"] == MANUAL_SOURCE:
                 offer.update(entry_id=data["fetch_id"], added_at=data["last_fetched"])

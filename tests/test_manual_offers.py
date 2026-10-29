@@ -33,6 +33,7 @@ LEG = Leg(
     flight_numbers="FR146",
     segments=[SEGMENT],
 )
+SCRAPED = "2026-10-01T08:00:00+00:00"
 SEARCH = {"origin": "BER", "destination": "LON", "start": "2026-12-21"}
 TYPED = {
     "flight_number": "fr 146",
@@ -49,7 +50,9 @@ class ManualOffers(unittest.TestCase):
         self.directory = tempfile.TemporaryDirectory()
         self.db = str(Path(self.directory.name) / "flights.db")
         store = FlightStore(self.db)
-        offer = Offer(Itinerary(QUERY, LEG), "momondo", 80, "EUR", agent="Kiwi", price_eur=80)
+        offer = Offer(
+            Itinerary(QUERY, LEG), "momondo", 80, "EUR", agent="Kiwi", price_eur=80, seen_at=SCRAPED
+        )
         with mock.patch("flight_scraper.store.fx.get_rates"):
             store.complete_fetch(store.begin_fetch(QUERY, "momondo"), [offer])
         self.trip_key = offer.trip_key
@@ -152,6 +155,24 @@ class ManualOffers(unittest.TestCase):
             ).status_code,
             404,
         )
+
+    def test_every_price_says_when_it_was_quoted(self):
+        (row,) = self.flights()
+        self.assertEqual(
+            row["best"]["seen_at"], SCRAPED, "a scrape keeps the time the source quoted it"
+        )
+        entry = self.add(
+            trip_key=self.trip_key, origin="BER", destination="LON", depart="2026-12-21", price=90
+        ).json["entry_id"]
+        typed = next(o for o in self.flights()[0]["offers"] if o["source"] == MANUAL_SOURCE)
+        self.assertGreater(typed["seen_at"], SCRAPED)
+        store = FlightStore(self.db)
+        with store.conn:
+            store.conn.execute("UPDATE offers SET seen_at = ? WHERE fetch_id = ?", (SCRAPED, entry))
+        store.close()
+        self.client.patch(f"/v1/manual-offers/{entry}", json={"db": self.db, "price": 70})
+        typed = next(o for o in self.flights()[0]["offers"] if o["source"] == MANUAL_SOURCE)
+        self.assertGreater(typed["seen_at"], SCRAPED, "a changed price is a new quote")
 
     def test_deleting_the_only_price_on_a_typed_flight_removes_the_flight(self):
         other = {**TYPED, "departure": "2026-12-21T07:00", "arrival": "2026-12-21T08:05"}

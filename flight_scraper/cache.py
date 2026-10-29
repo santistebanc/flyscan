@@ -36,6 +36,7 @@ def _offer_to_dict(offer: Offer) -> Dict[str, Any]:
         "agent": offer.agent,
         "deeplink": offer.deeplink,
         "source_id": offer.source_id,
+        "seen_at": offer.seen_at,
         "outbound": itinerary.outbound.to_dict(),
         "inbound": itinerary.inbound.to_dict() if itinerary.inbound else None,
     }
@@ -57,4 +58,5 @@ def _offer_from_dict(data: Dict[str, Any], source: str, query: SearchQuery) -> O
         agent=data.get("agent") or "",
         deeplink=data.get("deeplink") or "",
         source_id=data.get("source_id") or "",
+        **({"seen_at": data["seen_at"]} if data.get("seen_at") else {}),
     )

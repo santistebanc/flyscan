@@ -11,28 +11,14 @@ export function elapsed(minutes: number | null) {
   const h = Math.floor(minutes / 60), m = minutes % 60;
   return h ? `${h}h${m ? ` ${m}m` : ""}` : `${m}m`;
 }
-// Most appealing first, since airlineColors hands these out in order to the most
-// frequent carriers; neighbours contrast so the top airlines never look alike.
 const palette = ["#83baff", "#f28b82", "#72d3ba", "#ab9cff", "#e8b378", "#ec9bbd", "#a5d672", "#d892e8", "#d3d17e"];
 /** Carrier identity colors, independent of price/duration quality colors.
- * `colors` comes from airlineColors; a carrier it doesn't cover falls back to a hash. */
-export function airlineColor(code: string, colors?: ReadonlyMap<string, string>) {
+ * A hash of the code, so an airline has the same color in every search. */
+export function airlineColor(code: string) {
   if (!code) return "#98a9c0";
-  const assigned = colors?.get(code);
-  if (assigned) return assigned;
   let hash = 0;
   for (const c of code) hash = (hash * 31 + c.charCodeAt(0)) >>> 0;
   return palette[hash % palette.length]!;
-}
-/** A distinct color for each carrier in these results, the most frequent first.
- * Hashing alone puts unrelated airlines on the same color; once the palette runs
- * out, the rarest carriers share colors through the hash. */
-export function airlineColors(rows: FlightRow[]): Map<string, string> {
-  const counts = new Map<string, number>();
-  for (const row of rows) for (const leg of [row.outbound, row.inbound]) for (const segment of leg?.segments ?? [])
-    if (segment.carrier) counts.set(segment.carrier, (counts.get(segment.carrier) ?? 0) + 1);
-  const ranked = [...counts].sort(([a, x], [b, y]) => y - x || a.localeCompare(b));
-  return new Map(ranked.slice(0, palette.length).map(([code], i) => [code, palette[i]!]));
 }
 
 const isoPattern = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})(?::\d{2}(?:\.\d+)?)?(Z|[+-]\d{2}:?\d{2})?$/i;
@@ -258,6 +244,30 @@ export function localMidnights(timing: JourneyTiming, scale?: Pick<TimelineScale
   });
   return scale ? marks.filter(({ at }) => at > scale.min && at <= scale.max) : marks;
 }
+export interface HourMark { at: number; hour: number }
+/** Pixels six hours need before all three marks show: below it they crowd the strip. */
+const QUARTER_DAY_ROOM = 100;
+/** Pixels twelve hours need for noon alone. */
+const HALF_DAY_ROOM = 60;
+/** Room the label needs after its tick: closer to the end it would spill out of the timeline. */
+const HOUR_LABEL_ROOM = 34;
+/**
+ * 06:00, 12:00 and 18:00 on the same local clocks as `localMidnights`. All three
+ * when six hours of timeline are roomy, only noon when twelve hours are, else none.
+ */
+export function localHourMarks(timing: JourneyTiming, scale: Pick<TimelineScale, "min" | "max">, pxPerMinute: number): HourMark[] {
+  const hours = pxPerMinute * 360 >= QUARTER_DAY_ROOM ? [6, 12, 18] : pxPerMinute * 720 >= HALF_DAY_ROOM ? [12] : [];
+  if (!hours.length) return [];
+  return localClockSpans(timing, scale).flatMap(({ from, to, start, end }) => {
+    const found: HourMark[] = [];
+    if (to <= from) return found;
+    for (let clock = Math.floor(from / 360) * 360 + 360; clock <= to; clock += 360) {
+      const hour = (clock % DAY) / 60;
+      if (hours.includes(hour)) found.push({ at: start + (clock - from) / (to - from) * (end - start), hour });
+    }
+    return found;
+  }).filter(({ at }) => at > scale.min && (scale.max - at) * pxPerMinute >= HOUR_LABEL_ROOM);
+}
 /** A wait whose local clock passes 00:00, by the rule `localMidnights` draws. */
 export function isOvernight(part: TimelinePart): boolean {
   if (part.kind !== "layover") return false;
@@ -277,10 +287,27 @@ export function scaleClock(minute: number) {
   const h = Math.floor(within / 60), m = Math.round(within % 60);
   return `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}${day ? ` ${day > 0 ? "+" : ""}${day}` : ""}`;
 }
+/** "Mon, Dec 21": the airport's own calendar day, whatever the viewer's timezone. */
+export function wallDay(iso: string) {
+  const stamp = wallStamp(iso);
+  return stamp === null ? "" : new Date(stamp * 60000)
+    .toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric", timeZone: "UTC" });
+}
+const later = (from: string, to: string) => { const days = dayOffset(from, to); return days > 0 ? ` (+${days})` : ""; };
+/** A timeline bar's tooltip: what it is, then when, one fact per line. */
 export function partLabel(part: TimelinePart) {
   if (part.kind === "flight") {
     const s = part.segment;
-    return `${part.detailed ? "Flight" : "Journey"} ${s.origin} to ${s.destination}, ${s.carrier_name || s.carrier || "Airline unavailable"}${s.flight_number ? ` ${s.flight_number}` : ""}, ${s.duration || "duration unavailable"}${part.detailed ? "" : ", segment times unavailable"}`;
+    const day = wallDay(s.departure);
+    return [
+      `${part.detailed ? "Flight" : "Journey"} ${s.origin} to ${s.destination}, ${s.carrier_name || s.carrier || "Airline unavailable"}${s.flight_number ? ` ${s.flight_number}` : ""}`,
+      day && `Departs ${day}, ${clock(s.departure)} · arrives ${clock(s.arrival)}${later(s.departure, s.arrival)}`,
+      `${s.duration || "Duration unavailable"}${part.detailed ? "" : ", segment times unavailable"}`,
+    ].filter(Boolean).join("\n");
   }
-  return `${part.transfer ? `Airport transfer ${part.before.destination} to ${part.after.origin}` : `Layover in ${part.before.destination}`}, ${elapsed(part.minutes)}`;
+  const { before, after } = part;
+  return [
+    `${part.transfer ? `Airport transfer ${before.destination} to ${after.origin}` : `Layover in ${before.destination}`}, ${elapsed(part.minutes)}`,
+    wallDay(before.arrival) && `Arrives ${clock(before.arrival)} · departs ${clock(after.departure)}${later(before.arrival, after.departure)}`,
+  ].filter(Boolean).join("\n");
 }

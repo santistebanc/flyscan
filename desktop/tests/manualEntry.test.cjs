@@ -10,7 +10,7 @@ const mod = { exports: {} };
 vm.runInNewContext(bundle, { module: mod, exports: mod.exports });
 const {
   emptyDraft, parseDuration, parseFlightLine, arrivalStamp, clockMinutes, segmentPayload,
-  legDrafts, addedAgo, carrierNames, onlyManual,
+  legDrafts, carrierNames, onlyManual,
   itinerarySuggestions, legSuggestions, fieldOptions, draftLeg, nextDraft, segmentDraft, datedLegs, arrivalOffset,
 } = mod.exports;
 
@@ -136,12 +136,7 @@ test("a stored leg turns back into drafts that describe it exactly", () => {
   assert.equal(legDrafts(null).length, 0);
 });
 
-test("entries say when they were added, and whether a flight is only yours", () => {
-  const now = Date.parse("2026-12-10T12:00:00Z");
-  assert.equal(addedAgo("2026-12-10T08:00:00+00:00", now), "today");
-  assert.equal(addedAgo("2026-12-09T08:00:00+00:00", now), "yesterday");
-  assert.equal(addedAgo("2026-12-01T08:00:00+00:00", now), "9 days ago");
-  assert.equal(addedAgo(undefined, now), "");
+test("a flight is only yours when nobody else sells it", () => {
   assert.equal(onlyManual({ offers: [{ source: "manual" }] }), true);
   assert.equal(onlyManual({ offers: [{ source: "manual" }, { source: "momondo" }] }), false);
 });
