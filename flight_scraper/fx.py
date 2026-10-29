@@ -185,13 +185,3 @@ SYMBOLS = {
     "AUD": "A$",
     "JPY": "¥",
 }
-
-
-def format_money(amount: Optional[float], currency: str) -> str:
-    if amount is None:
-        return ""
-    symbol = SYMBOLS.get((currency or "").upper(), "")
-    body = f"{amount:,.0f}" if amount >= 100 else f"{amount:,.2f}"
-    if symbol and len(symbol) == 1:
-        return f"{symbol}{body}"
-    return f"{body} {symbol or currency}".strip()

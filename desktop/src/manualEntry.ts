@@ -113,18 +113,6 @@ export function draftProblem(draft: FlightDraft, label: string): string | null {
   return null;
 }
 
-export function legProblem(drafts: FlightDraft[], label: string): string | null {
-  for (const [index, draft] of drafts.entries()) {
-    const problem = draftProblem(draft, drafts.length > 1 ? `${label} flight ${index + 1}` : label);
-    if (problem) return problem;
-    const before = drafts[index - 1];
-    if (before && departureStamp(draft) < arrivalStamp(before)) {
-      return `${label} flight ${index + 1} leaves before flight ${index} lands.`;
-    }
-  }
-  return null;
-}
-
 export function segmentPayload(draft: FlightDraft, carrierNames: ReadonlyMap<string, string> = new Map()) {
   const number = draft.flight_number.replace(/\s+/g, "").toUpperCase();
   return {
@@ -240,40 +228,11 @@ function fits(segment: Segment, draft: FlightDraft, skip?: DraftField): boolean 
   return true;
 }
 
-const complete = (draft: FlightDraft) => Boolean(draft.origin.trim() && draft.destination.trim() && departureStamp(draft) && arrivalStamp(draft));
 const segmentsOf = (leg: Leg | null | undefined) => leg?.segments ?? [];
 /** The flights already added for a direction are the start of this leg. */
 const startsWith = (leg: Leg | null | undefined, drafts: FlightDraft[]) =>
   drafts.length <= segmentsOf(leg).length && drafts.every((draft, index) => fits(segmentsOf(leg)[index]!, draft));
 const cheapest = (a: FlightRow, b: FlightRow) => (a.best?.price_base ?? Infinity) - (b.best?.price_base ?? Infinity);
-
-/** How a leg compares with the drafts for it: no match, a possible one, or the same flights. */
-function legMatch(leg: Leg | null, drafts: FlightDraft[]): "none" | "partial" | "exact" {
-  // A one-way is not a round trip with the way back left out.
-  if (!drafts.length) return leg ? "none" : "exact";
-  if (!leg) return "none";
-  if (!drafts.some(typed)) return "partial";
-  const segments = leg.segments ?? [];
-  if (drafts.length > segments.length) return "none";
-  if (!drafts.every((draft, index) => !typed(draft) || fits(segments[index]!, draft))) return "none";
-  return drafts.length === segments.length && drafts.every(complete) ? "exact" : "partial";
-}
-
-export interface FlightMatch { row: FlightRow; exact: boolean }
-
-/** Stored flights the drafts could be describing, exact matches first, then cheapest. */
-export function matchFlights(rows: readonly FlightRow[], outbound: FlightDraft[], inbound: FlightDraft[], limit = 4): FlightMatch[] {
-  if (![...outbound, ...inbound].some(typed)) return [];
-  const found: FlightMatch[] = [];
-  for (const row of rows) {
-    const out = legMatch(row.outbound, outbound);
-    if (out === "none") continue;
-    const back = legMatch(row.inbound, inbound);
-    if (back === "none") continue;
-    found.push({ row, exact: out === "exact" && back === "exact" });
-  }
-  return found.sort((a, b) => Number(b.exact) - Number(a.exact) || cheapest(a.row, b.row)).slice(0, limit);
-}
 
 /** What is being built: the flights added so far each way, and the one in the form. */
 export interface Building {

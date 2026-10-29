@@ -1006,14 +1006,6 @@ class FlightStore:
         self.conn.execute("VACUUM")
         return {"fetches": fetches, "trips": trips}
 
-    def sweep_orphans(self) -> int:
-        """Delete trips no offer points at any more."""
-        with self.conn:
-            cursor = self.conn.execute(
-                "DELETE FROM trips WHERE id NOT IN (SELECT trip_id FROM offers)"
-            )
-        return cursor.rowcount
-
     def stats(self) -> Dict[str, int]:
         return {
             table: self.conn.execute(f"SELECT COUNT(*) FROM {table}").fetchone()[0]

@@ -307,10 +307,6 @@ class JobRegistry:
             jobs = sorted(self._jobs.values(), key=lambda j: j.created_at, reverse=True)
         return jobs[:limit]
 
-    def reap(self) -> int:
-        with self._lock:
-            return self._reap_locked()
-
     def _reap_locked(self) -> int:
         cutoff = datetime.now(timezone.utc) - self.ttl
         stale = [

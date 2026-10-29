@@ -200,12 +200,6 @@ class Aggregator:
     def __exit__(self, *exc):
         self.close()
 
-    # -- one date ----------------------------------------------------------
-
-    def search_day(self, query: SearchQuery) -> DayResult:
-        """Convenience wrapper: one date, every source, in parallel."""
-        return next(iter(self.search_range(query, query.depart)))
-
     # -- a range of dates --------------------------------------------------
 
     def search_range(self, query: SearchQuery, end: date) -> Iterator[DayResult]:

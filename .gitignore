@@ -7,8 +7,6 @@ out/
 *.db-shm
 .places_cache.json
 .fx_cache.json
-debug_dumps/
-.source_cache.db
 .challenges/
 packaging/build/
 packaging/dist/
@@ -18,7 +16,6 @@ packaging/.venv-*/
 release/
 desktop/node_modules/
 desktop/dist/
-desktop/prototypes/
 desktop/src-tauri/target/
 desktop/src-tauri/gen/
 desktop/src-tauri/binaries/

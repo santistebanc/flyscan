@@ -15,7 +15,7 @@ import json
 import re
 from dataclasses import asdict, dataclass
 from pathlib import Path
-from typing import List, Optional
+from typing import List
 
 from curl_cffi import requests
 
@@ -150,10 +150,3 @@ def resolve(query: str, prefer: str = "city", use_cache: bool = True) -> Place:
         cache[key] = asdict(chosen)
         _save_cache(cache)
     return chosen
-
-
-def resolve_optional(query: str, **kwargs) -> Optional[Place]:
-    try:
-        return resolve(query, **kwargs)
-    except PlaceLookupError:
-        return None

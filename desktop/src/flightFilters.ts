@@ -56,10 +56,6 @@ export const DEFAULT_FILTERS: ListFilters = {
   ...OPEN_FILTERS, maxLayoverMinutes: 12 * 60, excludeRepeatedAirports: true,
 };
 
-export function isFullDay(window: TimeWindow): boolean {
-  return window.from <= 0 && window.to >= 1440;
-}
-
 export function filtersActive(filters: ListFilters): boolean {
   return filters.maxPriceEur !== null
     || filters.maxDurationMinutes !== null

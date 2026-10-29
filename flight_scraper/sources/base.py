@@ -23,14 +23,6 @@ from ..challenge import STORE as CHALLENGE_STORE
 from ..models import Offer, SearchQuery
 from ..task_queue import PermanentError, RateLimited, RetryableError, current_context
 
-# Cabin names differ per source; this is the vocabulary they map from.
-CABIN_ALIASES = {
-    "economy": "economy",
-    "premiumeconomy": "premiumeconomy",
-    "business": "business",
-    "first": "first",
-}
-
 
 class SourceError(PermanentError):
     """A source could not answer. Never fatal: the others still run."""

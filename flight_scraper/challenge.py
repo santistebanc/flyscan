@@ -410,12 +410,6 @@ def probe_challenge(source_name: str) -> Tuple[Optional[str], str]:
     return None, "clear"
 
 
-def fresh_challenge_url(source_name: str) -> Optional[str]:
-    """A current check URL, or None if there is nothing to clear."""
-    url, _ = probe_challenge(source_name)
-    return url
-
-
 def solve(
     source: str,
     url: str,

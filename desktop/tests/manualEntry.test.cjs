@@ -9,8 +9,8 @@ const bundle = buildSync({ entryPoints: [path.join(__dirname, "../src/manualEntr
 const mod = { exports: {} };
 vm.runInNewContext(bundle, { module: mod, exports: mod.exports });
 const {
-  emptyDraft, parseDuration, parseFlightLine, arrivalStamp, clockMinutes, legProblem, segmentPayload,
-  matchFlights, legDrafts, addedAgo, carrierNames, onlyManual,
+  emptyDraft, parseDuration, parseFlightLine, arrivalStamp, clockMinutes, segmentPayload,
+  legDrafts, addedAgo, carrierNames, onlyManual,
   itinerarySuggestions, legSuggestions, fieldOptions, draftLeg, nextDraft, segmentDraft, datedLegs, arrivalOffset,
 } = mod.exports;
 
@@ -61,17 +61,6 @@ test("landing before the clock says you left means the next day, unless told oth
   assert.equal(arrivalStamp({ ...overnight, arrivesAfter: 0 }), "2026-12-21T01:20");
 });
 
-test("a leg names the first thing still missing, and connections must not overlap", () => {
-  assert.match(legProblem([draft({ origin: "BER" })], "Outbound"), /three-letter code it lands at/);
-  const first = draft({ origin: "BER", destination: "DUB", departs: "07:00", arrives: "08:30" });
-  assert.equal(legProblem([first], "Outbound"), null);
-  const tooEarly = draft({ origin: "DUB", destination: "LHR", departs: "08:00", arrives: "09:20" });
-  assert.match(legProblem([first, tooEarly], "Outbound"), /flight 2 leaves before flight 1 lands/);
-  const reversed = draft({ origin: "BER", destination: "STN", departs: "10:00", arrives: "09:00", arrivesAfter: 0 });
-  assert.match(legProblem([reversed], "Outbound"), /Enter the flight time/);
-  assert.equal(legProblem([{ ...reversed, duration: "1h 45m" }], "Outbound"), null);
-});
-
 test("what is sent uses the flight time when given and the clock when not, with known airline names", () => {
   const typed = draft({ flight_number: "fr 146", origin: "ber", destination: "stn", departs: "16:40", arrives: "17:45" });
   const sent = segmentPayload(typed, carrierNames(rows));
@@ -81,32 +70,6 @@ test("what is sent uses the flight time when given and the clock when not, with 
   assert.equal(sent.departure, "2026-12-21T16:40");
   assert.equal(sent.duration_minutes, 65);
   assert.equal(segmentPayload({ ...typed, duration: "2h 05m" }).duration_minutes, 125);
-});
-
-test("nothing is suggested from a date alone, and an exact fit comes first", () => {
-  assert.equal(matchFlights(rows, [draft({})], []).length, 0);
-  const byNumber = plain(matchFlights(rows, [draft({ flight_number: "FR146" })], []));
-  assert.deepEqual(byNumber.map((m) => [m.row.trip_key, m.exact]), [["morning", false], ["via", false]]);
-  const full = draft({ flight_number: "FR146", origin: "BER", destination: "STN", departs: "07:00", arrives: "08:05" });
-  assert.deepEqual(plain(matchFlights(rows, [full], []).map((m) => [m.row.trip_key, m.exact])), [["morning", true]]);
-});
-
-test("codeshare numbers match on their digits, and connections match flight by flight", () => {
-  const codeshare = draft({ flight_number: "U2148" });
-  assert.deepEqual(plain(matchFlights(rows, [codeshare], []).map((m) => m.row.trip_key)), ["evening"]);
-  const out = draft({ origin: "BER", destination: "DUB", departs: "07:00", arrives: "08:30" });
-  const on = draft({ origin: "DUB", destination: "LHR", departs: "09:30", arrives: "10:50" });
-  assert.deepEqual(plain(matchFlights(rows, [out, on], []).map((m) => [m.row.trip_key, m.exact])), [["via", true]]);
-  // One flight of a two-flight trip is only a possible match.
-  assert.deepEqual(plain(matchFlights(rows, [out], []).map((m) => [m.row.trip_key, m.exact])), [["via", false]]);
-});
-
-test("a one-way draft never matches a round trip, nor the reverse", () => {
-  const back = leg(segment("FR147", "STN", "BER", "2026-12-28T09:00", "2026-12-28T11:55"));
-  const roundTrip = row("round", morning.outbound, 150, back);
-  const out = draft({ flight_number: "FR146" });
-  assert.deepEqual(plain(matchFlights([roundTrip, morning], [out], []).map((m) => m.row.trip_key)), ["morning"]);
-  assert.deepEqual(plain(matchFlights([roundTrip, morning], [out], [draft({ date: "2026-12-28" })]).map((m) => m.row.trip_key)), ["round"]);
 });
 
 const building = (fields = {}, extra = {}) => ({
@@ -167,7 +130,8 @@ test("the flights so far become a leg the timeline can draw", () => {
 test("a stored leg turns back into drafts that describe it exactly", () => {
   const drafts = legDrafts(via.outbound);
   assert.equal(drafts.length, 2);
-  assert.deepEqual(plain(matchFlights(rows, drafts, []).map((m) => [m.row.trip_key, m.exact])), [["via", true]]);
+  assert.deepEqual(plain(drafts.map((d) => [d.flight_number, d.origin, d.destination, d.departs, d.arrives])),
+    [["FR146", "BER", "DUB", "07:00", "08:30"], ["EI152", "DUB", "LHR", "09:30", "10:50"]]);
   assert.equal(drafts[0].duration, "1h 05m");
   assert.equal(legDrafts(null).length, 0);
 });

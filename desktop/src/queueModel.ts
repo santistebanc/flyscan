@@ -130,13 +130,6 @@ export function sourceLabel(source: string): string {
     momondo: "Momondo", jetradar: "Jetradar" } as Record<string, string>)[source] ?? source;
 }
 
-export function statusLabel(status: QueueJob["status"]): string {
-  return ({ waiting: "Queued", running: "Searching", retrying: "Trying again",
-    rate_limited: "Waiting to retry", waiting_input: "Needs your help", completed: "Done",
-    cached: "Up to date", failed: "Couldn’t finish", timed_out: "Took too long", cancelled: "Cancelled",
-    cancelling: "Cancelling", stopping: "Stopping" })[status];
-}
-
 export function queueSummary(jobs: QueueJob[]): string {
   const running = jobs.filter((j) => j.queue_state === "running").length;
   const waiting = jobs.filter((j) => ["queued", "retry_wait"].includes(j.queue_state)).length;
