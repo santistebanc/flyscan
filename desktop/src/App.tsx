@@ -1046,12 +1046,14 @@ function Shell() {
 
   return (
     <AirportNamesProvider api={api}><div className="app">
-      <BuildIdentity api={api} />
       <header className="topbar" ref={header}>
         {/* Full, then the initials, then gone, as the header narrows (flyscan.css). */}
         <a className="brand" href="./" aria-label="flyscan">
-          <span className="brand-full" aria-hidden="true">fly<b>scan</b></span>
-          <span className="brand-short" aria-hidden="true">f<b>s</b></span>
+          <span className="brand-stack">
+            <span className="brand-full" aria-hidden="true">fly<b>scan</b></span>
+            <span className="brand-short" aria-hidden="true">f<b>s</b></span>
+            <BuildIdentity api={api} />
+          </span>
         </a>
         <div className="search-bar" role="search" aria-label="Flight search">
           <PlaceInput label="From" value={origin} onChange={setOrigin} api={api}
