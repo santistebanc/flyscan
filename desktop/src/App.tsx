@@ -39,7 +39,7 @@ import { SortOptions } from "./SortOptions";
 import { useFavorites } from "./useFavorites";
 import { FavoriteButton } from "./FavoriteButton";
 import { FlightTimeline } from "./TimelineFlight";
-import { elapsed, flightTimelines, normalizeTimelineMode, TIMELINE_MODE_KEY, type FlightTimelines, type TimelineMode } from "./flightTimeline";
+import { elapsed, flightTimelines, type FlightTimelines } from "./flightTimeline";
 import { FILTERS_KEY, FlightFiltersBar } from "./FilterBar";
 import { DEFAULT_FILTERS, FILTERS_VERSION, matchesFlight, sanitizeFilters, withoutLimit, type ListFilters } from "./flightFilters";
 import { connectionFilterOptions, filterRanges } from "./filterSuggestions";
@@ -59,8 +59,9 @@ import { useOfferPrices } from "./useOfferPrices";
 import { connectionRatings } from "./connectionRatings";
 import { useFareColumnWidth } from "./useFareColumnWidth";
 import { PriceMark, priceMarks } from "./PriceMark";
+import { PairViewPicker } from "./PairViewPicker";
 import {
-  PAIR_VIEW_KEY, PAIR_VIEW_LABELS, directionDate, firstDirection, nextPairView, normalizePairView, otherDirection,
+  PAIR_VIEW_KEY, directionDate, firstDirection, normalizePairView, otherDirection,
   pairsOf, pickGroups, pickedGroup, type Direction, type PairView, type PickGroup,
 } from "./pairPicking";
 
@@ -205,7 +206,7 @@ function pairCount(group: PickGroup): string {
  * live in the side panel, which is what keeps a row scannable.
  */
 function Results(
-  { rows, dataset, view, loading, empty, openKey, onOpen, favorites, onToggleFavorite, ratings, timelines, timelineMode, layoverRatings, filters, step }:
+  { rows, dataset, view, loading, empty, openKey, onOpen, favorites, onToggleFavorite, ratings, timelines, layoverRatings, filters, step }:
   {
     /** The sort and filters; a change returns the list to its top. */
     rows: FlightRow[]; dataset: FlightRow[]; view: string; loading: string | null; empty: EmptyState; openKey: string | null;
@@ -213,7 +214,6 @@ function Results(
     favorites: ReadonlySet<string>; onToggleFavorite: (key: string) => void;
     ratings: ReturnType<typeof flightRatings>;
     timelines: FlightTimelines;
-    timelineMode: TimelineMode;
     layoverRatings: ReturnType<typeof connectionRatings>;
     /** For shading the time the departure and arrival filters leave out. */
     filters: ListFilters;
@@ -347,11 +347,11 @@ function Results(
     const rating = ratings.get(row.trip_key);
     if (direction === "outbound") {
       return <FlightTimeline label="Outbound" leg={row.outbound} scale={timelines.outbound} timing={timelines.journeys.get(row.outbound)}
-        mode={timelineMode} rating={rating?.outbound} layoverRatings={layoverRatings.outbound} times={filters.outbound} />;
+        mode="days" rating={rating?.outbound} layoverRatings={layoverRatings.outbound} times={filters.outbound} />;
     }
     if (row.inbound) {
       return <FlightTimeline label="Return" leg={row.inbound} scale={timelines.inbound} timing={timelines.journeys.get(row.inbound)}
-        mode={timelineMode} rating={rating?.inbound} layoverRatings={layoverRatings.inbound} times={filters.inbound} />;
+        mode="days" rating={rating?.inbound} layoverRatings={layoverRatings.inbound} times={filters.inbound} />;
     }
     // The seller priced the round trip without saying which flight comes
     // back. Saying so beats a row that reads as a cheaper one-way — and the
@@ -532,14 +532,6 @@ function Shell() {
   }, [toast]);
   const { favorites, toggleFavorite } = useFavorites();
   const [sort, setSort] = useState<SortKey>(DEFAULT_SORT);
-  const [timelineMode, setTimelineMode] = useState<TimelineMode>(() => {
-    try { return normalizeTimelineMode(localStorage.getItem(TIMELINE_MODE_KEY)); }
-    catch { return "days"; }
-  });
-  useEffect(() => {
-    try { localStorage.setItem(TIMELINE_MODE_KEY, timelineMode); }
-    catch { /* The view still works when preference storage is unavailable. */ }
-  }, [timelineMode]);
   /** All pairs, or picking one direction first; only round-trip searches offer the choice. */
   const [pairView, setPairView] = useState<PairView>(() => {
     try { return normalizePairView(localStorage.getItem(PAIR_VIEW_KEY)); }
@@ -1072,16 +1064,7 @@ function Shell() {
             <FlightFiltersBar filters={filters} onChange={setFilters} shown={filtered.length} total={priceRows.length}
               roundTrip={Boolean(ret)} suggestions={suggestions} connectionOptions={connectionOptions} />
             <div className="results-view-controls">
-              {ret && <button type="button" className="view-control" aria-label={`View: ${PAIR_VIEW_LABELS[pairView]}`}
-                title="All pairs: every round trip. Outbound or Return first: pick one direction, then a flight it was sold with."
-                onClick={() => setPairView(nextPairView)}>
-                View <b>{PAIR_VIEW_LABELS[pairView]}</b>
-              </button>}
-              <button type="button" className="view-control" aria-label={`Timeline scale: ${timelineMode === "days" ? "per trip" : "shared"}`}
-                title="Per trip: each row spans whole days from 05:00. Shared: all rows align on one scale per direction."
-                onClick={() => setTimelineMode((mode) => mode === "days" ? "shared" : "days")}>
-                Scale <b>{timelineMode === "days" ? "Per trip" : "Shared"}</b>
-              </button>
+              {ret && <PairViewPicker view={pairView} onChange={setPairView} />}
               <CurrencyInput />
             </div>
           </div>
@@ -1102,7 +1085,6 @@ function Shell() {
           onToggleFavorite={toggleFavorite}
           ratings={ratings}
           timelines={timelines}
-          timelineMode={timelineMode}
           layoverRatings={layoverRatings}
           filters={filters}
           step={step}

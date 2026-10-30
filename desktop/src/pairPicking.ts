@@ -18,16 +18,12 @@ export const PAIR_VIEW_KEY = "flight-scraper:pair-view";
 export const PAIR_VIEW_LABELS: Record<PairView, string> = {
   pairs: "All pairs", "outbound-first": "Outbound first", "return-first": "Return first",
 };
-const ORDER: readonly PairView[] = ["pairs", "outbound-first", "return-first"];
+/** In the order the View menu lists them. */
+export const PAIR_VIEWS: readonly PairView[] = ["pairs", "outbound-first", "return-first"];
 
 /** A stored value back to a view, anything unknown to All pairs. */
 export function normalizePairView(value: unknown): PairView {
-  return ORDER.includes(value as PairView) ? value as PairView : "pairs";
-}
-
-/** The view after this one, wrapping from Return first back to All pairs. */
-export function nextPairView(view: PairView): PairView {
-  return ORDER[(ORDER.indexOf(view) + 1) % ORDER.length]!;
+  return PAIR_VIEWS.includes(value as PairView) ? value as PairView : "pairs";
 }
 
 /** The direction picked first in a stepped view; All pairs has none. */

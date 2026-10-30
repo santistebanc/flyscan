@@ -843,3 +843,7 @@ button.primary:hover:not(:disabled) { background: var(--accent-strong); }
   .manual-leg-form { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .manual-leg-form .manual-field { grid-column: span 1; }
 }
+.pair-view-picker { position: relative; }
+.pair-view-picker > button { white-space: nowrap; color: var(--muted); font-size: 12px; }
+.pair-view-picker > button b { font-weight: 500; color: var(--ink); }
+.pair-view-picker > button:hover { color: var(--ink-soft); }

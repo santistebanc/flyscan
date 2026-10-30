@@ -8,7 +8,7 @@ const code = buildSync({ entryPoints: [path.join(__dirname, "../src/pairPicking.
 const mod = { exports: {} };
 vm.runInNewContext(code, { module: mod, exports: mod.exports });
 const plain = (value) => JSON.parse(JSON.stringify(value));
-const { pickGroups, pairsOf, legKey, stepSort, nextPairView, normalizePairView, firstDirection } = mod.exports;
+const { pickGroups, pairsOf, legKey, stepSort, PAIR_VIEWS, normalizePairView, firstDirection } = mod.exports;
 
 const leg = (flight, departure, arrival, duration = "3h") => ({ origin_airport: "BER", destination_airport: "LIM",
   departure, arrival, duration, stops: 0, airlines: "", flight_numbers: flight, segments: [] });
@@ -62,10 +62,9 @@ test("each step's sort reads the one-way choice as being about its own direction
   assert.equal(stepSort("best", "inbound"), "best");
 });
 
-test("the view cycles All pairs, Outbound first, Return first and falls back to All pairs", () => {
-  assert.equal(nextPairView("pairs"), "outbound-first");
-  assert.equal(nextPairView("outbound-first"), "return-first");
-  assert.equal(nextPairView("return-first"), "pairs");
+test("the View menu lists All pairs, Outbound first and Return first, and falls back to All pairs", () => {
+  assert.deepEqual(plain(PAIR_VIEWS), ["pairs", "outbound-first", "return-first"]);
+  assert.equal(normalizePairView("return-first"), "return-first");
   assert.equal(normalizePairView("nonsense"), "pairs");
   assert.equal(firstDirection("return-first"), "inbound");
   assert.equal(firstDirection("pairs"), null);
