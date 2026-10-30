@@ -1,2 +1,4 @@
-- Describe the app at the top of the README, with a logo and a screenshot
-- Write the check-page tests with unittest so the Windows build can import them
+- Use the fs mark for the favicon and the desktop app icon
+- Show each codeshare flight as the cheapest seller sells it, and who operates it
+- Show the version small under the logo, with X for the private edition; add a favicon
+- Answer the hosted queue selection with the resolved search
