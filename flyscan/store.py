@@ -130,6 +130,13 @@ MIGRATIONS: List[str] = [
     ALTER TABLE offers ADD COLUMN seen_at TEXT;
     UPDATE offers SET seen_at = (SELECT last_fetched FROM fetches WHERE fetches.id = offers.fetch_id);
     """,
+    # 2: the carrier codes each seller gave. One flight is shared by every
+    # seller of it, but a codeshare is sold under different numbers, so the
+    # codes shown with a price are that price's own. Older offers have none
+    # and show the flight's.
+    """
+    ALTER TABLE offers ADD COLUMN codes TEXT;
+    """,
 ]
 
 #: Prices a person entered by hand. A source in the database's eyes, so its
@@ -187,6 +194,69 @@ def query_key(source: str, query: SearchQuery) -> str:
         separators=(",", ":"),
     )
     return hashlib.sha1(payload.encode()).hexdigest()
+
+
+#: The segment fields a seller decides: the same flight is sold as LH9241 by one
+#: and as UA102 by another. Times and airports belong to the flight itself.
+_CODE_FIELDS = (
+    "carrier",
+    "carrier_name",
+    "flight_number",
+    "operating_carrier",
+    "operating_carrier_name",
+    "operating_flight_number",
+)
+
+
+def _offer_codes(itinerary: Itinerary) -> Optional[str]:
+    """This offer's carrier codes per segment, or ``None`` if it gave none."""
+    legs = {
+        "out": itinerary.outbound.segments,
+        "ret": itinerary.inbound.segments if itinerary.inbound else [],
+    }
+    if not any(s.carrier or s.flight_number for segments in legs.values() for s in segments):
+        return None
+    return json.dumps(
+        {
+            key: [{field: getattr(s, field) for field in _CODE_FIELDS} for s in segments]
+            for key, segments in legs.items()
+        }
+    )
+
+
+def _apply_codes(data: Dict[str, Any], codes: Optional[str]) -> None:
+    """Show a trip row with one offer's carrier codes in place of the stored ones.
+
+    The trip keeps whichever seller's codes were saved first; the row shown with
+    a price should name the flights the way that price's seller sells them.
+    """
+    try:
+        given = json.loads(codes) if codes else None
+    except (TypeError, ValueError):
+        return
+    if not isinstance(given, dict):
+        return
+    for key, column in (("out", "depart_segments"), ("ret", "return_segments")):
+        segments, named = data.get(column), given.get(key)
+        if not isinstance(segments, list) or not isinstance(named, list) or not named:
+            continue
+        if len(segments) != len(named):
+            continue
+        data[column] = [
+            {**segment, **{field: code.get(field) or "" for field in _CODE_FIELDS}}
+            if isinstance(segment, dict)
+            and isinstance(code, dict)
+            and (code.get("carrier") or code.get("flight_number"))
+            else segment
+            for segment, code in zip(segments, named, strict=True)
+        ]
+    outbound = [s for s in data.get("depart_segments") or [] if isinstance(s, dict)]
+    if outbound and any(s.get("flight_number") for s in outbound):
+        names = dict.fromkeys(s.get("carrier_name") or s.get("carrier") or "" for s in outbound)
+        data["airlines"] = ", ".join(name for name in names if name)
+        data["flight_numbers"] = ", ".join(
+            s["flight_number"] for s in outbound if s.get("flight_number")
+        )
 
 
 def _merge_segments(stored: Optional[str], fresh: Optional[str]) -> Optional[str]:
@@ -440,12 +510,13 @@ class FlightStore:
                     if price < seen[mark]:
                         seen[mark] = price
                         self.conn.execute(
-                            "UPDATE offers SET price = ?, deeplink = ?, seen_at = ?"
+                            "UPDATE offers SET price = ?, deeplink = ?, seen_at = ?, codes = ?"
                             " WHERE fetch_id = ? AND trip_id = ? AND agent = ?",
                             (
                                 price,
                                 offer.deeplink,
                                 offer.seen_at or now,
+                                _offer_codes(offer.itinerary),
                                 fetch_id,
                                 trip_id,
                                 offer.agent,
@@ -455,9 +526,17 @@ class FlightStore:
 
                 seen[mark] = price
                 self.conn.execute(
-                    "INSERT INTO offers (fetch_id, trip_id, agent, price, deeplink, seen_at)"
-                    " VALUES (?,?,?,?,?,?)",
-                    (fetch_id, trip_id, offer.agent, price, offer.deeplink, offer.seen_at or now),
+                    "INSERT INTO offers (fetch_id, trip_id, agent, price, deeplink, seen_at, codes)"
+                    " VALUES (?,?,?,?,?,?,?)",
+                    (
+                        fetch_id,
+                        trip_id,
+                        offer.agent,
+                        price,
+                        offer.deeplink,
+                        offer.seen_at or now,
+                        _offer_codes(offer.itinerary),
+                    ),
                 )
                 written += 1
 
@@ -705,7 +784,7 @@ class FlightStore:
         """
         rows = self.conn.execute(
             """
-            SELECT t.*, o.price, o.deeplink, o.agent, o.seen_at, f.source
+            SELECT t.*, o.price, o.deeplink, o.agent, o.seen_at, o.codes, f.source
             FROM offers o
             JOIN trips t   ON t.id = o.trip_id
             JOIN fetches f ON f.id = o.fetch_id
@@ -803,7 +882,7 @@ class FlightStore:
 
         rows = self.conn.execute(
             f"""
-            SELECT t.*, o.price, o.deeplink, o.agent, o.seen_at, f.source, f.last_fetched,
+            SELECT t.*, o.price, o.deeplink, o.agent, o.seen_at, o.codes, f.source, f.last_fetched,
                    f.id AS fetch_id
             FROM offers o
             JOIN trips t   ON t.id = o.trip_id
@@ -823,6 +902,7 @@ class FlightStore:
             "source",
             "last_fetched",
             "fetch_id",
+            "codes",
         )
         trips: Dict[int, Dict[str, Any]] = {}
         for row in rows:
@@ -921,8 +1001,8 @@ class FlightStore:
         marks = ", ".join("?" * len(trips))
         offers = self.conn.execute(
             f"""
-            SELECT o.trip_id, o.price, o.deeplink, o.agent, o.seen_at, f.source, f.last_fetched,
-                   f.id AS fetch_id
+            SELECT o.trip_id, o.price, o.deeplink, o.agent, o.seen_at, o.codes, f.source,
+                   f.last_fetched, f.id AS fetch_id
             FROM offers o JOIN fetches f ON f.id = o.fetch_id
             WHERE o.trip_id IN ({marks})
               AND f.adults = ? AND f.children = ? AND f.infants = ? AND f.cabin = ?
@@ -932,6 +1012,8 @@ class FlightStore:
         )
         for data in offers:
             trip = trips[data["trip_id"]]
+            if not trip["offers"]:
+                _apply_codes(trip, data["codes"])  # the cheapest names the flights
             offer = {
                 "source": data["source"],
                 "agent": data["agent"] or "",
@@ -980,7 +1062,7 @@ class FlightStore:
 
         rows = self.conn.execute(
             f"""
-            SELECT t.*, MIN(o.price) AS price_base, o.agent, o.deeplink, f.source
+            SELECT t.*, MIN(o.price) AS price_base, o.agent, o.deeplink, o.codes, f.source
             FROM offers o
             JOIN trips t   ON t.id = o.trip_id
             JOIN fetches f ON f.id = o.fetch_id
@@ -1079,6 +1161,8 @@ class FlightStore:
                     data[column] = json.loads(data[column])
                 except json.JSONDecodeError:
                     data[column] = []
+        if "codes" in data:
+            _apply_codes(data, data.pop("codes"))
         return data
 
     # -- lifecycle ---------------------------------------------------------

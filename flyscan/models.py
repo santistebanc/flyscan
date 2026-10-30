@@ -106,6 +106,11 @@ class Segment:
     departure: str = ""  # local ISO, "2026-08-22T16:40"
     arrival: str = ""
     duration_minutes: Optional[int] = None
+    # Who flies it, when that is not the airline selling it (a codeshare):
+    # LH9241 is a seat sold by Lufthansa on United's UA102. Empty otherwise.
+    operating_carrier: str = ""
+    operating_carrier_name: str = ""
+    operating_flight_number: str = ""
 
     def to_dict(self) -> Dict[str, Any]:
         return asdict(self)

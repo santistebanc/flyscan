@@ -50,6 +50,8 @@ def _leg_row(leg) -> Dict[str, Any]:
                 "carrier": s.carrier,
                 "carrier_name": s.carrier_name or s.carrier,
                 "flight_number": s.flight_number,
+                "operating_carrier_name": s.operating_carrier_name or s.operating_carrier,
+                "operating_flight_number": s.operating_flight_number,
                 "origin": s.origin,
                 "destination": s.destination,
                 "departure": s.departure,

@@ -940,6 +940,9 @@ def _stored_leg(
                 "carrier": seg.get("carrier", ""),
                 "carrier_name": seg.get("carrier_name") or seg.get("carrier", ""),
                 "flight_number": seg.get("flight_number", ""),
+                "operating_carrier_name": seg.get("operating_carrier_name")
+                or seg.get("operating_carrier", ""),
+                "operating_flight_number": seg.get("operating_flight_number", ""),
                 "origin": seg.get("origin", ""),
                 "destination": seg.get("destination", ""),
                 "departure": seg.get("departure", ""),

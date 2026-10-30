@@ -43,6 +43,9 @@ const later = (from: string, to: string) => {
 function FlightSegment({ segment, summary = false }: { segment: Segment; summary?: boolean }) {
   const who = summary ? `${segment.carrier_name || "Airline unavailable"} · Flight details unavailable`
     : [segment.carrier_name || segment.carrier || "Airline unavailable", segment.flight_number].filter(Boolean).join(" ")
+      // A codeshare names who actually flies it, as the seller's page does.
+      + (segment.operating_carrier_name || segment.operating_flight_number
+        ? ` · operated by ${segment.operating_carrier_name || segment.operating_flight_number}` : "")
       + (segment.duration ? ` · ${segment.duration}` : "");
   const arrives = later(segment.departure, segment.arrival);
   return <div className={`detail-flight${summary ? " summary" : ""}`}

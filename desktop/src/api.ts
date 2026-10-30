@@ -155,6 +155,9 @@ export interface Segment {
   carrier: string;
   carrier_name: string;
   flight_number: string;
+  /** Who flies it when the seller sells another airline's flight (a codeshare). */
+  operating_carrier_name?: string;
+  operating_flight_number?: string;
   origin: string;
   destination: string;
   departure: string;
