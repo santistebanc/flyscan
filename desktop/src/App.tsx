@@ -175,6 +175,22 @@ function priceRange(group: PickGroup, money: (eur: number | null | undefined) =>
   return group.low === group.high ? money(group.low) : `${money(group.low)}–${money(group.high)}`;
 }
 
+/**
+ * The range with each end coloured like the pair it comes from, so "€99–€696"
+ * reads as cheap-to-dear against the same list the pair rows are rated on.
+ */
+function PriceRange({ group, money, ratings }: {
+  group: PickGroup; money: (eur: number | null | undefined) => string; ratings: ReturnType<typeof flightRatings>;
+}) {
+  const end = (price: number) => {
+    const pair = group.pairs.find((row) => row.best?.price_base === price);
+    const rating = pair && ratings.get(pair.trip_key)?.price;
+    return <span data-rating={rating?.level} title={rating?.description}>{money(price)}</span>;
+  };
+  if (group.low === null || group.high === null) return <span className="price">—</span>;
+  return <span className="price">{end(group.low)}{group.low !== group.high && <>–{end(group.high)}</>}</span>;
+}
+
 /** "7 returns": how many choices picking this flight leads to. */
 function pairCount(group: PickGroup): string {
   const n = group.pairs.length;
@@ -343,7 +359,7 @@ function Results(
     <div className="flight picked" aria-label="Picked flight">
       <span className="favorite-cell" />
       <span className="fare-cell">
-        <span className="fare-price"><span className="price">{priceRange(step.pinned, money)}</span></span>
+        <span className="fare-price"><PriceRange group={step.pinned} money={money} ratings={ratings} /></span>
         <span className="fare-dates">{pairCount(step.pinned)}</span>
         <span className="fare-dates">{readableDay(step.pinned.date)}</span>
       </span>
@@ -427,7 +443,8 @@ function Results(
             </span>
             <span className="fare-cell" role="gridcell">
               <span className="fare-price">
-                <span className="price" data-rating={rating?.price?.level} title={rating?.price?.description}>{fare.price}</span>
+                {group ? <PriceRange group={group} money={money} ratings={ratings} />
+                  : <span className="price" data-rating={rating?.price?.level} title={rating?.price?.description}>{fare.price}</span>}
                 {marks.map((mark) => <PriceMark key={mark.kind} {...mark} />)}
               </span>
               {fare.note && <span className="fare-dates fare-note">{fare.note}</span>}
