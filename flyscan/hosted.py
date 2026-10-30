@@ -103,7 +103,16 @@ def install_hosted_policy(app):
                     return jsonify(error="Server diagnostics are private."), 403
                 return None
             if request.path == "/v1/queue/selection":
-                return jsonify(selected=True)  # Visitor filters must not reorder the shared queue.
+                # Visitor filters must not reorder the shared queue, but the page still
+                # needs the resolved selection to tell which queue groups are its own.
+                from .api import _queue_selection
+
+                if not isinstance(payload, dict):
+                    return jsonify(selected=None)
+                try:
+                    return jsonify(selected=_queue_selection(payload))
+                except ValueError as exc:
+                    return jsonify(error=str(exc)), 400
             if request.method == "POST" and request.path in {
                 "/v1/searches",
                 "/v1/jobs",
