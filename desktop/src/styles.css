@@ -858,4 +858,6 @@ button.primary:hover:not(:disabled) { background: var(--accent-strong); }
     position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap;
   }
   .sort-option > button { display: inline-flex; align-items: center; padding: 6px 10px; }
+  /* "from €106 · prices for 1 adult" is the first thing to go: the count and the controls matter more. */
+  .results-summary > span { display: none; }
 }
