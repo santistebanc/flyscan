@@ -1,7 +1,7 @@
 /** One update lifecycle per app, independent of React mounts and queue polling. */
 export const UPDATE_INTERVAL = 6 * 60 * 60 * 1000;
 export const UPDATE_PREFERENCES_KEY = "flyscan.updates";
-export interface UpdatePreferences { autoDownload: boolean; installOnStartup: boolean }
+export interface UpdatePreferences { autoDownload: boolean; installOnStartup: boolean; autoInstall: boolean }
 export type UpdateStatus = "idle" | "checking" | "current" | "available" | "downloading" | "ready" | "installing" | "error";
 export interface UpdateState {
   status: UpdateStatus;
@@ -33,7 +33,8 @@ export interface UpdateDependencies {
 export function updatePreferences(raw: unknown): UpdatePreferences {
   const value = raw && typeof raw === "object" ? raw as Record<string, unknown> : {};
   return { autoDownload: value.autoDownload !== false,
-    installOnStartup: value.autoDownload !== false && value.installOnStartup === true };
+    installOnStartup: value.autoDownload !== false && value.installOnStartup === true,
+    autoInstall: value.autoDownload !== false && value.autoInstall === true };
 }
 
 export class UpdateManager {
@@ -94,7 +95,7 @@ export class UpdateManager {
     } catch {
       this.change({ status: "available", error: "Could not download or verify the update. Try again." });
     } finally { this.working = false; }
-    if (ready && installAfter && this.state.preferences.installOnStartup) await this.install();
+    if (ready && (this.state.preferences.autoInstall || installAfter && this.state.preferences.installOnStartup)) await this.install();
   }
   async install() {
     if (this.working || !this.artifact || this.state.status !== "ready") return;

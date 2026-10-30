@@ -1,5 +1,7 @@
 # flyscan
 
+Public/private desktop and web release setup: [packaging/WEB-RELEASES.md](packaging/WEB-RELEASES.md).
+
 Searches five flight metasearch sources at once, merges the results so the same
 flight from different sellers becomes one row, and converts every price into a
 single currency so they can actually be compared.

@@ -35,8 +35,8 @@ function sourceState(job: QueueJob): string {
   }
 }
 
-function SourceRow({ job, busy, pending, onAct }: {
-  job: QueueJob; busy: boolean; pending?: QueueMutation; onAct: (action: "cancel" | "retry", source?: string) => void;
+function SourceRow({ job, busy, pending, onAct, readOnly = false }: {
+  job: QueueJob; readOnly?: boolean; busy: boolean; pending?: QueueMutation; onAct: (action: "cancel" | "retry", source?: string) => void;
 }) {
   const name = sourceLabel(job.source);
   const submitting = sourceIsPending(job, pending);
@@ -47,16 +47,16 @@ function SourceRow({ job, busy, pending, onAct }: {
     <span className="query-source-name">{name}</span>
     <span className="query-source-status" title={submitting ? text : `${text}. ${sourceDetail(job)}`}>{text}</span>
     <span className="query-source-metric">{metric}</span>
-    {canCancel(job) && <ActionButton action="cancel" busy={busy} pending={submitting && pending?.action === "cancel"}
+    {!readOnly && canCancel(job) && <ActionButton action="cancel" busy={busy} pending={submitting && pending?.action === "cancel"}
       label={`Cancel ${name}`} onClick={() => onAct("cancel", job.source)} />}
-    {canRetry(job) && <ActionButton action="retry" busy={busy} pending={submitting && pending?.action === "retry"}
+    {!readOnly && canRetry(job) && <ActionButton action="retry" busy={busy} pending={submitting && pending?.action === "retry"}
       label={`${job.state === "done" ? "Refresh" : "Retry"} ${name}`}
       onClick={() => onAct("retry", job.source)} />}
   </li>;
 }
 
-function QueryGroup({ group, busy, pending, expanded, onToggle, onAct }: {
-  group: QueryJob; busy: boolean; pending?: QueueMutation; expanded: boolean; onToggle: () => void;
+function QueryGroup({ group, busy, pending, expanded, onToggle, onAct, readOnly = false }: {
+  group: QueryJob; readOnly?: boolean; busy: boolean; pending?: QueueMutation; expanded: boolean; onToggle: () => void;
   onAct: (action: "cancel" | "retry", source?: string) => void;
 }) {
   const counts = queueStatusCounts(group.sources, pending);
@@ -86,18 +86,18 @@ function QueryGroup({ group, busy, pending, expanded, onToggle, onAct }: {
           {count}{state === "running" ? <Spinner /> : <Icon name={state} />}
         </span>)}
       </span>
-      {retryable && <ActionButton action="retry" busy={busy} pending={pending?.action === "retry" && !pending.source} onClick={() => onAct("retry")}
+      {!readOnly && retryable && <ActionButton action="retry" busy={busy} pending={pending?.action === "retry" && !pending.source} onClick={() => onAct("retry")}
         label={`Retry unfinished sources for ${group.origin} to ${group.destination} on ${group.depart}`} />}
-      {cancellable && <ActionButton action="cancel" busy={busy} pending={pending?.action === "cancel" && !pending.source} onClick={() => onAct("cancel")}
+      {!readOnly && cancellable && <ActionButton action="cancel" busy={busy} pending={pending?.action === "cancel" && !pending.source} onClick={() => onAct("cancel")}
         label={`Cancel search ${group.origin} to ${group.destination} on ${group.depart}`} />}
     </div>
     {expanded && <ul className="query-sources" id={`query-${group.id}`}>
-      {group.sources.map((job) => <SourceRow key={job.source} job={job} busy={busy} pending={pending} onAct={onAct} />)}
+      {group.sources.map((job) => <SourceRow readOnly={readOnly} key={job.source} job={job} busy={busy} pending={pending} onAct={onAct} />)}
     </ul>}
   </article>;
 }
 
-export function Queue({ queue }: { queue: QueueController }) {
+export function Queue({ queue, readOnly = false }: { queue: QueueController; readOnly?: boolean }) {
   const { state, groups: allGroups, busy, error, offline, priorityError, act } = queue;
   const [shown, setShown] = useState(20);
   const [inactiveShown, setInactiveShown] = useState(20);
@@ -107,8 +107,8 @@ export function Queue({ queue }: { queue: QueueController }) {
   // Other searches with unfinished sources open by default, so trouble is visible.
   const opens = (group: QueryJob) => toggled[group.id]
     ?? (!group.mine && group.sources.some((source) => source.state !== "done"));
-  const renderGroup = (group: QueryJob) => <QueryGroup key={group.id} group={group}
-    expanded={opens(group)} busy={busy !== null}
+  const renderGroup = (group: QueryJob) => <QueryGroup readOnly={readOnly} key={group.id} group={group}
+    expanded={opens(group)} busy={readOnly || busy !== null}
     pending={busy?.groupIds.includes(group.id) ? busy : undefined}
     onToggle={() => setToggled((was) => ({ ...was, [group.id]: !opens(group) }))}
     onAct={(action, source) => void act(group.id, action, source)} />;

@@ -23,6 +23,7 @@ from flask import Flask, jsonify, send_from_directory
 
 from . import errorlog
 from .api import api, search_fingerprint
+from .deployment import allowed_sources, edition, web_mode
 from .jobs import JobRegistry
 from .models import parse_date, trip_pairs
 from .scheduler import (
@@ -32,7 +33,7 @@ from .scheduler import (
     validate_execution_settings,
 )
 from .searches import OUT_DIR, execute_search
-from .sources import DEFAULT_SOURCES, REGISTRY
+from .sources import REGISTRY
 
 #: One registry for the process, shared by the UI endpoints and the API.
 JOBS = JobRegistry()
@@ -46,7 +47,11 @@ def parse_params(form: Dict[str, Any]):
     """
     try:
         settings = execution_settings()
-        chosen = form.get("sources") or DEFAULT_SOURCES
+        chosen = form.get("sources") or allowed_sources(REGISTRY)
+        if not isinstance(chosen, list) or not all(isinstance(s, str) for s in chosen):
+            return None, "sources must be a list of names"
+        if set(chosen) - set(allowed_sources(REGISTRY)):
+            return None, "source disabled in this edition"
         unknown = [s for s in chosen if s not in REGISTRY]
         if unknown:
             return None, "unknown source(s): " + ", ".join(unknown)
@@ -90,6 +95,21 @@ def parse_params(form: Dict[str, Any]):
         validate_execution_settings(db_path=params["db"], max_workers=params["workers"])
     except (ValueError, TypeError) as exc:
         return None, f"bad input: {exc}"
+    if web_mode():
+        if params["end"] and (params["end"] - params["start"]).days > 30:
+            return None, "hosted searches support at most 31 departure dates"
+        if params["ret_end"] and params["ret"] and (params["ret_end"] - params["ret"]).days > 30:
+            return None, "hosted searches support at most 31 return dates"
+        params.update(
+            db=settings["db"],
+            workers=settings["workers"],
+            refresh=False,
+            cache_hours=6,
+            retries=1,
+            timeout=60,
+        )
+        if len(trip_pairs(params["start"], params["end"], params["ret"], params["ret_end"])) > 31:
+            return None, "hosted searches support at most 31 trips"
     if params["end"] and params["end"] < params["start"]:
         return None, "end date is before start date"
     # A return before the outbound is not a trip. Worth rejecting rather than
@@ -138,7 +158,15 @@ def create_app() -> Flask:
     """
     root = Path(__file__).parent.parent
     bundle = _frontend_dir(root)
+    edition()  # Validate configuration before serving requests.
+    allowed_sources(REGISTRY)
     app = Flask(__name__, static_folder=None)
+    app.config["MAX_CONTENT_LENGTH"] = 64 * 1024
+    from .hosted import install_hosted_policy
+    from .private_updates import updates
+
+    install_hosted_policy(app)
+    app.register_blueprint(updates)
 
     @app.errorhandler(Exception)
     def _record_unhandled(exc):
@@ -155,7 +183,10 @@ def create_app() -> Flask:
             path=incoming.full_path,
             body=incoming.get_json(silent=True),
         )
-        return jsonify({"error": f"{type(exc).__name__}: {exc}", "logged": entry}), 500
+        message = (
+            "The request could not be completed." if web_mode() else f"{type(exc).__name__}: {exc}"
+        )
+        return jsonify({"error": message, "logged": entry}), 500
 
     @app.get("/")
     def index():
@@ -177,7 +208,7 @@ def create_app() -> Flask:
         if bundle is None:
             return jsonify({"error": "frontend not built"}), 404
         target = (bundle / asset).resolve()
-        if not str(target).startswith(str(bundle.resolve())) or not target.is_file():
+        if not target.is_relative_to(bundle.resolve()) or not target.is_file():
             return jsonify({"error": "not found"}), 404
         return send_from_directory(bundle, asset)
 

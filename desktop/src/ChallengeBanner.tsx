@@ -5,7 +5,8 @@ import { Icon, Spinner } from "./Icon";
 import { sourceLabel } from "./queueModel";
 
 /** Each source owns its verification request; other sources remain available. */
-export function ChallengeBanner({ api, pending, canSolveHere, viewerUrl = null, onCleared }: {
+export function ChallengeBanner({ api, pending, canSolveHere, viewerUrl = null, onCleared, hosted = false }: {
+  hosted?: boolean;
   api: FlyscanApi | null;
   pending: PendingChallenge[];
   canSolveHere: boolean;
@@ -48,6 +49,9 @@ export function ChallengeBanner({ api, pending, canSolveHere, viewerUrl = null, 
   };
 
   if (!pending.length) return null;
+  if (hosted) return <div className="challenges" role="status">
+    {pending.map((challenge) => <p key={challenge.source}>{sourceLabel(challenge.source)} is temporarily unavailable. Other sources remain available.</p>)}
+  </div>;
   return <div className="challenges" role="group" aria-label="Verification requests">
     {pending.map((challenge) => {
       const name = sourceLabel(challenge.source);

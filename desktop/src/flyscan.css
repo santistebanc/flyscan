@@ -209,3 +209,5 @@ body { font-family: var(--sans); font-size: 13.5px; font-variant-numeric: tabula
   .results-bar { padding: 12px 12px 10px; }
   .results .flight, .pinned-pick .flight { padding: 12px 12px 14px 6px; }
 }
+
+.build-identity { padding: 4px 16px; font-size: 12px; text-align: right; }

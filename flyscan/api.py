@@ -31,15 +31,16 @@ from typing import Any, Dict, List, Optional
 
 from flask import Blueprint, Response, current_app, jsonify, request
 
-from . import errorlog, fx
+from . import __version__, errorlog, fx
 from .challenge import CHALLENGE_VIEWER_URL_ENV
+from .deployment import allowed_sources, edition, web_mode
 from .jobs import Job
 from .manual import itinerary_from, query_from
 from .models import SearchQuery, parse_date, pretty_duration, trip_pairs
 from .places import resolve
 from .query_jobs import belongs_to as _belongs_to
 from .scheduler import FOREGROUND, default_scheduler
-from .sources import DEFAULT_SOURCES, REGISTRY
+from .sources import REGISTRY
 from .store import MANUAL_SOURCE, FlightStore
 from .task_queue import QueueClosed, QueueFull
 
@@ -166,12 +167,19 @@ def _cors(response: Response) -> Response:
 # -- endpoints -------------------------------------------------------------
 
 
+@api.get("/version")
+def version():
+    return jsonify(version=__version__, edition=edition(), mode="web" if web_mode() else "desktop")
+
+
 @api.get("/health")
 def health():
     return jsonify(
         {
             "status": "ok",
-            "sources": list(REGISTRY),
+            "sources": allowed_sources(REGISTRY),
+            "edition": edition(),
+            "mode": "web" if web_mode() else "desktop",
             "scheduler": default_scheduler().snapshot(),
         }
     )
@@ -341,7 +349,7 @@ def enqueue_job():
         return jsonify({"error": "a JSON object is required"}), 400
     try:
         source = payload["source"]
-        if not isinstance(source, str) or source not in REGISTRY:
+        if not isinstance(source, str) or source not in allowed_sources(REGISTRY):
             raise ValueError("unknown source")
         query = SearchQuery(
             origin=payload["origin"],
@@ -369,7 +377,9 @@ def enqueue_job():
     scheduler = default_scheduler()
     owner = "enqueue-" + uuid.uuid4().hex
     try:
-        future = scheduler.submit(REGISTRY[source](), query, owner=owner, refresh=refresh)
+        future = scheduler.submit(
+            REGISTRY[source](), query, owner=owner, refresh=False if web_mode() else refresh
+        )
     except QueueFull as exc:
         return jsonify({"error": str(exc)}), 429, {"Retry-After": "5"}
     except QueueClosed as exc:
@@ -472,6 +482,7 @@ def sources():
                 "fetchable": True,
             }
             for name, cls in REGISTRY.items()
+            if name in allowed_sources(REGISTRY)
         ]
         # Listed so its prices can be shown or hidden like any source's, and
         # marked so nothing tries to ask it.
@@ -542,7 +553,9 @@ def find_trips():
     except ValueError as exc:
         return jsonify({"error": f"bad filter: {exc}"}), 400
     airports = [code for code in args.getlist("airport") if re.fullmatch(r"[A-Za-z]{3}", code)]
-    store = FlightStore(args.get("db") or "flights.db")
+    store = FlightStore(
+        (default_scheduler().database_path if web_mode() else args.get("db")) or "flights.db"
+    )
     try:
         trips = store.find_trips(
             number=args.get("number") or "",
@@ -600,7 +613,7 @@ def create_search():
         return jsonify({"error": error}), 400
 
     params["_fingerprint"] = search_fingerprint(params)
-    params["_force"] = bool(payload.get("force"))
+    params["_force"] = bool(payload.get("force")) and not web_mode()
     job, joined = _start(params)
     return jsonify({**job.summary(), "joined": joined}), 200 if joined else 202
 
@@ -791,11 +804,12 @@ def challenges():
             {"source": s, "url": u, "solving": s in solving, "error": errors.get(s)}
             for s, u in pending.items()
         ],
-        "can_solve_here": _can_solve_here(),
+        "can_solve_here": not web_mode() and _can_solve_here(),
+        "mode": "web" if web_mode() else "desktop",
         "how_to_clear": "flyscan unblock <source>",
     }
     viewer_url = os.environ.get(CHALLENGE_VIEWER_URL_ENV)
-    if viewer_url:
+    if viewer_url and not web_mode():
         body["viewer_url"] = viewer_url
     return jsonify(body)
 
@@ -814,7 +828,7 @@ def solve_challenge(source: str):
     runs in the background and the caller watches ``GET /challenges`` for the
     source to disappear.
     """
-    if source not in REGISTRY:
+    if source not in allowed_sources(REGISTRY):
         return jsonify({"error": f"unknown source: {source}"}), 404
     if not _can_solve_here():
         return jsonify(
@@ -845,7 +859,7 @@ def store_challenge_cookies(source: str):
     challenge was cleared, only that it was, and by whom is the caller's
     business.
     """
-    if source not in REGISTRY:
+    if source not in allowed_sources(REGISTRY):
         return jsonify({"error": f"unknown source: {source}"}), 404
 
     payload = request.get_json(force=True, silent=True) or {}
@@ -961,7 +975,9 @@ def _stored_row(row: Dict[str, Any]) -> Dict[str, Any]:
     panel must not care whether a row came from the database or from a scrape
     that finished a second ago.
     """
-    offers = [_stored_offer(o) for o in row.get("offers") or []]
+    stored = row.get("offers") or []
+    allowed = set(allowed_sources([*REGISTRY, *(o["source"] for o in stored)])) | {MANUAL_SOURCE}
+    offers = [_stored_offer(o) for o in stored if o["source"] in allowed]
     sources: list = []
     for offer in offers:
         if offer["source"] not in sources:
@@ -1034,7 +1050,13 @@ def stored_flights():
         requested_limit = 0 if args.get("all") == "1" else int(args.get("limit") or 300)
         if requested_limit < 0:
             raise ValueError("limit must be zero or positive")
-        limit = min(requested_limit, 1000) if requested_limit else None
+        limit = (
+            min(requested_limit or 1000, 1000)
+            if web_mode()
+            else min(requested_limit, 1000)
+            if requested_limit
+            else None
+        )
         max_stops = int(args["max_stops"]) if args.get("max_stops") else None
         adults = max(1, int(args.get("adults") or 1))
         children = max(0, int(args.get("children") or 0))
@@ -1042,7 +1064,9 @@ def stored_flights():
     except ValueError as exc:
         return jsonify({"error": f"bad filter: {exc}"}), 400
 
-    store = FlightStore(args.get("db") or "flights.db")
+    store = FlightStore(
+        (default_scheduler().database_path if web_mode() else args.get("db")) or "flights.db"
+    )
     try:
         rows = store.browse(
             origin=args.get("origin"),
@@ -1062,7 +1086,7 @@ def stored_flights():
             max_stops=max_stops,
             limit=limit,
         )
-        results = [_stored_row(r) for r in rows]
+        results = [row for r in rows if (row := _stored_row(r))["offers"]]
         newest = max((r.get("last_fetched") or "" for r in rows), default="")
         return jsonify(
             {
@@ -1123,7 +1147,7 @@ def _source_status(
             cabin=args.get("cabin") or "economy",
             currency=(args.get("currency") or "EUR").upper(),
         )
-        for source, decision in store.plan(query, DEFAULT_SOURCES).items():
+        for source, decision in store.plan(query, allowed_sources(REGISTRY)).items():
             seen = worst.get(source)
             better = seen is None or rank.get(decision["why"], 9) < rank.get(seen["why"], 9)
             entry = {
@@ -1146,7 +1170,7 @@ def _source_status(
                     seen.update(
                         {k: entry[k] for k in ("why", "fetch", "reason", "retries", "last_fetched")}
                     )
-    return [worst[s] for s in DEFAULT_SOURCES if s in worst]
+    return [worst[s] for s in allowed_sources(REGISTRY) if s in worst]
 
 
 @api.get("/rates")

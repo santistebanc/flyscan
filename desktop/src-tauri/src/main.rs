@@ -28,6 +28,7 @@ use serde::Serialize;
 use tauri::{AppHandle, Manager, State, WebviewUrl, WebviewWindowBuilder};
 
 mod challenge_navigation;
+mod update_access;
 use challenge_navigation::ChallengeNavigation;
 
 /// How long to let someone work on a challenge before giving up on them.
@@ -312,6 +313,9 @@ fn main() {
             api_key: uuid::Uuid::new_v4().simple().to_string(),
         })
         .invoke_handler(tauri::generate_handler![
+            update_access::update_edition,
+            update_access::update_password,
+            update_access::save_update_password,
             api_base,
             api_key,
             validate_update_restart,

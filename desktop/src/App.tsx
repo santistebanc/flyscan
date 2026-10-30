@@ -1,3 +1,4 @@
+import { BuildIdentity } from "./BuildIdentity";
 /**
  * The whole UI: one search bar across the top, the list of every flight found,
  * and a side panel with two tabs — the selected flight and the queue.
@@ -579,11 +580,13 @@ function Shell() {
     localStorage.setItem(FILTERS_KEY, JSON.stringify({ ...filters, version: FILTERS_VERSION }));
   }, [filters]);
 
+  const [hosted, setHosted] = useState(false);
   const challengeRead = useRef(0);
   const refreshChallenges = useCallback(async () => {
     if (!api) return;
     const version = ++challengeRead.current;
     const c = await api.challenges();
+    setHosted(c.mode === "web");
     if (version !== challengeRead.current) return;
     setPending(c.pending);
     setCanSolveHere(Boolean(c.can_solve_here));
@@ -753,7 +756,7 @@ function Shell() {
     if (onScreen) pickFlight(added.trip_key);
     reloadStored();
   }, [api, manualParty, disabledSources, start, end, ret, pickFlight, reloadStored]);
-  const manualActions = useMemo<ManualActions | undefined>(() => api ? {
+  const manualActions = useMemo<ManualActions | undefined>(() => api && !hosted ? {
     party: manualParty,
     add: (row, values) => addManual({ origin: origin.trim(), destination: destination.trim(), trip_key: row.trip_key,
       depart: row.depart_date, ret: row.return_date || null }, values),
@@ -767,7 +770,7 @@ function Shell() {
       reloadStored();
     },
     editFlight: setEditingFlight,
-  } : undefined, [api, manualParty, origin, destination, addManual, reloadStored]);
+  } : undefined, [api, hosted, manualParty, origin, destination, addManual, reloadStored]);
   /** New flights for every price you added to it, then the old entries go. */
   const replaceManualFlight = useCallback(async (row: FlightRow, flight: ManualFlight) => {
     if (!api) throw new Error("The flight database is not connected yet.");
@@ -1043,6 +1046,7 @@ function Shell() {
 
   return (
     <AirportNamesProvider api={api}><div className="app">
+      <BuildIdentity api={api} />
       <header className="topbar" ref={header}>
         {/* Full, then the initials, then gone, as the header narrows (flyscan.css). */}
         <a className="brand" href="./" aria-label="flyscan">
@@ -1087,14 +1091,14 @@ function Shell() {
             }} />
           <SourcesPicker known={knownSources} disabled={disabledSources}
             open={popover === "sources"} onToggle={toggles.sources} onChange={setDisabledSources} />
-          <FetchButton queue={queue} trips={trips} sources={wantedSources} canSearch={Boolean(api && request) && !nothingToAsk}
+          <FetchButton hosted={hosted} queue={queue} trips={trips} sources={wantedSources} canSearch={Boolean(api && request) && !nothingToAsk}
             fetching={engine.running} onFetch={fetchRange} />
         </div>
 
         <div className="topbar-actions">
           <UpdateControls busy={engine.running || Boolean(queue.busy) || queue.offline || !queue.state
             || Boolean(queue.state.scheduler.running || queue.state.scheduler.queued)} />
-          <RangeStatus queue={queue} trips={trips} sources={wantedSources} canSearch={Boolean(api && request)} />
+          <RangeStatus readOnly={hosted} queue={queue} trips={trips} sources={wantedSources} canSearch={Boolean(api && request)} />
         </div>
       </header>
 
@@ -1160,7 +1164,7 @@ function Shell() {
               viewerUrl={viewerUrl}
               onCleared={refreshChallenges}
             />
-            <Queue queue={queue} />
+            <Queue queue={queue} readOnly={hosted} />
           </div>
           <div role="tabpanel" id="panel-flight" aria-labelledby="tab-flight" hidden={tab !== "flight"}>
             {openRow ? <Details

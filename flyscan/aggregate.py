@@ -27,9 +27,10 @@ from datetime import date, datetime, timedelta
 from typing import Any, Callable, Dict, Iterator, List, Optional, Sequence, Tuple
 
 from . import fx
+from .deployment import allowed_sources
 from .models import Offer, SearchQuery, daterange
 from .scheduler import DEFAULT_MAX_WORKERS, Scheduler, default_scheduler
-from .sources import DEFAULT_SOURCES, Source, SourceResult, build
+from .sources import REGISTRY, Source, SourceResult, build
 
 ProgressHook = Callable[[str, Dict[str, Any]], None]
 
@@ -146,7 +147,7 @@ class Aggregator:
         on_progress: ProgressHook = _noop,
         owner: str = "",
     ):
-        self.source_names = list(sources or DEFAULT_SOURCES)
+        self.source_names = list(allowed_sources(REGISTRY) if sources is None else sources)
         self.base_currency = base_currency.upper()
         self.timeout = timeout
         self.retries = retries

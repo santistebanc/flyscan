@@ -100,3 +100,22 @@ test("preferences default safely and disabling downloads also disables startup i
   assert.equal(manager.snapshot().preferences.installOnStartup, false);
   assert.equal(calls.preferences.at(-1).autoDownload, false);
 });
+
+
+test("private-style automatic installation waits for an idle app and permits retry", async () => {
+  const { manager, calls } = fixture({ autoInstall: true });
+  manager.setActivityGuard(() => false);
+  await manager.check();
+  assert.equal(manager.snapshot().status, "ready");
+  assert.equal(calls.install, 0);
+  manager.setActivityGuard(() => true);
+  await manager.install();
+  assert.equal(calls.install, 1);
+});
+
+test("automatic idle installation can be disabled along with downloads", async () => {
+  const { manager, calls } = fixture({ autoInstall: true, autoDownload: false });
+  await manager.check();
+  assert.equal(calls.download, 0);
+  assert.equal(manager.snapshot().preferences.autoInstall, false);
+});

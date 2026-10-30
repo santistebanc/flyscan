@@ -1,4 +1,5 @@
-import { useEffect, useRef, useSyncExternalStore } from "react";
+import { invoke } from "@tauri-apps/api/core";
+import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { Icon } from "./Icon";
 import { isDesktop } from "./platform";
 import { desktopUpdates } from "./desktopUpdates";
@@ -30,6 +31,7 @@ export function UpdatePanel({ state, manager, busy, onClose }: {
     </div>}
     {state.error && <p className="update-error" role="alert">{state.error}</p>}
     {state.notes && <details className="update-notes"><summary>What’s new</summary><p>{state.notes}</p></details>}
+    <PrivateUpdateAccess manager={manager} />
     <div className="update-preferences">
       <label><input type="checkbox" checked={state.preferences.autoDownload}
         onChange={(event) => manager.setPreferences({ autoDownload: event.target.checked })} />
@@ -38,6 +40,10 @@ export function UpdatePanel({ state, manager, busy, onClose }: {
         disabled={!state.preferences.autoDownload}
         onChange={(event) => manager.setPreferences({ installOnStartup: event.target.checked })} />
         Install updates at startup</label>
+      <label><input type="checkbox" checked={state.preferences.autoInstall}
+        disabled={!state.preferences.autoDownload}
+        onChange={event => manager.setPreferences({ autoInstall: event.target.checked })} />
+        Install updates automatically when idle</label>
       <p className="muted">Installation waits until no searches or verification windows are active.</p>
     </div>
     <div className="update-actions">
@@ -71,6 +77,9 @@ export function UpdateControls({ busy, manager = desktopUpdates }: { busy: boole
   useEffect(() => {
     if (state.status === "installing" && dialog.current && !dialog.current.open) dialog.current.showModal();
   }, [state.status]);
+  useEffect(() => {
+    if (isDesktop && state.status === "ready" && state.preferences.autoInstall && !busy) void manager.install();
+  }, [state.status, state.preferences.autoInstall, busy, manager]);
   if (!isDesktop) return null;
   // Quiet until there is something to install; then it asks for attention.
   const pill = state.status === "ready" ? "Update ready"
@@ -90,4 +99,29 @@ export function UpdateControls({ busy, manager = desktopUpdates }: { busy: boole
       <div><UpdatePanel state={state} manager={manager} busy={busy} onClose={() => dialog.current?.close()} /></div>
     </dialog>
   </>;
+}
+
+function PrivateUpdateAccess({ manager }: { manager: UpdateManager }) {
+  const [privateEdition, setPrivate] = useState(false);
+  const [password, setPassword] = useState("");
+  const [status, setStatus] = useState("");
+  const [saving, setSaving] = useState(false);
+  useEffect(() => { if (isDesktop) void invoke<boolean>("update_edition").then(setPrivate).catch(() => {}); }, []);
+  if (!privateEdition) return null;
+  return <form onSubmit={async event => {
+    event.preventDefault(); setSaving(true); setStatus("");
+    try {
+      await invoke("save_update_password", { password });
+      setPassword("");
+      await manager.check(true);
+      setStatus(manager.snapshot().status === "error" ? "Could not connect. Check the password and try again." : "Private updates connected. Password saved securely for this Windows user.");
+    } catch { setStatus("Could not save update access. Try again."); }
+    finally { setSaving(false); }
+  }}>
+    <label htmlFor="private-update-password">Private update password</label>
+    <div className="update-actions"><input id="private-update-password" type="password" required maxLength={512}
+      autoComplete="current-password" value={password} onChange={event => setPassword(event.target.value)} />
+      <button disabled={saving || !password} type="submit">{saving ? "Connecting?" : "Connect updates"}</button></div>
+    <p className="muted" role="status">{status || "Enter once to enable automatic private updates. The app works offline."}</p>
+  </form>;
 }
