@@ -135,6 +135,7 @@ body { font-family: var(--sans); font-size: 13.5px; font-variant-numeric: tabula
 }
 .results .flight.picked { background: color-mix(in oklch, var(--bg) 80%, var(--accent-soft)); box-shadow: inset 3px 0 0 var(--accent); }
 .list-notice > * { background: var(--raised); border-color: var(--accent-edge); }
+.pinned-pick .flight { padding: 16px 24px 16px 14px; background: color-mix(in oklch, var(--bg) 80%, var(--accent-soft)); box-shadow: inset 3px 0 0 var(--accent); }
 
 .leg-plot::before { top: 17px; border-top-color: var(--line); }
 .leg-part.airborne { top: 12px; height: 10px; }

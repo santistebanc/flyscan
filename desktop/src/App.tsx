@@ -59,6 +59,10 @@ import { useOfferPrices } from "./useOfferPrices";
 import { connectionRatings } from "./connectionRatings";
 import { useFareColumnWidth } from "./useFareColumnWidth";
 import { PriceMark, priceMarks } from "./PriceMark";
+import {
+  PAIR_VIEW_KEY, PAIR_VIEW_LABELS, directionDate, firstDirection, nextPairView, normalizePairView, otherDirection,
+  pairsOf, pickGroups, pickedGroup, type Direction, type PairView, type PickGroup,
+} from "./pairPicking";
 
 /** Default to a couple of weeks out: today's flights are mostly gone. */
 function defaultDate(): string {
@@ -157,6 +161,27 @@ const returnDateOf = (row: FlightRow) => row.return_date || row.inbound?.departu
 type EmptyState = { title: string; body?: string; action?: { label: string; onClick: () => void } };
 
 /**
+ * How a stepped view presents the list. While picking, each row stands for a
+ * flight one way and its key is the group's; once a flight is pinned, the rows
+ * are its pairs and `direction` is the one they are listed for.
+ */
+type ListStep =
+  | { kind: "pick"; groups: ReadonlyMap<string, PickGroup> }
+  | { kind: "pair"; direction: Direction; pinned: PickGroup; onChange: () => void };
+
+/** "€412–€655", one price when every pair costs the same, a dash when none are left. */
+function priceRange(group: PickGroup, money: (eur: number | null | undefined) => string): string {
+  if (group.low === null) return "—";
+  return group.low === group.high ? money(group.low) : `${money(group.low)}–${money(group.high)}`;
+}
+
+/** "7 returns": how many choices picking this flight leads to. */
+function pairCount(group: PickGroup): string {
+  const n = group.pairs.length;
+  return `${n} ${group.direction === "outbound" ? "return" : "outbound"}${n === 1 ? "" : "s"}`;
+}
+
+/**
  * The results, as a list rather than a table.
  *
  * There are no headers because none are needed: a price, a date, an itinerary
@@ -164,7 +189,7 @@ type EmptyState = { title: string; body?: string; action?: { label: string; onCl
  * live in the side panel, which is what keeps a row scannable.
  */
 function Results(
-  { rows, dataset, view, loading, empty, openKey, onOpen, favorites, onToggleFavorite, ratings, timelines, timelineMode, layoverRatings, filters }:
+  { rows, dataset, view, loading, empty, openKey, onOpen, favorites, onToggleFavorite, ratings, timelines, timelineMode, layoverRatings, filters, step }:
   {
     /** The sort and filters; a change returns the list to its top. */
     rows: FlightRow[]; dataset: FlightRow[]; view: string; loading: string | null; empty: EmptyState; openKey: string | null;
@@ -176,16 +201,42 @@ function Results(
     layoverRatings: ReturnType<typeof connectionRatings>;
     /** For shading the time the departure and arrival filters leave out. */
     filters: ListFilters;
+    /** Absent in All pairs. */
+    step?: ListStep;
   },
 ) {
   const { money } = useCurrency();
   const list = useRef<HTMLDivElement | null>(null);
-  const fareContent = useMemo(() => rows.map((row) => {
+  // Holds the pinned flight too, so its fare column lines up with the rows.
+  const frame = useRef<HTMLDivElement | null>(null);
+  const pinnedCard = useRef<HTMLDivElement | null>(null);
+  const pinned = step?.kind === "pair" ? step.pinned : null;
+
+  /** What the fare column says for a row: price, the line under it, and dates. */
+  const fareOf = useCallback((row: FlightRow) => {
+    if (step?.kind === "pick") {
+      const group = step.groups.get(row.trip_key)!;
+      return { price: priceRange(group, money), marks: 0, note: pairCount(group), dates: readableDay(group.date) };
+    }
+    const price = row.best?.price_base;
+    const marks = priceMarks(row, money).length;
+    if (step?.kind === "pair") {
+      const base = step.pinned.low;
+      return { price: money(price), marks, dates: readableDay(directionDate(row, step.direction)),
+        note: price == null || base === null ? "" : `+${money(Math.max(0, price - base))}` };
+    }
     const returnDate = returnDateOf(row);
-    return { price: money(row.best?.price_base), marks: priceMarks(row, money).length,
+    return { price: money(price), marks, note: "",
       dates: readableDay(row.depart_date) + (returnDate ? ` – ${readableDay(returnDate)}` : "") };
-  }), [rows, money]);
-  useFareColumnWidth(list, fareContent);
+  }, [step, money]);
+  const fareContent = useMemo(() => [
+    ...rows.flatMap((row) => {
+      const { price, marks, note, dates } = fareOf(row);
+      return note ? [{ price, marks, dates }, { price: "", dates: note }] : [{ price, marks, dates }];
+    }),
+    ...(pinned ? [{ price: priceRange(pinned, money), dates: pairCount(pinned) }] : []),
+  ], [rows, fareOf, pinned, money]);
+  useFareColumnWidth(frame, fareContent);
   const index = openKey ? rows.findIndex((row) => row.trip_key === openKey) : -1;
   const isAnchored = useSelectedFlightAnchor(list, openKey, view);
   /**
@@ -197,13 +248,16 @@ function Results(
    * measured again on a resize.
    */
   const [listTop, setListTop] = useState(0);
-  // Where the pinned results bar ends, for the notice that hangs below it.
+  // Where the pinned results bar ends, for the pinned flight under it, and
+  // where that flight ends, for the notice that hangs below them both.
   const [barBottom, setBarBottom] = useState(0);
+  const [pinnedHeight, setPinnedHeight] = useState(0);
   useLayoutEffect(() => {
     const measure = () => {
       setListTop(list.current?.offsetTop ?? 0);
       const bar = document.querySelector<HTMLElement>(".results-bar");
       setBarBottom(bar ? parseFloat(getComputedStyle(bar).top) + bar.offsetHeight : 0);
+      setPinnedHeight(pinnedCard.current?.offsetHeight ?? 0);
     };
     measure();
     window.addEventListener("resize", measure);
@@ -263,12 +317,50 @@ function Results(
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [openKey]);
 
+  /** One direction of a pair: its timeline, or the return the seller left out. */
+  const legOf = (row: FlightRow, direction: Direction) => {
+    const rating = ratings.get(row.trip_key);
+    if (direction === "outbound") {
+      return <FlightTimeline label="Outbound" leg={row.outbound} scale={timelines.outbound} timing={timelines.journeys.get(row.outbound)}
+        mode={timelineMode} rating={rating?.outbound} layoverRatings={layoverRatings.outbound} times={filters.outbound} />;
+    }
+    if (row.inbound) {
+      return <FlightTimeline label="Return" leg={row.inbound} scale={timelines.inbound} timing={timelines.journeys.get(row.inbound)}
+        mode={timelineMode} rating={rating?.inbound} layoverRatings={layoverRatings.inbound} times={filters.inbound} />;
+    }
+    // The seller priced the round trip without saying which flight comes
+    // back. Saying so beats a row that reads as a cheaper one-way — and the
+    // return date still says when.
+    return row.return_date && <span className="leg no-detail">
+      <span className="leg-label" aria-hidden="true">Ret</span>
+      <span title="The seller priced the round trip without saying which flight comes back.">
+        Return not detailed · {readableDay(row.return_date)}</span>
+    </span>;
+  };
+
+  // Stays put while you scroll, and while the filters leave it nothing to pair with.
+  const pinnedFlight = step?.kind === "pair" && <div className="pinned-pick" ref={pinnedCard} style={{ top: barBottom }}>
+    <div className="flight picked" aria-label="Picked flight">
+      <span className="favorite-cell" />
+      <span className="fare-cell">
+        <span className="fare-price"><span className="price">{priceRange(step.pinned, money)}</span></span>
+        <span className="fare-dates">{pairCount(step.pinned)}</span>
+        <span className="fare-dates">{readableDay(step.pinned.date)}</span>
+      </span>
+      <span className="trip">{legOf(step.pinned.example, step.pinned.direction)}</span>
+      <button type="button" className="pinned-change" onClick={step.onChange}>Change</button>
+    </div>
+  </div>;
+
   if (rows.length === 0) {
     if (loading) return <div className="results-loading" role="status"><Spinner /><span>{loading}</span></div>;
-    return <div className="empty-results">
-      <b>{empty.title}</b>
-      {empty.body && <p>{empty.body}</p>}
-      {empty.action && <button type="button" className="primary" onClick={empty.action.onClick}>{empty.action.label}</button>}
+    return <div ref={frame}>
+      {pinnedFlight}
+      <div className="empty-results">
+        <b>{empty.title}</b>
+        {empty.body && <p>{empty.body}</p>}
+        {empty.action && <button type="button" className="primary" onClick={empty.action.onClick}>{empty.action.label}</button>}
+      </div>
     </div>;
   }
 
@@ -285,9 +377,10 @@ function Results(
     else window.scrollTo({ top: target, behavior: "smooth" });
   };
 
-  return (<>
+  return (<div ref={frame} className={pinnedFlight ? "results-frame has-pinned" : "results-frame"}>
+    {pinnedFlight}
     {/* Zero-height and sticky, so the notices float over the list without moving it. */}
-    <div className="list-notice top" style={{ top: barBottom }}>
+    <div className="list-notice top" style={{ top: barBottom + pinnedHeight }}>
       {newAbove > 0 && <button type="button" onClick={toTop}>
         <Icon name="arrow-up" />{newAbove} new flight{newAbove === 1 ? "" : "s"} above</button>}
     </div>
@@ -305,9 +398,13 @@ function Results(
       {items.map((item) => {
         const row = rows[item.index]!;
         const isOpen = row.trip_key === openKey;
-        const rating = ratings.get(row.trip_key);
+        const group = step?.kind === "pick" ? step.groups.get(row.trip_key)! : null;
+        // A picking row shows the flight of the pair that placed it, rated as that pair.
+        const pair = group ? group.example : row;
+        const rating = group ? undefined : ratings.get(row.trip_key);
         const returnDate = returnDateOf(row);
-        const marks = priceMarks(row, money);
+        const fare = fareOf(row);
+        const marks = group ? [] : priceMarks(row, money);
         return (
           <div
             key={item.key}
@@ -325,34 +422,24 @@ function Results(
             }}
           >
             <span className="favorite-cell" role="gridcell">
-              <FavoriteButton row={row} favorite={favorites.has(row.trip_key)} onToggle={onToggleFavorite} />
+              {/* Favourites belong to pairs; a flight one way is not one yet. */}
+              {!group && <FavoriteButton row={row} favorite={favorites.has(row.trip_key)} onToggle={onToggleFavorite} />}
             </span>
             <span className="fare-cell" role="gridcell">
               <span className="fare-price">
-                <span className="price" data-rating={rating?.price?.level} title={rating?.price?.description}>{money(row.best?.price_base)}</span>
+                <span className="price" data-rating={rating?.price?.level} title={rating?.price?.description}>{fare.price}</span>
                 {marks.map((mark) => <PriceMark key={mark.kind} {...mark} />)}
               </span>
-              <span className="fare-dates">
+              {fare.note && <span className="fare-dates fare-note">{fare.note}</span>}
+              {step ? <span className="fare-dates">{fare.dates}</span> : <span className="fare-dates">
                 <time dateTime={row.depart_date} title={`Departure: ${row.depart_date}`}>{readableDay(row.depart_date)}</time>
                 {returnDate && <> – <time dateTime={returnDate} title={`Return: ${returnDate}`}>{readableDay(returnDate)}</time></>}
-              </span>
+              </span>}
             </span>
             <span className="trip" role="gridcell">
-              <FlightTimeline label="Outbound" leg={row.outbound} scale={timelines.outbound} timing={timelines.journeys.get(row.outbound)}
-                mode={timelineMode} rating={rating?.outbound} layoverRatings={layoverRatings.outbound} times={filters.outbound} />
-              {row.inbound ? (
-                <FlightTimeline label="Return" leg={row.inbound} scale={timelines.inbound} timing={timelines.journeys.get(row.inbound)}
-                  mode={timelineMode} rating={rating?.inbound} layoverRatings={layoverRatings.inbound} times={filters.inbound} />
-              ) : row.return_date && (
-                // The seller priced the round trip without saying which flight
-                // comes back. Saying so beats a row that reads as a cheaper
-                // one-way — and the return date still says when.
-                <span className="leg no-detail">
-                  <span className="leg-label" aria-hidden="true">Ret</span>
-                  <span title="The seller priced the round trip without saying which flight comes back.">
-                    Return not detailed · {readableDay(row.return_date)}</span>
-                </span>
-              )}
+              {group ? legOf(pair, group.direction)
+                : step?.kind === "pair" ? legOf(row, step.direction)
+                : <>{legOf(row, "outbound")}{legOf(row, "inbound")}</>}
             </span>
           </div>
         );
@@ -363,7 +450,7 @@ function Results(
         : selectedOutOfView && <button type="button" onClick={toSelected}>
           Selected flight is #{(index + 1).toLocaleString()} of {rows.length.toLocaleString()} · Show</button>}
     </div>
-  </>);
+  </div>);
 }
 
 type PopoverName = "from" | "to" | "depart" | "return" | "travellers" | "sources";
@@ -425,6 +512,18 @@ function Shell() {
     try { localStorage.setItem(TIMELINE_MODE_KEY, timelineMode); }
     catch { /* The view still works when preference storage is unavailable. */ }
   }, [timelineMode]);
+  /** All pairs, or picking one direction first; only round-trip searches offer the choice. */
+  const [pairView, setPairView] = useState<PairView>(() => {
+    try { return normalizePairView(localStorage.getItem(PAIR_VIEW_KEY)); }
+    catch { return "pairs"; }
+  });
+  useEffect(() => {
+    try { localStorage.setItem(PAIR_VIEW_KEY, pairView); }
+    catch { /* The view still works when preference storage is unavailable. */ }
+  }, [pairView]);
+  /** The flight pinned in a stepped view, and the last one, which picking again starts from. */
+  const [picked, setPicked] = useState<string | null>(null);
+  const [lastPicked, setLastPicked] = useState<string | null>(null);
   const [filters, setFilters] = useState<ListFilters>(() => {
     try { return sanitizeFilters(JSON.parse(localStorage.getItem(FILTERS_KEY) || "null")); }
     catch { return sanitizeFilters(null); }
@@ -497,6 +596,22 @@ function Shell() {
     row, limits, row.best?.price_base == null ? null : roundedIn(row.best.price_base),
   )), [priceRows, limits, roundedIn]);
   const shown = useMemo(() => sortFlightRows(filtered, effectiveSort(sort, Boolean(ret))), [filtered, sort, ret]);
+  // A stepped view lists flights one way, then the pairs of the one pinned.
+  const stepDirection = ret ? firstDirection(pairView) : null;
+  const pinned = useMemo(() => stepDirection && picked ? pickedGroup(filtered, priceRows, picked, stepDirection) : null,
+    [stepDirection, picked, filtered, priceRows]);
+  const groups = useMemo(() => stepDirection && !picked ? pickGroups(filtered, stepDirection, sort) : [],
+    [stepDirection, picked, filtered, sort]);
+  const listRows = useMemo(() => !stepDirection ? shown
+    : pinned ? pairsOf(filtered, pinned.key, stepDirection, sort)
+    : groups.map((group) => ({ ...group.example, trip_key: group.key })),
+  [stepDirection, shown, pinned, filtered, sort, groups]);
+  const step = useMemo<ListStep | undefined>(() => !stepDirection ? undefined
+    : pinned ? { kind: "pair", direction: otherDirection(stepDirection), pinned, onChange: () => setPicked(null) }
+    : { kind: "pick", groups: new Map(groups.map((group) => [group.key, group])) },
+  [stepDirection, pinned, groups]);
+  /** The pairs the list is about: all of them, or only the pinned flight's. */
+  const pairRows = pinned ? listRows : shown;
   // Ratings and bounds include every matching row, even offscreen. Sorting
   // and favorites reuse them; suggestions still cover all loaded results.
   const ratings = useMemo(() => flightRatings(filtered), [filtered]);
@@ -657,6 +772,10 @@ function Shell() {
         request.adults, request.children, request.infants, request.cabin, request.currency,
       ])
     : "";
+  // A new search or view starts picking again.
+  useEffect(() => { setPicked(null); setLastPicked(null); }, [storedKey, pairView]);
+  // A pinned flight no pair flies any more has nothing left to pin.
+  useEffect(() => { if (picked && stepDirection && !pinned) setPicked(null); }, [picked, stepDirection, pinned]);
   useEffect(() => {
     engine.selectView(Boolean(request));
     if (!api || !request) return;
@@ -766,23 +885,25 @@ function Shell() {
         pickFlight(null);      // back to the queue
         return;
       }
-      if (!shown.length) return;
+      // Rows that open a flight; a flight one way has no details of its own.
+      const rows = step?.kind === "pick" ? [] : listRows;
+      if (!rows.length) return;
 
       event.preventDefault();
-      const at = shown.findIndex((row) => row.trip_key === openKey);
+      const at = rows.findIndex((row) => row.trip_key === openKey);
       const to = event.key === "Home" ? 0
-        : event.key === "End" ? shown.length - 1
+        : event.key === "End" ? rows.length - 1
         : at < 0 ? 0                                  // nothing picked yet: start at the top
-        : event.key === "ArrowDown" ? Math.min(shown.length - 1, at + 1)
+        : event.key === "ArrowDown" ? Math.min(rows.length - 1, at + 1)
         : Math.max(0, at - 1);
-      pickFlight(shown[to]!.trip_key);
+      pickFlight(rows[to]!.trip_key);
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [shown, openKey, pickFlight]);
+  }, [listRows, step, openKey, pickFlight]);
 
-  const openRow = shown.find((row) => row.trip_key === openKey) ?? null;
-  const listView = useMemo(() => JSON.stringify({ sort, filters }), [sort, filters]);
+  const openRow = filtered.find((row) => row.trip_key === openKey) ?? null;
+  const listView = useMemo(() => JSON.stringify({ sort, filters, stepDirection, picked }), [sort, filters, stepDirection, picked]);
 
   /**
    * Clicking away from the list puts the flight down.
@@ -802,7 +923,7 @@ function Shell() {
     const away = (event: MouseEvent) => {
       const target = event.target as HTMLElement | null;
       if (!target) return;
-      if (target.closest(".results, .side")) return;
+      if (target.closest(".results, .side, .pinned-pick")) return;
       if (target.closest("input, select, button, label, a, dialog, .popover, .flight-filter-panel")) return;
       pickFlight(null);
     };
@@ -820,7 +941,11 @@ function Shell() {
   // The tighter connection cap, the one a flight is more likely to break.
   const connectionCap = [filters.outbound.maxLayoverMinutes, filters.inbound.maxLayoverMinutes]
     .filter((cap): cap is number => cap !== null).sort((a, b) => a - b)[0] ?? null;
-  const empty: EmptyState = connectionRecovery ? {
+  const pinnedWord = stepDirection === "outbound" ? "outbound" : "return";
+  const empty: EmptyState = pinned ? {
+    title: `No ${pinnedWord === "outbound" ? "returns" : "outbounds"} for this ${pinnedWord} match the filters.`,
+    body: "Relax a filter, or change the flight you picked.",
+  } : connectionRecovery ? {
     title: "No flights match your connection preferences.",
     body: connectionCap !== null
       ? `Every stored flight has a connection longer than ${elapsed(connectionCap)}, or revisits an airport.`
@@ -846,8 +971,10 @@ function Shell() {
       : "Every source answered for these dates, and none of them had a flight.",
   } : { title: "No flights to show." };
 
-  const cheapest = shown.reduce<number | null>((low, row) => row.best?.price_base == null ? low
+  const cheapest = pairRows.reduce<number | null>((low, row) => row.best?.price_base == null ? low
     : low === null ? row.best.price_base : Math.min(low, row.best.price_base), null);
+  const listNoun = !stepDirection ? "flight"
+    : (pinned ? otherDirection(stepDirection) : stepDirection) === "outbound" ? "outbound" : "return";
   const activeSearches = splitQueueGroups(queue.groups, queue.busy?.groupIds).active.length;
 
   return (
@@ -908,15 +1035,20 @@ function Shell() {
         <div className="results-bar">
           <div className="results-summary">
             <h1>{loading && !priceRows.length ? "Searching…" : priceRows.length
-              ? `${shown.length.toLocaleString()} flight${shown.length === 1 ? "" : "s"}` : "No flights"}</h1>
-            <span>{shown.length && cheapest !== null ? `from ${money(cheapest)} · ` : ""}prices for {party}
-              {engine.running && shown.length ? " · more arriving" : ""}</span>
-            <SortOptions sort={sort} onChange={setSort} roundTrip={Boolean(ret)} />
+              ? `${listRows.length.toLocaleString()} ${listNoun}${listRows.length === 1 ? "" : "s"}` : "No flights"}</h1>
+            <span>{listRows.length && cheapest !== null ? `from ${money(cheapest)} · ` : ""}prices for {party}
+              {engine.running && listRows.length ? " · more arriving" : ""}</span>
+            <SortOptions sort={sort} onChange={setSort} roundTrip={Boolean(ret) && !stepDirection} />
           </div>
           <div className="results-controls">
-            <FlightFiltersBar filters={filters} onChange={setFilters} shown={shown.length} total={priceRows.length}
+            <FlightFiltersBar filters={filters} onChange={setFilters} shown={filtered.length} total={priceRows.length}
               roundTrip={Boolean(ret)} suggestions={suggestions} connectionOptions={connectionOptions} />
             <div className="results-view-controls">
+              {ret && <button type="button" className="view-control" aria-label={`View: ${PAIR_VIEW_LABELS[pairView]}`}
+                title="All pairs: every round trip. Outbound or Return first: pick one direction, then a flight it was sold with."
+                onClick={() => setPairView(nextPairView)}>
+                View <b>{PAIR_VIEW_LABELS[pairView]}</b>
+              </button>}
               <button type="button" className="view-control" aria-label={`Timeline scale: ${timelineMode === "days" ? "per trip" : "shared"}`}
                 title="Per trip: each row spans whole days from 05:00. Shared: all rows align on one scale per direction."
                 onClick={() => setTimelineMode((mode) => mode === "days" ? "shared" : "days")}>
@@ -928,13 +1060,16 @@ function Shell() {
         </div>
 
         <Results
-          rows={shown}
-          dataset={priceRows}
+          rows={listRows}
+          dataset={stepDirection ? listRows : priceRows}
           view={listView}
           loading={loading}
           empty={empty}
-          openKey={openKey}
-          onOpen={(key) => pickFlight(key === openKey ? null : key)}
+          openKey={step?.kind === "pick" ? lastPicked : openKey}
+          onOpen={(key) => {
+            if (step?.kind === "pick") { setPicked(key); setLastPicked(key); }
+            else pickFlight(key === openKey ? null : key);
+          }}
           favorites={favorites}
           onToggleFavorite={toggleFavorite}
           ratings={ratings}
@@ -942,6 +1077,7 @@ function Shell() {
           timelineMode={timelineMode}
           layoverRatings={layoverRatings}
           filters={filters}
+          step={step}
         />
       </main>
 

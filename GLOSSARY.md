@@ -19,3 +19,7 @@
 **Subscription**: One caller's interest in a scrape. Cancelling one subscription does not cancel work that another caller still needs.
 
 **Check page tidy**: A per-source method that, in the window where a person clears a challenge, accepts the source's cookie consent and hides everything except the captcha and its Continue button. It only changes what is shown; the person still clears the challenge.
+
+**Pair**: One round trip as a seller quotes it: an outbound and a return priced together. A flight in one direction has no price of its own, only the range of the pairs it belongs to.
+
+**Pinned flight**: In Outbound first or Return first, the flight picked in the first direction. It stays above the list, which then shows only its pairs, until Change unpins it.

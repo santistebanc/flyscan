@@ -410,6 +410,22 @@ button.primary:hover:not(:disabled) { background: var(--accent-strong); }
 .price-mark[data-kind="requoted"] { color: var(--accent); }
 .fare-width-probe { position: fixed; left: -10000px; top: 0; width: max-content; visibility: hidden; pointer-events: none; }
 
+/* The flight picked first, held under the results bar while its pairs scroll
+   past. Opaque, since rows slide beneath it. */
+.pinned-pick { position: sticky; z-index: 26; background: var(--bg); border-bottom: 2px solid var(--accent-edge); }
+.pinned-pick .flight {
+  display: grid; grid-template-columns: 24px max(104px, var(--flight-fare-width, 104px)) minmax(0, 1fr) auto;
+  align-items: center; gap: 16px; padding: 14px 20px 14px 12px;
+}
+.pinned-pick .flight > * { min-width: 0; }
+.pinned-change {
+  padding: 6px 12px; min-height: 32px; border: 1px solid var(--line); border-radius: 6px;
+  font-size: 12px; font-weight: 500; color: var(--ink);
+}
+.pinned-change:hover { border-color: var(--accent-edge); color: var(--accent); }
+/* Arrow keys keep a row clear of the pinned flight as well. */
+.results-frame.has-pinned .results .flight { scroll-margin-top: calc(var(--header-h) + 200px); }
+
 .trip { display: flex; flex-direction: column; gap: 10px; }
 .leg { display: grid; grid-template-columns: 52px minmax(0, 1fr) 64px 72px; align-items: center; gap: 10px; }
 .leg-end { display: flex; flex-direction: column; align-items: flex-end; line-height: 16px; }
@@ -647,6 +663,7 @@ button.primary:hover:not(:disabled) { background: var(--accent-strong); }
   body { padding-right: 0; padding-top: calc(var(--header-h) + var(--side-h)); }
   .results-bar { top: calc(var(--header-h) + var(--side-h) - 1px); }
   .results .flight { scroll-margin-top: calc(var(--header-h) + var(--side-h) + 112px); }
+  .results-frame.has-pinned .results .flight { scroll-margin-top: calc(var(--header-h) + var(--side-h) + 200px); }
 }
 /* The bar wraps rather than clipping its segments. */
 @media (max-width: 760px) {
@@ -654,11 +671,13 @@ button.primary:hover:not(:disabled) { background: var(--accent-strong); }
   .search-segment-trigger { min-height: 48px; }
   .fetch-button { min-height: 48px; border-radius: 0 0 7px 0; }
   .leg { grid-template-columns: 44px minmax(0, 1fr) 56px 60px; gap: 6px; }
-  .results .flight { gap: 10px; padding-inline: 8px 12px; }
+  .results .flight, .pinned-pick .flight { gap: 10px; padding-inline: 8px 12px; }
 }
 @media (pointer: coarse) {
   .favorite-button, .queue-icon-button, .detail-icon-button { width: 44px; height: 44px; }
   .results .flight { grid-template-columns: 44px max(104px, var(--flight-fare-width, 104px)) minmax(0, 1fr); }
+  .pinned-pick .flight { grid-template-columns: 44px max(104px, var(--flight-fare-width, 104px)) minmax(0, 1fr) auto; }
+  .pinned-change { min-height: 44px; }
   .flight-filter-trigger, .query-group-row, .query-source { min-height: 44px; }
 }
 @media (prefers-reduced-motion: reduce) {
@@ -820,4 +839,14 @@ button.primary:hover:not(:disabled) { background: var(--accent-strong); }
 @media (max-width: 560px) {
   .manual-leg-form { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .manual-leg-form .manual-field { grid-column: span 1; }
+}
+
+/* Too narrow for Change beside the timeline: it moves under the price, so the
+   pinned flight's timeline keeps the width the rows' have. */
+@media (max-width: 760px) {
+  .pinned-pick .flight { grid-template-columns: 24px max(104px, var(--flight-fare-width, 104px)) minmax(0, 1fr); row-gap: 8px; }
+  .pinned-change { grid-column: 2; justify-self: start; }
+}
+@media (max-width: 760px) and (pointer: coarse) {
+  .pinned-pick .flight { grid-template-columns: 44px max(104px, var(--flight-fare-width, 104px)) minmax(0, 1fr); }
 }
