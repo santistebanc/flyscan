@@ -86,6 +86,18 @@ class Deployment(unittest.TestCase):
         self.assertEqual(client.get("/v1/flights?db=secret.db").status_code, 400)
         self.assertEqual(client.post("/v1/queue/selection", json=None).status_code, 200)
 
+    def test_hosted_queue_selection_is_resolved_without_reordering_the_queue(self):
+        os.environ.update(FLYSCAN_MODE="web", FLYSCAN_EDITION="public")
+        client = create_app().test_client()
+        search = {"origin": "ber", "destination": "LHR", "start": "2027-01-01"}
+        with patch.object(Scheduler, "select_query") as select:
+            response = client.post("/v1/queue/selection", json=search)
+        self.assertEqual(response.status_code, 200)
+        selected = response.json["selected"]
+        self.assertEqual((selected["origin"], selected["destination"]), ("BER", "LHR"))
+        self.assertEqual((selected["start"], selected["end"]), ("2027-01-01", "2027-01-01"))
+        select.assert_not_called()
+
     def test_hosted_input_is_bounded_and_uses_server_execution_policy(self):
         os.environ["FLYSCAN_MODE"] = "web"
         request = dict(
