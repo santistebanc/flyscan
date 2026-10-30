@@ -1,14 +1,41 @@
-# flyscan
+<h1 align="left">
+  <img src="docs/flyscan-logo.svg" alt="flyscan" width="280" height="64" />
+</h1>
 
-Public/private desktop and web release setup: [packaging/WEB-RELEASES.md](packaging/WEB-RELEASES.md).
+![flyscan: round-trip results for Berlin to Madrid, with each itinerary's timeline and the selected flight's legs and booking option in the side panel](docs/screenshots/app.png)
 
-Searches five flight metasearch sources at once, merges the results so the same
-flight from different sellers becomes one row, and converts every price into a
-single currency so they can actually be compared.
+<p align="left">
+  <a href="https://flyscan.site"><strong>Live app: flyscan.site</strong></a>
+  ·
+  <a href="https://github.com/santistebanc/flight-scraper-releases/releases/latest">Windows download</a>
+</p>
+
+**flyscan** searches five flight metasearch sources at once: Kayak, Skyscanner,
+Kiwi and Momondo through FlightsFinder, plus Jetradar. It merges the results so
+the same flight sold by different sellers becomes one row, and converts every
+price into one currency so they can actually be compared.
+
+- **One list, every seller.** Round trips, one-ways, date ranges, families and
+  cabins. Each itinerary shows its legs on a timeline, its layovers and airport
+  changes, and every booking option with the seller behind it.
+- **Filter and sort.** By stops, price, duration, layover length and times;
+  by best, cheapest, departure or shortest. Pick the outbound and return
+  separately or see them as pairs.
+- **Reads are free, fetches are deliberate.** Everything fetched is kept in a
+  local SQLite store, so changing the form answers instantly from what is
+  already known. Asking the sources again happens only when you press **Fetch**.
+  Searches run in a shared, rate-limited queue.
+- **A person clears security checks.** When a source shows a bot check, it is
+  put in front of you in a browser window, and the search waits until you have
+  cleared it.
+- **Desktop and web.** A Tauri app for Windows with signed auto-updates, and
+  the same frontend served on the web. Both come in a public edition and a
+  private one with every source. See
+  [packaging/WEB-RELEASES.md](packaging/WEB-RELEASES.md).
 
 The interesting output is not the cheapest flight — it is the **spread**: the
 same Ryanair seat on the same day comes back €28 apart depending on who is
-selling it.
+selling it. The CLI shows it directly:
 
 ```bash
 flyscan scrape berlin london 2026-09-19
