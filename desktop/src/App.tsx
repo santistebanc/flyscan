@@ -272,12 +272,21 @@ function Results(
     const measure = () => {
       setListTop(list.current?.offsetTop ?? 0);
       const bar = document.querySelector<HTMLElement>(".results-bar");
-      setBarBottom(bar ? parseFloat(getComputedStyle(bar).top) + bar.offsetHeight : 0);
+      setBarBottom(bar ? parseFloat(getComputedStyle(bar).top) + bar.getBoundingClientRect().height : 0);
       setPinnedHeight(pinnedCard.current?.offsetHeight ?? 0);
     };
     measure();
     window.addEventListener("resize", measure);
-    return () => window.removeEventListener("resize", measure);
+    // The bar changes height without this list rendering — a filter count
+    // that wraps, say — and a stale bottom opens a slit above the pinned flight.
+    const observer = new ResizeObserver(measure);
+    const bar = document.querySelector(".results-bar");
+    if (bar) observer.observe(bar);
+    if (pinnedCard.current) observer.observe(pinnedCard.current);
+    return () => {
+      window.removeEventListener("resize", measure);
+      observer.disconnect();
+    };
   });
 
   /**
@@ -355,7 +364,7 @@ function Results(
   };
 
   // Stays put while you scroll, and while the filters leave it nothing to pair with.
-  const pinnedFlight = step?.kind === "pair" && <div className="pinned-pick" ref={pinnedCard} style={{ top: barBottom }}>
+  const pinnedFlight = step?.kind === "pair" && <div className="pinned-pick" ref={pinnedCard} style={{ top: barBottom - 1 }}>
     <div className="flight picked" aria-label="Picked flight">
       {/* Over the empty favourite column, so every column lines up with the rows below. */}
       <button type="button" className="pinned-close" aria-label="Unpin this flight and pick again" title="Pick again"
