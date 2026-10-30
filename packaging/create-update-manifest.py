@@ -9,12 +9,17 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 
-def manifest(directory: Path, version: str, repository: str, notes: str) -> dict:
+def manifest(
+    directory: Path, version: str, repository: str, notes: str, edition: str = "public"
+) -> dict:
     if not re.fullmatch(r"\d+\.\d+\.\d+", version):
         raise ValueError("Use a stable major.minor.patch version")
     if not re.fullmatch(r"[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+", repository):
         raise ValueError("Expected a GitHub owner/repository")
-    name = f"Flyscan-{version}-windows-x64-setup.exe"
+    if edition not in {"public", "private"}:
+        raise ValueError("Unknown release edition")
+    prefix = "Flyscan-Private" if edition == "private" else "Flyscan"
+    name = f"{prefix}-{version}-windows-x64-setup.exe"
     installer = directory / name
     if not installer.is_file():
         raise ValueError("Installer is missing")
@@ -25,11 +30,13 @@ def manifest(directory: Path, version: str, repository: str, notes: str) -> dict
     info = json.loads((directory / "build-info.json").read_text(encoding="utf-8"))
     if (
         info["version"] != version
+        or info.get("edition", edition) != edition
         or info["sha256"] != hashlib.sha256(installer.read_bytes()).hexdigest()
     ):
         raise ValueError("Installer does not match build metadata")
     return {
         "version": version,
+        "edition": edition,
         "notes": notes.strip(),
         "pub_date": datetime.now(timezone.utc).isoformat(),
         "platforms": {
@@ -46,10 +53,15 @@ if __name__ == "__main__":
     parser.add_argument("--directory", type=Path, default=Path("release"))
     parser.add_argument("--version", required=True)
     parser.add_argument("--repository", required=True)
+    parser.add_argument("--edition", choices=["public", "private"], default="public")
     parser.add_argument("--notes", type=Path, required=True)
     args = parser.parse_args()
     value = manifest(
-        args.directory, args.version, args.repository, args.notes.read_text(encoding="utf-8")
+        args.directory,
+        args.version,
+        args.repository,
+        args.notes.read_text(encoding="utf-8"),
+        args.edition,
     )
     temporary = args.directory / "latest.json.tmp"
     temporary.write_text(json.dumps(value, indent=2) + "\n", encoding="utf-8")

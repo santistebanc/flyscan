@@ -9,6 +9,7 @@ from __future__ import annotations
 
 from typing import Dict, List, Type
 
+from ..deployment import allowed_sources
 from .base import ChallengeRequired, Source, SourceError, SourceResult
 from .flightsfinder import FlightsFinderKiwi, FlightsFinderSky
 from .kayak import FlightsFinderKayak, Momondo
@@ -31,11 +32,15 @@ DEFAULT_SOURCES = [cls.name for cls in SOURCE_CLASSES]
 
 def build(names=None, **kwargs) -> List[Source]:
     """Instantiate the named sources, or every default one."""
-    chosen = list(names or DEFAULT_SOURCES)
+    enabled = allowed_sources(REGISTRY)
+    chosen = list(enabled if names is None else names)
     unknown = [n for n in chosen if n not in REGISTRY]
     if unknown:
         known = ", ".join(REGISTRY)
         raise ValueError(f"unknown source(s): {', '.join(unknown)} (known: {known})")
+    disabled = set(chosen) - set(enabled)
+    if disabled:
+        raise ValueError("source(s) disabled in this edition: " + ", ".join(sorted(disabled)))
     return [REGISTRY[name](**kwargs) for name in chosen]
 
 

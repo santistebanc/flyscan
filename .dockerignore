@@ -1,0 +1,15 @@
+.git
+.venv
+data
+.errors
+.challenges
+*.db*
+desktop/node_modules
+desktop/dist
+desktop/src-tauri/target
+desktop/src-tauri/binaries
+packaging/build
+packaging/dist
+release
+flyscan/_build.py
+**/__pycache__

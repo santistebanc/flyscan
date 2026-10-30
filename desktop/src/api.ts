@@ -373,6 +373,10 @@ export class FlyscanApi {
     }
   }
 
+  version() {
+    return this.json<{ version: string; edition: "development" | "public" | "private"; mode: "desktop" | "web" }>("/version");
+  }
+
   health() {
     return this.json<{ status: string; sources: SourceName[] }>("/health");
   }
@@ -579,6 +583,7 @@ export class FlyscanApi {
       pending: PendingChallenge[];
       /** Whether the server can open a browser itself. */
       can_solve_here: boolean;
+      mode?: "web" | "desktop";
       /** A page streaming the server's display, where a check it opens can be solved. */
       viewer_url?: string;
     }>("/challenges");

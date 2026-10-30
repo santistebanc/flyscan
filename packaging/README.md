@@ -1,5 +1,8 @@
 # Windows release build
 
+For the public/private desktop and web release workflow and Railway setup, see
+[WEB-RELEASES.md](WEB-RELEASES.md).
+
 The installer includes the React UI, Tauri shell and a frozen Python service.
 Users do not need Python, Node or Rust. It installs for the current Windows user,
 adds a Start menu entry, registers an uninstaller, and checks for WebView2. The

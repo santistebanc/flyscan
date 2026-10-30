@@ -222,6 +222,7 @@ class ChallengeCoordinator:
         reconcile_interval=0.2,
         owns_ledger=False,
         open_when_recorded=False,
+        pause_on_challenge=True,
     ):
         self._ledger, self._queue = ledger, queue
         self._ledger_lock = ledger_lock or threading.RLock()
@@ -240,6 +241,7 @@ class ChallengeCoordinator:
         # Where the check is streamed, open it as soon as it is known: starting a browser on a
         # busy machine takes longer than a person takes to pick up their phone.
         self.open_when_recorded = open_when_recorded
+        self.pause_on_challenge = pause_on_challenge
         self.reconcile()
         self._monitor = None
         if ledger is not None and queue is not None:
@@ -274,7 +276,7 @@ class ChallengeCoordinator:
                 stored = self._ledger.pending_challenges() if self._ledger else {}
             pending = {**stored, **self._ephemeral}
             self._known_sources.update(pending)
-            if self._queue:
+            if self._queue and self.pause_on_challenge:
                 for source in self._known_sources - pending.keys():
                     self._queue.resolve_action(source)
                 for source, url in pending.items():
@@ -288,7 +290,7 @@ class ChallengeCoordinator:
     def pending(self):
         return self.reconcile()
 
-    def record(self, source, url, fetch_id=None):
+    def record(self, source, url, fetch_id=None, *, pause=True):
         from .task_queue import ActionRequired
 
         with self._lock:
@@ -302,7 +304,7 @@ class ChallengeCoordinator:
             else:
                 self._ephemeral[source] = url
             self._pending[source] = url
-            if self._queue:
+            if self._queue and pause and self.pause_on_challenge:
                 self._queue.pause(source, ActionRequired("captcha", "source needs a human", url))
         if self.open_when_recorded:
             self.start_recovery(source)

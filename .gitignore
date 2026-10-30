@@ -25,3 +25,6 @@ desktop/src-tauri/binaries/
 
 # Dev data (./dev.sh): ledger, caches, clearance cookies.
 data/
+
+# Generated, immutable release policy (never credentials).
+flyscan/_build.py

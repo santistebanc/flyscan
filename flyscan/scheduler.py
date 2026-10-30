@@ -15,6 +15,7 @@ from typing import Callable, Dict, List, Optional
 from . import errorlog
 from .cache import offers_from_dicts, offers_to_dicts
 from .challenge import CHALLENGE_VIEWER_URL_ENV, ChallengeCoordinator
+from .deployment import allowed_sources, require_source, web_mode
 from .models import SearchQuery
 from .query_jobs import belongs_to, query_job_id
 from .sources import REGISTRY, ChallengeRequired, Source, SourceResult
@@ -140,7 +141,8 @@ class Scheduler:
             self.store,
             self.queue,
             ledger_lock=self._store_lock,
-            open_when_recorded=bool(os.environ.get(CHALLENGE_VIEWER_URL_ENV)),
+            pause_on_challenge=not web_mode(),
+            open_when_recorded=not web_mode() and bool(os.environ.get(CHALLENGE_VIEWER_URL_ENV)),
         )
 
     def submit(
@@ -157,6 +159,7 @@ class Scheduler:
         delay=0,
     ):
         """Push a scrape and immediately get its future. Identical live work is shared."""
+        require_source(source.name)
         subscriber = _Subscriber(ScrapeFuture(), owner, on_progress, cancelled)
         if cancelled is not None and cancelled.is_set():
             subscriber.future.set_result(SourceResult(source=source.name, error="cancelled"))
@@ -222,6 +225,10 @@ class Scheduler:
         return subscriber.future
 
     def _precheck(self, source, query, on_progress, refresh, ttl=None):
+        if web_mode() and source.name in self.challenge_control.pending():
+            return SourceResult(
+                source=source.name, error="Temporarily unavailable: verification required"
+            )
         if self.store is None or refresh:
             return None
         with self._store_lock:
@@ -280,12 +287,20 @@ class Scheduler:
                     job.fetch_id = self.store.begin_fetch(job.query, job.source)
         self._emit(job, "source_start", source=job.source, day=job.query.depart)
         try:
+            require_source(job.source)
             result = job.source_obj.run_once(job.query)
             context.check()
         except ChallengeRequired as challenge:
             with self._lock:
                 context.check()
-                self.challenge_control.record(job.source, challenge.url, job.fetch_id)
+                self.challenge_control.record(
+                    job.source, challenge.url, job.fetch_id, pause=not web_mode()
+                )
+            if web_mode():
+                # Record the block for an administrator, but finish this scrape now.
+                return SourceResult(
+                    source=job.source, error="Temporarily unavailable: verification required"
+                )
             raise ActionRequired("captcha", str(challenge), challenge.url) from challenge
         # Late results after cancellation or timeout never write to storage.
         with self._lock:
@@ -662,6 +677,8 @@ class Scheduler:
                 )
                 for data in group["sources"]:
                     name = data["source"]
+                    if name not in allowed_sources(REGISTRY):
+                        continue
                     if name not in sources:
                         sources[name] = REGISTRY[name]()
                     source = sources[name]
@@ -811,7 +828,13 @@ class Scheduler:
     def stored_offers(self, query):
         """Read from the same ledger the scrape writes, under its owning lock."""
         with self._store_lock:
-            return self.store.offers_for_search(query) if self.store is not None else None
+            if self.store is None:
+                return None
+            offers = self.store.offers_for_search(query)
+            allowed = set(allowed_sources([*REGISTRY, *(offer.source for offer in offers)])) | {
+                "manual"
+            }
+            return [offer for offer in offers if offer.source in allowed]
 
     def validate_settings(self, **kwargs):
         if "db_path" in kwargs:

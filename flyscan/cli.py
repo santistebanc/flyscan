@@ -22,10 +22,11 @@ from .aggregate import (
 from .challenge import (
     STORE as CHALLENGE_STORE,
 )
+from .deployment import allowed_sources, require_source
 from .models import CABIN_CLASSES, SearchQuery, pretty_duration
 from .models import parse_date as _parse_date
 from .places import PlaceLookupError, resolve, search_places
-from .sources import DEFAULT_SOURCES, REGISTRY
+from .sources import REGISTRY
 from .store import (
     DEFAULT_TTL,
     FlightStore,
@@ -176,6 +177,8 @@ def cmd_sources(args: argparse.Namespace) -> int:
     print(f"  {'name':<12} {'label':<24} currency")
     print("  " + "-" * 50)
     for name, cls in REGISTRY.items():
+        if name not in allowed_sources(REGISTRY):
+            continue
         currency = cls.fixed_currency or "as requested"
         print(f"  {name:<12} {cls.label:<24} {currency}")
     return 0
@@ -210,7 +213,7 @@ def cmd_scrape(args: argparse.Namespace) -> int:
         print(f"error: {exc}", file=sys.stderr)
         return 2
 
-    sources = list(args.sources or DEFAULT_SOURCES)
+    sources = list(args.sources or allowed_sources(REGISTRY))
     store = FlightStore(args.db) if args.db else None
 
     # The ledger only says "do not ask this source again yet" — the answer it is
@@ -379,6 +382,8 @@ def cmd_prune(args: argparse.Namespace) -> int:
 def cmd_unblock(args: argparse.Namespace) -> int:
     """Open a source's challenge for the person sitting here to clear."""
     _configure_console(False)
+    if args.source:
+        require_source(args.source)
 
     if args.status:
         rows = CHALLENGE_STORE.status()

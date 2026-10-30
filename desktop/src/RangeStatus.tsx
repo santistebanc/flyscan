@@ -10,23 +10,23 @@ export function rangeComplete(queue: QueueController, trips: number, sources?: r
 }
 
 /** The end of the search bar: the one control that contacts a source. */
-export function FetchButton({ queue, trips, sources, canSearch, fetching, onFetch }: {
+export function FetchButton({ queue, trips, sources, canSearch, fetching, onFetch, hosted = false }: {
   queue: QueueController; trips: number; sources?: readonly string[]; canSearch: boolean; fetching: boolean;
-  onFetch: (refresh: boolean) => void;
+  hosted?: boolean; onFetch: (refresh: boolean) => void;
 }) {
   const complete = rangeComplete(queue, trips, sources);
   const unavailable = !canSearch || !queue.state || queue.offline || queue.busy !== null || trips === 0;
   return <button type="button" className="fetch-button" data-state={fetching ? "running" : undefined}
     disabled={!fetching && unavailable} aria-disabled={fetching || undefined}
-    title={complete ? "Refresh the chosen sources for the selected dates" : "Fetch flights for every selected date"}
+    title={hosted ? "Check prices, using fresh cached results when available" : complete ? "Refresh the chosen sources for the selected dates" : "Fetch flights for every selected date"}
     onClick={() => { if (!fetching && !unavailable) onFetch(complete); }}>
-    {fetching ? <><Spinner /> Searching</> : complete ? <><Icon name="retry" /> Refresh</> : "Fetch"}
+    {fetching ? <><Spinner /> Searching</> : complete ? <><Icon name="retry" /> {hosted ? "Check prices" : "Refresh"}</> : "Fetch"}
   </button>;
 }
 
 /** Queue progress and actions for exactly the route, dates and party on screen. */
-export function RangeStatus({ queue, trips, sources, canSearch }: {
-  queue: QueueController; trips: number; sources?: readonly string[]; canSearch: boolean;
+export function RangeStatus({ queue, trips, sources, canSearch, readOnly = false }: {
+  queue: QueueController; trips: number; sources?: readonly string[]; canSearch: boolean; readOnly?: boolean;
 }) {
   const stats = rangeStats(queue.selected);
   const complete = rangeComplete(queue, trips, sources);
@@ -51,10 +51,10 @@ export function RangeStatus({ queue, trips, sources, canSearch }: {
       </span>
       {text}
     </span>
-    {stats.retryable > 0 && <ActionButton action="retry" label="Retry failed or cancelled sources in the selected dates"
+    {!readOnly && stats.retryable > 0 && <ActionButton action="retry" label="Retry failed or cancelled sources in the selected dates"
       pending={pending?.action === "retry"}
       busy={unavailable || busy} onClick={() => void queue.rangeAction("retry")} />}
-    {stats.cancellable > 0 && <ActionButton action="cancel" label="Cancel all unfinished sources in the selected dates"
+    {!readOnly && stats.cancellable > 0 && <ActionButton action="cancel" label="Cancel all unfinished sources in the selected dates"
       pending={pending?.action === "cancel"}
       busy={unavailable || busy} onClick={() => void queue.rangeAction("cancel")} />}
     {queue.rangeError && <span role="alert" className="range-status-error">{queue.rangeError}</span>}

@@ -1,5 +1,5 @@
 [CmdletBinding()]
-param([string]$Repository = "santistebanc/flight-scraper-releases")
+param([ValidateSet("public", "private")][string]$Edition = "public", [string]$Repository = "santistebanc/flight-scraper-releases")
 $ErrorActionPreference = "Stop"
 Set-StrictMode -Version Latest
 $projectRoot = [IO.Path]::GetFullPath((Join-Path $PSScriptRoot ".."))
@@ -12,7 +12,11 @@ try {
     if ($version -notmatch '^\d+\.\d+\.\d+$' -or $version -ne $info.version) { throw "Release version mismatch." }
     $tag = "v$version"
     if ($env:RELEASE_TAG -and $env:RELEASE_TAG -ne $tag) { throw "The release tag does not match the built app version." }
-    $name = "Flyscan-$version-windows-x64-setup.exe"
+    if ($info.edition -ne $Edition -or $manifest.edition -ne $Edition) { throw "Release edition mismatch." }
+    $prefix = if ($Edition -eq "private") { "Flyscan-Private" } else { "Flyscan" }
+    $repoInfo = & gh repo view $Repository --json isPrivate | ConvertFrom-Json
+    if ($LASTEXITCODE -ne 0 -or ($Edition -eq "private" -and -not $repoInfo.isPrivate)) { throw "Private editions must be published to a private repository." }
+    $name = "$prefix-$version-windows-x64-setup.exe"
     $expectedUrl = "https://github.com/$Repository/releases/download/$tag/$name"
     $platform = $manifest.platforms.'windows-x86_64'
     if ($platform.url -ne $expectedUrl -or $platform.signature -ne (Get-Content "release/$name.sig" -Raw).Trim()) { throw "Update manifest does not match these release assets." }
@@ -23,10 +27,12 @@ try {
     if ($existing.Count) {
         if (-not $existing[0].isDraft) { throw "This version is already published. Publish a new version instead of overwriting it." }
     } else {
-        & gh release create $tag --repo $Repository --draft --title "Flyscan $version" --notes-file packaging/release-notes.md
+        & gh release create $tag --repo $Repository --draft --title "$prefix $version" --notes-file packaging/release-notes.md
         if ($LASTEXITCODE -ne 0) { throw "Could not create the draft release. Check RELEASES_TOKEN has Contents write access to $Repository." }
     }
-    & gh release upload $tag --repo $Repository --clobber "release/$name" "release/$name.sig" release/latest.json release/SHA256SUMS.txt
+    $webArchive = "release/flyscan-$Edition-web.tar.gz"
+    if (-not (Test-Path -LiteralPath $webArchive)) { throw "The matching web release is missing." }
+    & gh release upload $tag --repo $Repository --clobber "release/$name" "release/$name.sig" release/latest.json release/SHA256SUMS.txt $webArchive
     if ($LASTEXITCODE -ne 0) { throw "Asset upload failed; the release remains a draft." }
     & gh release edit $tag --repo $Repository --draft=false --latest --notes-file packaging/release-notes.md
     if ($LASTEXITCODE -ne 0) { throw "Release publication failed." }
