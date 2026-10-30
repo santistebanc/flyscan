@@ -9,7 +9,10 @@ const HINTS: Record<PairView, string> = {
   "return-first": "Pick the return, then one of the outbounds sold with it",
 };
 
-/** "View All pairs ▾": how a round-trip search is listed, as a menu like the sort variants. */
+/** On the button; the menu spells each view out. */
+const SHORT: Record<PairView, string> = { pairs: "ALL", "outbound-first": "OUT", "return-first": "RET" };
+
+/** "View ALL ▾": how a round-trip search is listed, as a menu like the sort variants. */
 export function PairViewPicker({ view, onChange }: { view: PairView; onChange: (view: PairView) => void }) {
   const [open, setOpen] = useState(false);
   const root = useRef<HTMLDivElement>(null);
@@ -19,7 +22,7 @@ export function PairViewPicker({ view, onChange }: { view: PairView; onChange: (
     <button type="button" aria-haspopup="menu" aria-expanded={open} aria-label={`View: ${PAIR_VIEW_LABELS[view]}`} title={`View: ${PAIR_VIEW_LABELS[view]}`}
       onClick={() => setOpen((was) => !was)}>
       <Icon name="view" className="control-icon" />
-      <span className="control-text">View <b>{PAIR_VIEW_LABELS[view]}</b></span> <b>▾</b>
+      <span className="control-text">View <b>{SHORT[view]}</b></span> <b>▾</b>
     </button>
     {open && <div className="popover align-right sort-menu" role="menu" aria-label="View">
       {PAIR_VIEWS.map((option) => <button type="button" role="menuitemradio" key={option} aria-checked={option === view}
