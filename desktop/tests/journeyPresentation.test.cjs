@@ -88,3 +88,16 @@ test("details identify MDW to ORD as an airport change with the same elapsed con
   assert.doesNotMatch(html, /detail-transfer-route/);
   assert.doesNotMatch(html, /23h 4m in MDW/);
 });
+
+test("details name who operates a codeshare flight after the seller's carrier", () => {
+  const leg = { origin_airport: "IAH", destination_airport: "MUC", departure: "2026-12-23T16:35",
+    arrival: "2026-12-24T09:45", duration: "10h 10m", stops: 0, segments: [{
+      carrier: "LH", carrier_name: "Lufthansa", flight_number: "LH9241",
+      operating_carrier_name: "United Airlines", operating_flight_number: "UA102",
+      origin: "IAH", destination: "MUC", departure: "2026-12-23T16:35", arrival: "2026-12-24T09:45", duration: "10h 10m" }] };
+  const row = { inbound: null, outbound: leg, offers: [], trip_key: "codeshare", route: "IAH-MUC",
+    depart_date: "2026-12-23", arrival: leg.arrival };
+  const html = renderToStaticMarkup(React.createElement(CurrencyProvider, { api: null },
+    React.createElement(Details, { row, partyLabel: "1 adult", favorite: false, onToggleFavorite: () => {} })));
+  assert.match(html, /Lufthansa LH9241 · operated by United Airlines · 10h 10m/);
+});

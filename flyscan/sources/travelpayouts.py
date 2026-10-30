@@ -289,22 +289,24 @@ class Travelpayouts(Source):
         for index, raw in zip(indices, raw_flights, strict=False):
             # Prefer the marketing carrier from the fare terms; the leg itself
             # names the operating carrier, which is often a wet-lease subsidiary.
+            # Each seller names its own: the same seat is LH9241 at one and
+            # UA102 at another, so the codes belong to this proposal.
             term = terms.get(str(index)) or {}
-            designator = (
-                term.get("marketing_carrier_designator")
-                or raw.get("operating_carrier_designator")
-                or {}
-            )
+            operating = raw.get("operating_carrier_designator") or {}
+            designator = term.get("marketing_carrier_designator") or operating
             code = designator.get("carrier", "")
+            number = f"{code}{designator.get('number', '')}".strip()
+            flown_by = operating.get("carrier", "")
+            flown_as = f"{flown_by}{operating.get('number', '')}".strip()
+            codeshare = bool(flown_by) and flown_as != number
             segments.append(
                 Segment(
                     carrier=code,
-                    carrier_name=((airlines.get(code) or {}).get("name") or {})
-                    .get("en", {})
-                    .get("default", "")
-                    if airlines
-                    else "",
-                    flight_number=f"{code}{designator.get('number', '')}".strip(),
+                    carrier_name=_airline_name(airlines, code),
+                    flight_number=number,
+                    operating_carrier=flown_by if codeshare else "",
+                    operating_carrier_name=_airline_name(airlines, flown_by) if codeshare else "",
+                    operating_flight_number=flown_as if codeshare else "",
                     origin=raw.get("origin", ""),
                     destination=raw.get("destination", ""),
                     departure=_iso(raw.get("local_departure_date_time", "")),
@@ -338,6 +340,10 @@ class Travelpayouts(Source):
             flight_numbers=", ".join(s.flight_number for s in segments if s.flight_number),
             segments=segments,
         )
+
+
+def _airline_name(airlines: Dict[str, Any], code: str) -> str:
+    return ((airlines.get(code) or {}).get("name") or {}).get("en", {}).get("default", "")
 
 
 def _elapsed_minutes(departure, arrival) -> Optional[int]:

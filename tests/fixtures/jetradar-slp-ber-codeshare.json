@@ -1,0 +1,132 @@
+{
+  "capture_note": "Minimal non-sensitive flight metadata captured from Jetradar on 2026-10-30: the SLP-IAH-MUC-BER return of a BER-SLP round trip, as sold by two agents.",
+  "flight_legs": [
+    {
+      "origin": "SLP",
+      "destination": "IAH",
+      "local_departure_date_time": "2026-12-23 12:49",
+      "local_arrival_date_time": "2026-12-23 14:43",
+      "departure_unix_timestamp": 1798051740,
+      "arrival_unix_timestamp": 1798058580,
+      "operating_carrier_designator": {
+        "carrier": "UA",
+        "airline_id": "UA",
+        "number": "2405"
+      }
+    },
+    {
+      "origin": "IAH",
+      "destination": "MUC",
+      "local_departure_date_time": "2026-12-23 16:35",
+      "local_arrival_date_time": "2026-12-24 09:45",
+      "departure_unix_timestamp": 1798065300,
+      "arrival_unix_timestamp": 1798101900,
+      "operating_carrier_designator": {
+        "carrier": "UA",
+        "airline_id": "UA",
+        "number": "102"
+      }
+    },
+    {
+      "origin": "MUC",
+      "destination": "BER",
+      "local_departure_date_time": "2026-12-24 12:15",
+      "local_arrival_date_time": "2026-12-24 13:25",
+      "departure_unix_timestamp": 1798110900,
+      "arrival_unix_timestamp": 1798115100,
+      "operating_carrier_designator": {
+        "carrier": "VL",
+        "airline_id": "VL",
+        "number": "4064"
+      }
+    }
+  ],
+  "airlines": {
+    "LH": {
+      "name": {
+        "en": {
+          "default": "Lufthansa"
+        }
+      }
+    },
+    "UA": {
+      "name": {
+        "en": {
+          "default": "United Airlines"
+        }
+      }
+    },
+    "VL": {
+      "name": {
+        "en": {
+          "default": "Lufthansa City Airlines"
+        }
+      }
+    }
+  },
+  "segment": {
+    "flights": [
+      0,
+      1,
+      2
+    ]
+  },
+  "proposals": {
+    "Farera": {
+      "price": {
+        "value": 997
+      },
+      "flight_terms": {
+        "0": {
+          "marketing_carrier_designator": {
+            "carrier": "UA",
+            "airline_id": "UA",
+            "number": "2405"
+          }
+        },
+        "1": {
+          "marketing_carrier_designator": {
+            "carrier": "LH",
+            "airline_id": "LH",
+            "number": "9241"
+          }
+        },
+        "2": {
+          "marketing_carrier_designator": {
+            "carrier": "LH",
+            "airline_id": "LH",
+            "number": "4064"
+          }
+        }
+      }
+    },
+    "City.Travel": {
+      "price": {
+        "value": 1086.08
+      },
+      "flight_terms": {
+        "0": {
+          "marketing_carrier_designator": {
+            "carrier": "UA",
+            "airline_id": "UA",
+            "number": "2405"
+          }
+        },
+        "1": {
+          "marketing_carrier_designator": {
+            "carrier": "UA",
+            "airline_id": "UA",
+            "number": "102"
+          }
+        },
+        "2": {
+          "marketing_carrier_designator": {
+            "carrier": "LH",
+            "airline_id": "LH",
+            "number": "4064"
+          }
+        }
+      }
+    }
+  }
+}
