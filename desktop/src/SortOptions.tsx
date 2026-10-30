@@ -3,6 +3,9 @@ import { Icon } from "./Icon";
 import { useDismiss } from "./Popover";
 import { SORT_BUTTON_LABELS, SORT_GROUPS, SORT_OPTION_LABELS, effectiveSort, sortKeysFor, type SortKey } from "./flightSort";
 
+/** What a sort shows instead of its name when the results bar is narrow. */
+const ICONS = { Best: "best", Cheapest: "price", Departure: "takeoff", Shortest: "duration" } as const;
+
 const TITLES: Partial<Record<SortKey, string>> = {
   best: "Balances price and total travel time, including the return and layovers",
   duration: "Total travel time, including the return and layovers",
@@ -29,7 +32,10 @@ export function SortOptions({ sort, onChange, roundTrip }: {
       const shown = active ? current : remembered && keys.includes(remembered) ? remembered : keys[0]!;
       const pick = (key: SortKey) => { setChosen((old) => ({ ...old, [group.label]: key })); onChange(key); setMenu(null); };
       return <span key={group.label} className="sort-option" data-active={active || undefined}>
-        <button type="button" aria-pressed={active} title={TITLES[shown]} onClick={() => pick(shown)}>{SORT_BUTTON_LABELS[shown]}</button>
+        <button type="button" aria-pressed={active} title={TITLES[shown] ?? SORT_BUTTON_LABELS[shown]} onClick={() => pick(shown)}>
+          <Icon name={ICONS[group.label as keyof typeof ICONS]} className="control-icon" />
+          <span className="control-text">{SORT_BUTTON_LABELS[shown]}</span>
+        </button>
         {keys.length > 1 && <button type="button" className="sort-menu-toggle" aria-label={`${group.label} sort options`}
           aria-haspopup="menu" aria-expanded={menu === group.label}
           onClick={() => setMenu((open) => open === group.label ? null : group.label)}><Icon name="chevron-down" /></button>}

@@ -847,3 +847,15 @@ button.primary:hover:not(:disabled) { background: var(--accent-strong); }
 .pair-view-picker > button { white-space: nowrap; color: var(--muted); font-size: 12px; }
 .pair-view-picker > button b { font-weight: 500; color: var(--ink); }
 .pair-view-picker > button:hover { color: var(--ink-soft); }
+
+/* Controls give up their words for icons when the results bar runs out of
+   room; the words stay for screen readers and in each control's tooltip. */
+.results-bar { container: results-bar / inline-size; }
+.results-bar .control-icon { display: none; }
+@container results-bar (max-width: 760px) {
+  .results-bar .control-icon { display: inline-block; width: 15px; height: 15px; flex: none; opacity: 1; vertical-align: -3px; }
+  .results-bar .control-text {
+    position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap;
+  }
+  .sort-option > button { display: inline-flex; align-items: center; padding: 6px 10px; }
+}

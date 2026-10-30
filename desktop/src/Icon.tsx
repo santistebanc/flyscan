@@ -23,6 +23,11 @@ const drawings = {
   plus: <path d="M12 5v14M5 12h14" />,
   edit: <><path d="M4 20h4L19 9a2.8 2.8 0 0 0-4-4L4 16Z" /><path d="m13.5 6.5 4 4" /></>,
   trash: <><path d="M4 7h16M10 11v6M14 11v6" /><path d="M6 7l1 12a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2l1-12M9 7V4h6v3" /></>,
+  // Shown in place of a control's words when the results bar is narrow.
+  best: <path d="M12 3v4M12 17v4M3 12h4M17 12h4M6.3 6.3l2.5 2.5M15.2 15.2l2.5 2.5M6.3 17.7l2.5-2.5M15.2 8.8l2.5-2.5" />,
+  takeoff: <><path d="M3 20h18" /><path d="m4 13 3 1 3-3-5-4 2-1 7 3 4-2a2 2 0 0 1 2 3l-12 7-5-1Z" /></>,
+  duration: <><path d="M6 3h12M6 21h12" /><path d="M7 3c0 5 10 5 10 9s-10 4-10 9M17 3c0 5-10 5-10 9s10 4 10 9" /></>,
+  view: <><rect x="3" y="4" width="18" height="6" rx="1.5" /><path d="M3 14h18M3 19h18" /></>,
   connection: <><path d="M4 7h5a3 3 0 0 1 3 3v4a3 3 0 0 0 3 3h5M16 13l4 4-4 4" /><circle cx="4" cy="7" r="2" /></>,
 };
 

@@ -69,7 +69,7 @@ export function CurrencyInput() {
   return <div className="view-control currency-field" ref={root}>
     <button type="button" ref={trigger} aria-haspopup="dialog" aria-expanded={open}
       aria-label={`Show prices in ${currency}`} onClick={() => open ? close() : setOpen(true)}>
-      Prices <b>{currency} ▾</b>
+      <span className="control-text">Prices </span><b>{currency} ▾</b>
     </button>
     {open && createPortal(<div ref={panel} className="popover currency-suggest" role="dialog"
       aria-label="Show prices in" style={position}>

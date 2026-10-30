@@ -10,6 +10,8 @@ import { ANY_ARRIVAL, DEFAULT_FILTERS, filtersActive, filtersChanged, formatArri
 
 export const FILTERS_KEY = "flight-scraper:list-filters";
 type Panel = "stops" | "price" | "duration" | "layovers" | "times";
+/** What a filter shows instead of its name when the results bar is narrow. */
+const FILTER_ICONS = { stops: "stops", price: "price", duration: "duration", layovers: "connection", times: "waiting" } as const;
 type Direction = "outbound" | "inbound";
 const TITLES: Record<Panel, string> = { stops: "Stops", price: "Price", duration: "Duration", layovers: "Layovers", times: "Departure and arrival times" };
 const DIRECTION_NAMES: Record<Direction, string> = { outbound: "Outbound", inbound: "Return" };
@@ -192,12 +194,13 @@ export function FlightFiltersBar({ filters, onChange, shown, total, roundTrip = 
   return <div className="flight-filters" ref={root} role="group" aria-label="Filter flights">
     {controls.map((control) => <button type="button" key={control.name}
       ref={(node) => { if (node) triggers.current[control.name] = node; }}
-      className="flight-filter-trigger" data-active={control.active || undefined} title={control.title}
+      className="flight-filter-trigger" data-active={control.active || undefined} title={control.title ?? control.label}
       aria-label={control.value ? `${control.label}: ${control.title ?? control.value}` : control.label}
       aria-haspopup="dialog" aria-expanded={open === control.name}
       aria-controls={open === control.name ? id : undefined}
       onClick={() => setOpen((was) => was === control.name ? null : control.name)}>
-      <span>{control.label}</span>{control.value && <b>{control.value}</b>}<Icon name="chevron-down" />
+      <Icon name={FILTER_ICONS[control.name]} className="control-icon" />
+      <span className="control-text">{control.label}</span>{control.value && <b>{control.value}</b>}<Icon name="chevron-down" />
     </button>)}
     {(active || changed) && total > 0 && <span className="filter-count" role="status" aria-live="polite" aria-atomic="true">{shown.toLocaleString()} of {total.toLocaleString()}</span>}
     {changed && <button type="button" className="filter-reset-all" onClick={() => onChange(DEFAULT_FILTERS)} title="Restore default filters">Reset</button>}

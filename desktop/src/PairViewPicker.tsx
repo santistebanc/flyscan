@@ -16,9 +16,10 @@ export function PairViewPicker({ view, onChange }: { view: PairView; onChange: (
   const close = useCallback(() => setOpen(false), []);
   useDismiss(open, close, root);
   return <div className="view-control pair-view-picker" ref={root}>
-    <button type="button" aria-haspopup="menu" aria-expanded={open} aria-label={`View: ${PAIR_VIEW_LABELS[view]}`}
+    <button type="button" aria-haspopup="menu" aria-expanded={open} aria-label={`View: ${PAIR_VIEW_LABELS[view]}`} title={`View: ${PAIR_VIEW_LABELS[view]}`}
       onClick={() => setOpen((was) => !was)}>
-      View <b>{PAIR_VIEW_LABELS[view]} ▾</b>
+      <Icon name="view" className="control-icon" />
+      <span className="control-text">View <b>{PAIR_VIEW_LABELS[view]}</b></span> <b>▾</b>
     </button>
     {open && <div className="popover align-right sort-menu" role="menu" aria-label="View">
       {PAIR_VIEWS.map((option) => <button type="button" role="menuitemradio" key={option} aria-checked={option === view}
