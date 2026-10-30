@@ -357,6 +357,9 @@ function Results(
   // Stays put while you scroll, and while the filters leave it nothing to pair with.
   const pinnedFlight = step?.kind === "pair" && <div className="pinned-pick" ref={pinnedCard} style={{ top: barBottom }}>
     <div className="flight picked" aria-label="Picked flight">
+      {/* Over the empty favourite column, so every column lines up with the rows below. */}
+      <button type="button" className="pinned-close" aria-label="Unpin this flight and pick again" title="Pick again"
+        onClick={step.onChange}><Icon name="cancel" /></button>
       <span className="favorite-cell" />
       <span className="fare-cell">
         <span className="fare-price"><PriceRange group={step.pinned} money={money} ratings={ratings} /></span>
@@ -364,7 +367,6 @@ function Results(
         <span className="fare-dates">{readableDay(step.pinned.date)}</span>
       </span>
       <span className="trip">{legOf(step.pinned.example, step.pinned.direction)}</span>
-      <button type="button" className="pinned-change" onClick={step.onChange}>Change</button>
     </div>
   </div>;
 
