@@ -33,6 +33,7 @@ import { UpdateControls } from "./UpdateControls";
 import { FetchButton, RangeStatus, rangeComplete } from "./RangeStatus";
 import { rangeStats, splitQueueGroups } from "./queueModel";
 import { Icon, Spinner } from "./Icon";
+import { yearIfFar } from "./dates";
 import { flightRatings } from "./flightRatings";
 import { DEFAULT_SORT, effectiveSort, sortFlightRows, type SortKey } from "./flightSort";
 import { SortOptions } from "./SortOptions";
@@ -105,6 +106,8 @@ interface RememberedForm {
 const FORM_KEY = "flight-scraper:form";
 
 const DAY_MS = 86_400_000;
+/** Where the side panel becomes a sheet along the bottom; styles.css uses the same width. */
+const SHEET = "(max-width: 900px)";
 
 const addDays = (iso: string, days: number) =>
   new Date(Date.parse(`${iso}T12:00:00`) + days * DAY_MS).toISOString().slice(0, 10);
@@ -150,11 +153,11 @@ function rememberedForm(): Partial<RememberedForm> {
   }
 }
 
-/** "2026-09-05" → "Sep 5". Parsed as local noon so no timezone shifts the day. */
+/** "2026-09-05" → "Sep 5", with the year only when it is over a year away. Parsed as local noon so no timezone shifts the day. */
 function readableDay(iso: string): string {
   const day = new Date(`${iso}T12:00:00`);
   if (Number.isNaN(day.getTime())) return iso;
-  return day.toLocaleDateString("en-US", { month: "short", day: "numeric" });
+  return day.toLocaleDateString("en-US", { month: "short", day: "numeric", ...yearIfFar(iso) });
 }
 
 const returnDateOf = (row: FlightRow) => row.return_date || row.inbound?.departure.slice(0, 10) || "";
@@ -270,7 +273,9 @@ function Results(
   const [pinnedHeight, setPinnedHeight] = useState(0);
   useLayoutEffect(() => {
     const measure = () => {
-      setListTop(list.current?.offsetTop ?? 0);
+      // A page coordinate, not offsetTop: the list sits inside a query container,
+      // which can become its offset parent and measure from somewhere else.
+      setListTop(list.current ? list.current.getBoundingClientRect().top + window.scrollY : 0);
       const bar = document.querySelector<HTMLElement>(".results-bar");
       setBarBottom(bar ? parseFloat(getComputedStyle(bar).top) + bar.getBoundingClientRect().height : 0);
       setPinnedHeight(pinnedCard.current?.offsetHeight ?? 0);
@@ -520,15 +525,37 @@ function Shell() {
 
   const [openKey, setOpenKey] = useState<string | null>(null);
   const [tab, setTab] = useState<"flight" | "queue">("queue");
+  /**
+   * Whether the side panel shows its body. Only a narrow window reads this: there the
+   * panel is a sheet along the bottom, folded down to its tabs until a flight
+   * is picked or a tab is pressed, so the list keeps the screen.
+   */
+  const [sheetOpen, setSheetOpen] = useState(false);
   const pickFlight = useCallback((key: string | null) => {
     setOpenKey(key);
     setTab(key ? "flight" : "queue");
+    setSheetOpen(Boolean(key));
   }, []);
+  const showTab = (name: "flight" | "queue") => {
+    setSheetOpen((open) => !(open && tab === name));
+    setTab(name);
+  };
+  // A security check waits on a person, so a folded sheet unfolds onto it.
+  const needsPerson = pending.length > 0;
+  useEffect(() => {
+    if (!needsPerson || !window.matchMedia(SHEET).matches) return;
+    setTab("queue");
+    setSheetOpen(true);
+  }, [needsPerson]);
   const [toast, setToast] = useState("");
+  // Marked as leaving first, so it can slide out before it is removed.
+  const [toastLeaving, setToastLeaving] = useState(false);
   useEffect(() => {
     if (!toast) return;
-    const timer = window.setTimeout(() => setToast(""), 2200);
-    return () => window.clearTimeout(timer);
+    setToastLeaving(false);
+    const leave = window.setTimeout(() => setToastLeaving(true), 2200);
+    const remove = window.setTimeout(() => setToast(""), 2350);
+    return () => { window.clearTimeout(leave); window.clearTimeout(remove); };
   }, [toast]);
   const { favorites, toggleFavorite } = useFavorites();
   const [sort, setSort] = useState<SortKey>(DEFAULT_SORT);
@@ -855,14 +882,31 @@ function Shell() {
   const side = useRef<HTMLElement | null>(null);
 
   const measure = useCallback(() => {
-    for (const [ref, name] of [[header, "--header-h"], [side, "--side-h"]] as const) {
-      if (!ref.current) continue;
-      // Floor, never round. These heights are fractional, and the number is
-      // what the list is pushed down by: a pixel short tucks the list under an
-      // opaque edge, a pixel long opens a slit for it to show through.
-      document.documentElement.style.setProperty(
-        name, `${Math.floor(ref.current.getBoundingClientRect().height)}px`,
-      );
+    // The largest logo that leaves the search bar on its line, tried in turn.
+    // Set on the element, not through React: it is layout, re-decided on every
+    // resize, and each try is one synchronous layout of the header.
+    const brand = header.current?.querySelector<HTMLElement>(".brand");
+    const bar = header.current?.querySelector<HTMLElement>(".search-bar");
+    if (brand && bar) {
+      for (const logo of ["full", "short", "none"]) {
+        brand.dataset.logo = logo;
+        if (logo === "none" || getComputedStyle(brand).display === "none"
+          || Math.abs(bar.getBoundingClientRect().top - brand.getBoundingClientRect().top) < 1) break;
+      }
+    }
+    // Floor, never round. These heights are fractional, and the number is
+    // what the list is pushed down by: a pixel short tucks the list under an
+    // opaque edge, a pixel long opens a slit for it to show through.
+    const root = document.documentElement.style;
+    if (header.current) root.setProperty("--header-h", `${Math.floor(header.current.getBoundingClientRect().height)}px`);
+    if (side.current) {
+      // A folded sheet slides its body below the window rather than dropping
+      // it, so what it takes from the list is its tabs, not its whole height.
+      const height = (node: Element | null | undefined) => Math.floor(node?.getBoundingClientRect().height ?? 0);
+      const tabs = height(side.current.querySelector(".side-tabs"));
+      const folded = window.matchMedia(SHEET).matches && !side.current.hasAttribute("data-open");
+      root.setProperty("--side-tabs-h", `${tabs}px`);
+      root.setProperty("--side-h", `${folded ? tabs : height(side.current)}px`);
     }
   }, []);
 
@@ -981,7 +1025,7 @@ function Shell() {
     action: { label: "Reset filters", onClick: () => setFilters(DEFAULT_FILTERS) },
   } : request && queue.state && !stats.groups ? {
     title: "Nothing stored for this search yet",
-    body: `No source has been asked about ${request.origin.toUpperCase()} → ${request.destination.toUpperCase()}, `
+    body: `No source has been asked about ${request.origin.toUpperCase()} ${ret ? "↔" : "→"} ${request.destination.toUpperCase()}, `
       + `${readableRange(start, end || start)}${ret ? ` / ${readableRange(ret, retEnd || ret)}` : ", one way"} for ${party}. `
       + (trips === 1 ? `Fetch asks ${asked} for it.` : `Fetch asks ${asked} for each of the ${tripWord}.`),
     action: trips > 0 ? { label: `Fetch ${tripWord}`, onClick: () => fetchRange(false) } : undefined,
@@ -1000,7 +1044,11 @@ function Shell() {
   return (
     <AirportNamesProvider api={api}><div className="app">
       <header className="topbar" ref={header}>
-        <a className="brand" href="./">fly<span>scan</span></a>
+        {/* Full, then the initials, then gone, as the header narrows (flyscan.css). */}
+        <a className="brand" href="./" aria-label="flyscan">
+          <span className="brand-full" aria-hidden="true">fly<b>scan</b></span>
+          <span className="brand-short" aria-hidden="true">f<b>s</b></span>
+        </a>
         <div className="search-bar" role="search" aria-label="Flight search">
           <PlaceInput label="From" value={origin} onChange={setOrigin} api={api}
             open={popover === "from"} onToggle={toggles.from} />
@@ -1091,16 +1139,19 @@ function Shell() {
         />
       </main>
 
-      <aside className="side" ref={side} aria-label="Flight and search queue">
+      <aside className="side" ref={side} aria-label="Flight and search queue" data-open={sheetOpen || undefined}>
         <div className="side-tabs" role="tablist" aria-label="Side panel">
           <button type="button" role="tab" id="tab-flight" aria-selected={tab === "flight"} aria-controls="panel-flight"
-            onClick={() => setTab("flight")}>Flight</button>
+            onClick={() => showTab("flight")}>Flight</button>
           <button type="button" role="tab" id="tab-queue" aria-selected={tab === "queue"} aria-controls="panel-queue"
-            onClick={() => setTab("queue")}>Queue<span className="side-tab-count">{activeSearches}</span>
+            onClick={() => showTab("queue")}>Queue<span className="side-tab-count">{activeSearches}</span>
             {pending.length > 0 && <span className="side-tab-alert" role="img" aria-label="Verification needed" />}</button>
           <span className="side-hint" aria-hidden="true">↑ ↓ to browse · Esc</span>
+          <button type="button" className="side-toggle queue-icon-button" aria-expanded={sheetOpen} aria-controls="side-body"
+            aria-label={sheetOpen ? "Fold the panel down" : "Open the panel"} onClick={() => setSheetOpen((open) => !open)}>
+            <Icon name="chevron-down" /></button>
         </div>
-        <div className="side-body">
+        <div className="side-body" id="side-body">
           <div role="tabpanel" id="panel-queue" aria-labelledby="tab-queue" hidden={tab !== "queue"}>
             <ChallengeBanner
               api={api}
@@ -1126,7 +1177,7 @@ function Shell() {
           </div>
         </div>
       </aside>
-      {toast && <div className="toast" role="status">{toast}</div>}
+      {toast && <div className="toast" role="status" data-leaving={toastLeaving || undefined}>{toast}</div>}
       <EditFlightDialog editing={editingFlight} onClose={() => setEditingFlight(null)}
         rows={correctedRows} carriers={carriers} party={manualParty} api={api}
         search={{ origin: origin.trim(), destination: destination.trim() }}

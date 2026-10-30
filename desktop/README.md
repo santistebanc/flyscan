@@ -54,7 +54,10 @@ To, Depart, Return, Travellers and Fetch, each segment opening its own popover �
 the results down the left, and a fixed side panel on the right with two tabs,
 the flight you have picked and the search queue. The results *are* the page and
 scroll the window; the header and the panel are pinned out of that flow, which
-is why the header remeasures itself into `--header-h` when it wraps. Rows carry
+is why the header remeasures itself into `--header-h` when it wraps. At
+900px and narrower the panel is never above the list: it is a sheet along the
+bottom, folded to its tabs until a flight is picked or a security check needs
+someone. On a phone, upright or on its side, the header scrolls away too. Rows carry
 only what you scan by — price, dates, and per direction the times either side
 of the bars, connections, duration and stops — and the Flight tab carries
 booking first, then the full itinerary, for whichever row is selected, by click

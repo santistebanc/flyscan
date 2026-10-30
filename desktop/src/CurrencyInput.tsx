@@ -1,10 +1,10 @@
-import { useCallback, useEffect, useId, useLayoutEffect, useMemo, useRef, useState, type KeyboardEvent } from "react";
+import { useCallback, useId, useLayoutEffect, useMemo, useRef, useState, type KeyboardEvent } from "react";
 import { createPortal } from "react-dom";
 import { useCurrency } from "./currency";
 import { currencySuggestions, resolveCurrency } from "./currencyOptions";
 import { Icon } from "./Icon";
 import { openExternal } from "./platform";
-import { useDismiss } from "./Popover";
+import { useDismiss, useRevealOption } from "./Popover";
 
 /** "Prices EUR ▾": a view setting, searchable because the list is long. */
 export function CurrencyInput() {
@@ -23,9 +23,7 @@ export function CurrencyInput() {
   // The panel is portalled, so "outside" has to exclude it as well as the trigger.
   useDismiss(open, close, root, panel);
 
-  useEffect(() => {
-    if (open && selected) document.getElementById(`${id}-${selected.code}`)?.scrollIntoView({ block: "nearest" });
-  }, [id, open, selected]);
+  useRevealOption(open && selected ? `${id}-${selected.code}` : undefined);
   useLayoutEffect(() => {
     if (!open) return;
     const place = () => {

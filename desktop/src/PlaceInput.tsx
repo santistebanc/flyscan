@@ -10,7 +10,7 @@
 import { Fragment, useCallback, useEffect, useId, useMemo, useRef, useState, type KeyboardEvent } from "react";
 import type { FlightScraperApi, PlaceSuggestion } from "./api";
 import { useAirportCity } from "./AirportLabel";
-import { SearchSegment, useDismiss, useKeepInView } from "./Popover";
+import { SearchSegment, useDismiss, useKeepInView, useRevealOption } from "./Popover";
 import {
   filterRecentPlaces, placeLabel, readRecentPlaces, rememberPlace,
   type RecentPlace,
@@ -70,6 +70,7 @@ export function PlaceInput({ label, value, onChange, api, open, onToggle, sugges
   const close = useCallback(() => onToggle(false), [onToggle]);
   useDismiss(open, close, root);
   useKeepInView(open, panel);
+  useRevealOption(open && active >= 0 ? `${listId}-${active}` : undefined);
 
   useEffect(() => {
     if (!open) return;

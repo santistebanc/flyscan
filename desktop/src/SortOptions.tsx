@@ -1,6 +1,6 @@
 import { useCallback, useRef, useState } from "react";
 import { Icon } from "./Icon";
-import { useDismiss } from "./Popover";
+import { opensOnArrow, useDismiss, useMenuKeys } from "./Popover";
 import { SORT_BUTTON_LABELS, SORT_GROUPS, SORT_OPTION_LABELS, effectiveSort, sortKeysFor, type SortKey } from "./flightSort";
 
 /** What a sort shows instead of its name when the results bar is narrow. */
@@ -24,6 +24,8 @@ export function SortOptions({ sort, onChange, roundTrip }: {
   const root = useRef<HTMLDivElement>(null);
   const close = useCallback(() => setMenu(null), []);
   useDismiss(menu !== null, close, root);
+  const list = useRef<HTMLDivElement>(null);
+  const menuKeys = useMenuKeys(menu !== null, list);
   return <div className="sort-options" role="group" aria-label="Sort by" ref={root}>
     {SORT_GROUPS.map((group) => {
       const keys = sortKeysFor(roundTrip, group.keys);
@@ -38,8 +40,10 @@ export function SortOptions({ sort, onChange, roundTrip }: {
         </button>
         {keys.length > 1 && <button type="button" className="sort-menu-toggle" aria-label={`${group.label} sort options`}
           aria-haspopup="menu" aria-expanded={menu === group.label}
-          onClick={() => setMenu((open) => open === group.label ? null : group.label)}><Icon name="chevron-down" /></button>}
-        {menu === group.label && <div className="popover align-right sort-menu" role="menu" aria-label={`${group.label} sort options`}>
+          onClick={() => setMenu((open) => open === group.label ? null : group.label)}
+          onKeyDown={menu === group.label ? undefined : opensOnArrow(() => setMenu(group.label))}><Icon name="chevron-down" /></button>}
+        {menu === group.label && <div className="popover align-right sort-menu" role="menu" aria-label={`${group.label} sort options`}
+          ref={list} onKeyDown={menuKeys}>
           {keys.map((key) => <button type="button" role="menuitemradio" key={key} aria-checked={key === current} onClick={() => pick(key)}>
             {SORT_OPTION_LABELS[key]}{key === current && <Icon name="done" />}
           </button>)}

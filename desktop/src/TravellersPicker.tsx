@@ -1,6 +1,7 @@
 import { useCallback, useRef } from "react";
 import type { Cabin } from "./api";
 import { SearchSegment, useDismiss, useKeepInView } from "./Popover";
+import { Icon } from "./Icon";
 
 export const CABINS: Cabin[] = ["economy", "premiumeconomy", "business", "first"];
 export const CABIN_LABELS: Record<Cabin, string> = {
@@ -40,8 +41,12 @@ export function TravellersPicker({ party, currencies, open, onToggle, onChange }
   useKeepInView(open, panel);
   const count = party.adults + party.children + party.infants;
   const cabin = party.cabin === "premiumeconomy" ? "Premium" : CABIN_LABELS[party.cabin];
+  const who = count === 1 ? "adult" : "travellers";
+  const rest = `${cabin}${party.currency !== "EUR" ? ` · ${party.currency}` : ""}`;
+  // The word gives way to a person icon when the header is narrow (styles.css).
   return <SearchSegment label="Travellers" value={String(count)} open={open} root={root}
-    hint={`${count === 1 ? "adult" : "travellers"} · ${cabin}${party.currency !== "EUR" ? ` · ${party.currency}` : ""}`}
+    hint={<><span className="party-word">{who}</span><Icon name="person" className="party-icon" /> · {rest}</>}
+    hintText={`${who} · ${rest}`}
     onToggle={() => onToggle(!open)}>
     <div className="popover travellers-popover" ref={panel} role="dialog" aria-label="Travellers and cabin">
       <Stepper label="Adults" note="12 and over" value={party.adults} min={1} max={9} onChange={(adults) => onChange({ adults })} />

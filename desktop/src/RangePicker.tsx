@@ -17,6 +17,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Icon } from "./Icon";
 import { SearchSegment, useDismiss, useKeepInView } from "./Popover";
+import { yearIfFar } from "./dates";
 
 const WEEKDAYS = ["Mo", "Tu", "We", "Th", "Fr", "Sa", "Su"];
 type RelatedRange = { from: string; to: string; label: string };
@@ -45,14 +46,10 @@ const shift = (iso: string, days: number) => {
 
 export const todayISO = () => key(new Date());
 
-/** "Sep 6", and "Sep 6 2027" once it is not this year any more. */
+/** "Sep 6", and "Sep 6, 2028" once it is more than a year away. */
 export function readable(iso: string): string {
   if (!iso) return "";
-  const day = at(iso);
-  const sameYear = day.getFullYear() === new Date().getFullYear();
-  return day.toLocaleDateString(undefined, {
-    month: "short", day: "numeric", ...(sameYear ? {} : { year: "numeric" }),
-  });
+  return at(iso).toLocaleDateString(undefined, { month: "short", day: "numeric", ...yearIfFar(iso) });
 }
 
 /** "Nov 20", or "Nov 20 – 22" — the second month named only when it differs. */

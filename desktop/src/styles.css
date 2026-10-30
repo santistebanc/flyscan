@@ -22,6 +22,10 @@
   --faint: #5d6e88;
   --line: #34435b;
   --line-soft: #222d3e;
+  /* The scrollbar stands apart from the page: a light thumb in a groove darker
+     than any surface it runs beside. */
+  --scrollbar: #5a6d8a;
+  --scrollbar-track: #0a0f17;
   --accent: #8cb8ff;
   --accent-strong: #a3c6ff;
   --accent-soft: #23344f;
@@ -38,21 +42,26 @@
   --mono: "Geist Mono", ui-monospace, monospace;
   --side-width: clamp(300px, 30vw, 380px);
   --shadow: 0 12px 40px #00000059;
+  /* Motion: ease-out for things that appear, the drawer curve for the sheet. */
+  --ease-out: cubic-bezier(0.23, 1, 0.32, 1);
+  --ease-drawer: cubic-bezier(0.32, 0.72, 0, 1);
   /* Remeasured by the elements themselves; these are the first paint's values. */
   --header-h: 73px;
   --side-h: 0px;
 }
 
-* { box-sizing: border-box; scrollbar-width: thin; scrollbar-color: var(--line) transparent; }
+* { box-sizing: border-box; scrollbar-width: thin; scrollbar-color: var(--scrollbar) var(--scrollbar-track); }
 ::-webkit-scrollbar { width: 8px; height: 8px; }
-::-webkit-scrollbar-track { background: transparent; }
-::-webkit-scrollbar-thumb { background: var(--line); border-radius: 4px; }
+::-webkit-scrollbar-track { background: var(--scrollbar-track); }
+::-webkit-scrollbar-thumb { background: var(--scrollbar); border-radius: 4px; }
 
 body {
   margin: 0;
   /* The results are the page: the header and the side panel are lifted out
-     of the flow and pinned, so the room they take is given back as padding. */
-  padding: var(--header-h) var(--side-width) 0 0;
+     of the flow and pinned, so the room they take is given back as padding.
+     A pixel short of the header, so the results bar starts exactly where it
+     sticks (see .results-bar) and does not hop as the page leaves the top. */
+  padding: calc(var(--header-h) - 1px) var(--side-width) 0 0;
   background: var(--bg);
   color: var(--ink);
   font: 14px/1.5 Geist, system-ui, sans-serif;
@@ -93,11 +102,15 @@ button.primary:hover:not(:disabled) { background: var(--accent-strong); }
 
 /* -- header: the search bar and what it has found so far ------------------ */
 
+/* A container: the search bar lays itself out by the header's width, not the
+   window's. The padding is in variables so a narrow bar can bleed to its edges. */
 .topbar {
+  --topbar-pad-y: 12px; --topbar-pad-x: 16px;
   position: fixed; top: 0; left: 0; right: 0; z-index: 40;
   display: flex; flex-wrap: wrap; align-items: center; gap: 10px 16px;
-  padding: 12px 16px;
+  padding: var(--topbar-pad-y) var(--topbar-pad-x);
   background: var(--chrome); border-bottom: 1px solid var(--line);
+  container: topbar / inline-size;
 }
 
 .search-bar {
@@ -118,6 +131,7 @@ button.primary:hover:not(:disabled) { background: var(--accent-strong); }
 .search-segment-value { display: flex; align-items: baseline; gap: 6px; white-space: nowrap; min-width: 0; }
 .search-segment-value b { font: 600 14px/18px var(--mono); }
 .search-segment-value span { min-width: 0; overflow: hidden; text-overflow: ellipsis; font-size: 12px; color: var(--muted); }
+.search-segment-value .party-icon { display: none; width: 13px; height: 13px; vertical-align: -2px; }
 
 .fetch-button {
   display: flex; align-items: center; gap: 8px; padding: 0 20px;
@@ -240,9 +254,12 @@ button.primary:hover:not(:disabled) { background: var(--accent-strong); }
 .filter-dayparts button[aria-pressed="true"] {
   border-color: var(--accent); background: var(--accent-soft); color: var(--accent);
 }
-.sources-popover { width: 240px; padding: 12px 16px 16px; }
+/* As wide as its longest source, which never wraps. The notes take whatever
+   width that leaves rather than widening the panel to their own length. */
+.sources-popover { width: max-content; min-width: 240px; max-width: calc(100vw - 16px); padding: 12px 16px 16px; }
+.sources-popover .popover-note { width: 0; min-width: 100%; }
 .sources-list { display: flex; flex-direction: column; }
-.source-option { display: flex; align-items: center; gap: 10px; padding: 6px 0; font-size: 14px; cursor: pointer; }
+.source-option { display: flex; align-items: center; gap: 10px; padding: 6px 0; font-size: 14px; white-space: nowrap; cursor: pointer; }
 .source-option input { width: 16px; height: 16px; margin: 0; accent-color: var(--accent); }
 .source-option:has(input:disabled) { cursor: default; }
 .sources-all { margin-top: 6px; padding: 5px 10px; border: 1px solid var(--line); border-radius: 5px; font-size: 12px; color: var(--ink-soft); }
@@ -254,7 +271,9 @@ button.primary:hover:not(:disabled) { background: var(--accent-strong); }
 
 /* -- results: summary, sort, filters -------------------------------------- */
 
-.results-pane { min-width: 0; }
+/* A container: rows lay themselves out by the room the list has, which the
+   side panel takes a share of, not by the window. */
+.results-pane { min-width: 0; container: results / inline-size; }
 /* Sticky under the pinned header. It parks a pixel high, tucked behind the
    header rather than flush with it: flush is a sub-pixel coin toss, and the
    losing side is a slit with the list scrolling past inside it. */
@@ -263,6 +282,10 @@ button.primary:hover:not(:disabled) { background: var(--accent-strong); }
   display: flex; flex-direction: column; gap: 10px;
   padding: 14px 20px 12px; background: var(--bg); border-bottom: 1px solid var(--line);
 }
+/* The lowest pinned edge casts a shadow onto the rows that scroll beneath it:
+   the bar, or the picked flight held under it. */
+.results-bar, .pinned-pick { box-shadow: 0 8px 14px -8px #000c; }
+.results-pane:has(.pinned-pick) .results-bar { box-shadow: none; }
 .results-summary { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 16px; }
 .results-summary h1 { margin: 0; font-size: 18px; font-weight: 600; letter-spacing: -.01em; white-space: nowrap; }
 .results-summary > span { font-size: 12px; color: var(--muted); }
@@ -626,7 +649,7 @@ button.primary:hover:not(:disabled) { background: var(--accent-strong); }
 .detail-missing-return { margin: 16px; font-size: 12px; color: var(--muted); }
 
 .toast {
-  position: fixed; left: 50%; bottom: 24px; z-index: 90; transform: translateX(-50%);
+  position: fixed; left: 50%; bottom: 24px; z-index: 90; transform: translate(-50%, 0);
   padding: 10px 16px; border-radius: 6px; background: var(--accent-soft); border: 1px solid #3c5678;
   font-size: 13px; box-shadow: 0 8px 24px #0006;
 }
@@ -658,39 +681,136 @@ button.primary:hover:not(:disabled) { background: var(--accent-strong); }
 
 /* -- narrow windows ------------------------------------------------------- */
 
-/* Below this the side panel would squeeze the timelines, so it turns the
-   corner: still pinned, stacked under the header across the full width and
-   capped, with the results scrolling beneath it. */
+/* Below this the side panel would squeeze the timelines, so it leaves the
+   side for a sheet along the bottom, never the top: the list keeps the
+   screen under the header. The sheet folds down to its tabs and opens when a
+   flight is picked. */
+/* Only the sheet folds; the panel at the side has no toggle. */
+.side-toggle { display: none; }
 @media (max-width: 900px) {
-  .side { top: var(--header-h); left: 0; bottom: auto; width: auto; max-height: 40vh; border-left: 0; border-bottom: 1px solid var(--line); }
-  body { padding-right: 0; padding-top: calc(var(--header-h) + var(--side-h)); }
-  .results-bar { top: calc(var(--header-h) + var(--side-h) - 1px); }
-  .results .flight { scroll-margin-top: calc(var(--header-h) + var(--side-h) + 112px); }
-  .results-frame.has-pinned .results .flight { scroll-margin-top: calc(var(--header-h) + var(--side-h) + 200px); }
+  body { padding: calc(var(--header-h) - 1px) 0 var(--side-h); }
+  .results .flight { scroll-margin-bottom: var(--side-h); }
+  .side {
+    top: auto; bottom: 0; left: 0; width: auto; max-height: 70vh; max-height: 70dvh;
+    border-left: 0; border-bottom: 0; border-top: 1px solid var(--line); box-shadow: 0 -8px 24px #0006;
+  }
+  .side { transition: transform 300ms var(--ease-drawer); }
+  .side:not([data-open]) { transform: translateY(calc(100% - var(--side-tabs-h, 40px))); }
+  /* Out of reach while folded: hidden once the slide has finished, shown at once on opening. */
+  .side-body { transition: visibility 0s; }
+  .side:not([data-open]) .side-body { visibility: hidden; transition: visibility 0s 300ms; }
+  .side-hint { display: none; }
+  .side-toggle { display: inline-flex; margin-left: auto; color: var(--muted); }
+  .side-toggle .icon { transition: transform .12s; }
+  .side:not([data-open]) .side-toggle .icon { transform: rotate(180deg); }
+  .list-notice.bottom { bottom: var(--side-h); }
+  .toast { bottom: calc(var(--side-h) + 16px); max-width: calc(100vw - 32px); }
 }
-/* The bar wraps rather than clipping its segments. */
-@media (max-width: 760px) {
-  .search-bar { flex-wrap: wrap; height: auto; }
-  .search-segment-trigger { min-height: 48px; }
-  .fetch-button { min-height: 48px; border-radius: 0 0 7px 0; }
-  .leg { grid-template-columns: 44px minmax(0, 1fr) 56px 60px; gap: 6px; }
-  .results .flight, .pinned-pick .flight { gap: 10px; padding-inline: 8px 12px; }
-}
+:root { --favorite-column: 24px; }
 @media (pointer: coarse) {
+  :root { --favorite-column: 44px; }
   .favorite-button, .queue-icon-button, .detail-icon-button { width: 44px; height: 44px; }
   .results .flight { grid-template-columns: 44px max(104px, var(--flight-fare-width, 104px)) minmax(0, 1fr); }
   .pinned-pick .flight { grid-template-columns: 44px max(104px, var(--flight-fare-width, 104px)) minmax(0, 1fr); }
   .pinned-close { top: 0; left: 0; width: 44px; height: 44px; }
-  .flight-filter-trigger, .query-group-row, .query-source { min-height: 44px; }
+  .flight-filter-trigger, .query-group-row, .query-source, .side-tabs [role="tab"] { min-height: 44px; }
+  /* Under 16px a phone zooms the page into a field it focuses. */
+  .place-search input, .currency-search input, .filter-limit-field input, .detail-price-editor input,
+  .detail-price-editor select, .manual-price-form input, .manual-price-form select, .manual-field input,
+  .manual-field select { font-size: 16px; }
+}
+
+/* A phone has no room to pin a header over the list as well as the sheet,
+   so the header scrolls away with the page. Like the sheet, this is the page
+   frame deciding, and the frame's only container is the window. */
+@media (max-width: 640px), (max-width: 900px) and (max-height: 500px) {
+  .topbar { position: relative; }
+  body { padding: 0 0 var(--side-h); }
+  .results-bar { top: 0; }
+  .results .flight { scroll-margin: 112px 0 var(--side-h); }
+  .results-frame.has-pinned .results .flight { scroll-margin-top: 200px; }
+}
+
+/* -- pieces that lay themselves out by their own width -------------------- */
+
+/* A narrow header: the bar becomes two rows of whole segments across its full
+   width, out to the header's edges — where and when on the first, who, which
+   sources and Fetch on the second. Each shows only its value — the airport
+   code, the dates — without the hint beside it. The 1px gaps show the bar's
+   own background through as the rules between segments. */
+@container topbar (max-width: 760px) {
+  .search-bar {
+    display: grid; grid-template-columns: repeat(12, minmax(0, 1fr)); gap: 1px; height: auto;
+    width: calc(100% + 2 * var(--topbar-pad-x)); max-width: none;
+    margin: calc(-1 * var(--topbar-pad-y)) calc(-1 * var(--topbar-pad-x)) 0;
+  }
+  .search-segment { grid-column: span 3; background: var(--chrome); }
+  .search-segment:is([data-segment="travellers"], [data-segment="sources"]) { grid-column: span 4; }
+  .search-segment:first-child .search-segment-trigger { border-radius: 0; }
+  .search-segment-trigger { width: 100%; max-width: none; min-height: 50px; padding: 0 10px; }
+  .search-segment-value b { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+  .search-segment:is([data-segment="from"], [data-segment="to"], [data-segment="depart"], [data-segment="return"])
+    .search-segment-value span { display: none; }
+  .search-segment-value .party-word { display: none; }
+  .search-segment-value .party-icon { display: inline-block; }
+  .fetch-button { grid-column: span 4; justify-content: center; min-height: 50px; padding: 0 10px; border-radius: 0; }
+  .topbar-actions { width: 100%; margin-left: 0; }
+}
+/* Narrower still, popovers hang from the whole bar, edge to edge, instead of
+   from a segment too small to hold them. */
+@container topbar (max-width: 640px) {
+  .search-bar { position: relative; }
+  .search-bar .search-segment { position: static; }
+  .search-bar .popover { left: 0; right: 0; width: auto; }
+}
+/* Two months side by side need about 500px of whatever holds the calendar —
+   the header, or the edit dialog; narrower, they stack. */
+@container (max-width: 560px) {
+  .cal-months { flex-direction: column; gap: 14px; }
+  .cal-month { width: auto; }
+  .cal-day { height: 40px; }
+  .cal-day > span { width: 34px; height: 34px; }
+}
+
+/* A narrow list: compact leg columns, and filter chips that give up the full
+   touch height — a row of 44px chips was taller than the rows it filters,
+   and 34px is still an easy tap. */
+@container results (max-width: 760px) {
+  .leg { grid-template-columns: 44px minmax(0, 1fr) 56px 60px; gap: 6px; }
+  .results .flight, .pinned-pick .flight { gap: 10px; padding-inline: 8px 12px; }
+  .flight-filter-trigger { height: 34px; min-height: 0; padding: 0 10px; }
+}
+/* Narrower still, the fare goes on one line above the trip, which gets the
+   row's full width. */
+@container results (max-width: 640px) {
+  .results .flight, .pinned-pick .flight { grid-template-columns: var(--favorite-column) minmax(0, 1fr); gap: 6px 8px; }
+  .results .flight > .trip, .pinned-pick .flight > .trip { grid-column: 1 / -1; }
+  .fare-cell { flex-direction: row; flex-wrap: wrap; align-items: baseline; column-gap: 10px; }
+  .fare-cell .price { font-size: 20px; line-height: 24px; }
+  .results-bar { gap: 8px; }
+}
+/* A narrow results bar scrolls its filters sideways in one line rather than
+   stacking them; the fade at the end says there are more. */
+@container results-bar (max-width: 640px) {
+  .results-controls { flex-wrap: nowrap; }
+  .flight-filters {
+    flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; padding-right: 24px;
+    mask-image: linear-gradient(to left, transparent, #000 24px);
+  }
+  .flight-filters::-webkit-scrollbar { display: none; }
+  .results-view-controls { flex: none; gap: 10px; }
 }
 @media (prefers-reduced-motion: reduce) {
   .spinner, .favorite-button .icon { animation: none !important; }
-  *, *::before, *::after { transition: none !important; }
+  /* Gentler, not none: fades and colour changes stay, movement and resizing go. */
+  *, *::before, *::after {
+    transition-property: opacity, color, background-color, border-color, filter, visibility, display, overlay !important;
+  }
 }
 
 /* -- prices added by hand ------------------------------------------------- */
 
-.source-option-note { margin-left: auto; font-size: 11px; color: var(--muted); }
+.source-option-note { margin-left: auto; padding-left: 16px; font-size: 11px; color: var(--muted); }
 
 .detail-manual-actions { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; }
 .detail-manual-actions button {
@@ -723,7 +843,7 @@ button.primary:hover:not(:disabled) { background: var(--accent-strong); }
   border: 1px solid var(--line); border-radius: 10px; background: var(--panel); color: var(--ink); box-shadow: var(--shadow);
 }
 .manual-dialog::backdrop { background: #05080dcc; }
-.manual-dialog-body { display: flex; flex-direction: column; gap: 12px; padding: 16px 20px 20px; }
+.manual-dialog-body { display: flex; flex-direction: column; gap: 12px; padding: 16px 20px 20px; container: manual / inline-size; }
 .manual-dialog-head { display: flex; align-items: center; justify-content: space-between; }
 .manual-dialog-head h2 { margin: 0; font-size: 16px; font-weight: 600; }
 .manual-dialog-actions { justify-content: flex-end; margin-top: 4px; }
@@ -834,12 +954,13 @@ button.primary:hover:not(:disabled) { background: var(--accent-strong); }
 .manual-switch { display: inline-flex; align-items: center; gap: 4px; align-self: flex-start; font-size: 13px; color: var(--accent); }
 .manual-switch:hover { color: var(--accent-strong); }
 
-@media (max-width: 900px) {
+/* The suggestions leave the builder's side once the dialog is too narrow for both. */
+@container manual (max-width: 860px) {
   .manual-layout { grid-template-columns: minmax(0, 1fr); }
   .manual-suggestions-body { overflow: visible; }
   .manual-suggestions { position: static; max-height: none; border-left: 0; padding-left: 0; border-top: 1px solid var(--line-soft); padding-top: 12px; }
 }
-@media (max-width: 560px) {
+@container manual (max-width: 520px) {
   .manual-leg-form { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .manual-leg-form .manual-field { grid-column: span 1; }
 }
@@ -861,3 +982,51 @@ button.primary:hover:not(:disabled) { background: var(--accent-strong); }
   /* "from €106 · prices for 1 adult" is the first thing to go: the count and the controls matter more. */
   .results-summary > span { display: none; }
 }
+
+/* -- motion ---------------------------------------------------------------- */
+
+/* Popovers grow out of the control that opened them. The sort and view menus
+   are left instant: they are quick, frequent and opened from the keyboard.
+   `transform`, not `translate`: useKeepInView owns that one. */
+.popover:not(.sort-menu), .flight-filter-panel {
+  transform-origin: top left;
+  transition: opacity 150ms var(--ease-out), transform 150ms var(--ease-out);
+}
+.popover.align-right:not(.sort-menu), .currency-suggest { transform-origin: top right; }
+@starting-style {
+  .popover:not(.sort-menu), .flight-filter-panel { opacity: 0; transform: scale(0.97); }
+}
+
+/* Dialogs fade and settle in place, and leave the same way, a little faster. */
+.manual-dialog, .update-panel {
+  transition: opacity 200ms var(--ease-out), transform 200ms var(--ease-out),
+    overlay 200ms allow-discrete, display 200ms allow-discrete;
+}
+.manual-dialog:not([open]), .update-panel:not([open]) { opacity: 0; transform: scale(0.96); transition-duration: 150ms; }
+.manual-dialog::backdrop, .update-panel::backdrop {
+  transition: opacity 200ms var(--ease-out), overlay 200ms allow-discrete, display 200ms allow-discrete;
+}
+.manual-dialog:not([open])::backdrop, .update-panel:not([open])::backdrop { opacity: 0; }
+@starting-style {
+  .manual-dialog[open], .update-panel[open] { opacity: 0; transform: scale(0.96); }
+  .manual-dialog[open]::backdrop, .update-panel[open]::backdrop { opacity: 0; }
+}
+
+/* The toast rises from the bottom edge and leaves by it. */
+.toast { transition: opacity 200ms var(--ease-out), transform 200ms var(--ease-out); }
+.toast[data-leaving] { opacity: 0; transform: translate(-50%, 100%); transition-duration: 150ms; }
+@starting-style { .toast { opacity: 0; transform: translate(-50%, 100%); } }
+
+/* Sections open to their height as their caret turns, in step with it. Where
+   height cannot animate to auto, they simply appear, as before. */
+.detail-bookings > [id], .query-sources, #inactive-searches {
+  interpolate-size: allow-keywords; overflow: clip; overflow-clip-margin: 4px;
+  transition: height 200ms var(--ease-out), opacity 150ms var(--ease-out);
+}
+@starting-style {
+  .detail-bookings > [id], .query-sources, #inactive-searches { height: 0; opacity: 0; }
+}
+
+/* "New flights above" slides down into place rather than appearing over the list. */
+.list-notice.top > * { transition: opacity 200ms var(--ease-out), transform 200ms var(--ease-out); }
+@starting-style { .list-notice.top > * { opacity: 0; transform: translateY(-6px); } }

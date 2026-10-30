@@ -17,12 +17,13 @@ import {
   legDrafts, legSuggestions, nextDraft, parseFlightLine, segmentDraft, segmentPayload, typed, datedLegs, departureDay,
   type Building, type Direction, type DraftField, type FieldOption, type FlightDraft, type LegSuggestion,
 } from "./manualEntry";
-import { useBackdropDismiss } from "./Popover";
+import { useBackdropDismiss, useRevealOption } from "./Popover";
 import { PlaceInput } from "./PlaceInput";
 import type { ManualParty } from "./ManualPriceForm";
 import { FlightTimeline } from "./TimelineFlight";
 import { elapsed, flightTimelines } from "./flightTimeline";
 import { todayISO } from "./RangePicker";
+import { yearIfFar } from "./dates";
 import { TripDatesPicker, type TripDates } from "./TripDatesPicker";
 
 export interface ManualSearch { origin: string; destination: string }
@@ -32,7 +33,8 @@ export type ManualFlight = Omit<ManualOfferRequest, "price" | "agent" | "deeplin
 const time = (iso: string) => iso.slice(11, 16);
 const dayLabel = (iso: string) => {
   const day = new Date(`${iso.slice(0, 10)}T12:00:00Z`);
-  return Number.isNaN(day.getTime()) ? "" : day.toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric", timeZone: "UTC" });
+  return Number.isNaN(day.getTime()) ? "" : day.toLocaleDateString("en-US",
+    { weekday: "short", month: "short", day: "numeric", ...yearIfFar(iso), timeZone: "UTC" });
 };
 const DIRECTION_LABEL: Record<Direction, string> = { outbound: "Outbound", inbound: "Return" };
 /** A stored trip's dates: the days its first flights leave each way. */
@@ -56,6 +58,7 @@ function SuggestInput({ label, value, onChange, options, className, type = "text
   const [active, setActive] = useState(-1);
   const shown = options.filter((option) => option.value !== value);
   const pick = (option: Option) => { onChange(option.value); setOpen(false); setActive(-1); };
+  useRevealOption(open && active >= 0 ? `${id}-${active}` : undefined);
   const onKeyDown = (event: KeyboardEvent<HTMLInputElement>) => {
     if (!open || !shown.length) return;
     if (event.key === "ArrowDown" || event.key === "ArrowUp") {

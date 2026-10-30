@@ -6,6 +6,7 @@ import type { ConnectionRatings } from "./connectionRatings";
 import { openExternal } from "./platform";
 import { useCurrency } from "./currency";
 import { Icon } from "./Icon";
+import { yearIfFar } from "./dates";
 import { FavoriteButton } from "./FavoriteButton";
 import { airlineColor, clock, dayOffset, elapsed, isOvernight, journeyTiming, partsOf, partLabel, timingNote } from "./flightTimeline";
 import { AirportLabel } from "./AirportLabel";
@@ -29,11 +30,10 @@ const sellerName = (offer: Offer) => offer.agent || (isManual(offer) ? MANUAL_LA
 
 type JourneyRating = { price?: Rating; outbound?: Rating; inbound?: Rating };
 const dayOf = (iso: string) => (iso || "").slice(0, 10);
-const shortDate = new Intl.DateTimeFormat("en-US", { month: "short", day: "numeric", timeZone: "UTC" });
-const weekdayDate = new Intl.DateTimeFormat("en-US", { month: "short", day: "numeric", weekday: "short", timeZone: "UTC" });
 function dateLabel(iso: string, weekday = false) {
   const day = new Date(`${dayOf(iso)}T12:00:00Z`);
-  return Number.isNaN(day.getTime()) ? "" : (weekday ? weekdayDate : shortDate).format(day);
+  return Number.isNaN(day.getTime()) ? "" : day.toLocaleDateString("en-US",
+    { month: "short", day: "numeric", ...(weekday ? { weekday: "short" } : {}), ...yearIfFar(iso), timeZone: "UTC" });
 }
 const later = (from: string, to: string) => {
   const days = dayOffset(from, to);
@@ -220,7 +220,8 @@ export function Details({ row, partyLabel, favorite, onToggleFavorite, rating, l
     <div className="detail-summary">
       <div className="detail-summary-line">
         <div className="detail-summary-trip">
-          <span className="detail-route">{from} → {to}</span>
+          {/* A round trip goes both ways, and its arrow says so. */}
+          <span className="detail-route">{from} {returnDate ? "↔" : "→"} {to}</span>
           <span>{[dates, partyLabel].filter(Boolean).join(" · ")}</span>
         </div>
         <FavoriteButton row={row} favorite={favorite} onToggle={onToggleFavorite} />

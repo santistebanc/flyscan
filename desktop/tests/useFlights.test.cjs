@@ -59,12 +59,29 @@ test("background cache reads retain the already loaded flights", async () => {
   const render = host({ storedFlights: () => ++reads === 1 ? Promise.resolve(answer("cached")) : pending.promise });
   await render().loadStored(request);
   const refresh = render().loadStored(request);
-  assert.equal(render().loadingStored, true);
+  assert.equal(render().loadingStored, false, "a refresh of an answered view is not loading");
   assert.equal(render().total, 1, "the loading view must not replace existing results");
   assert.deepEqual(Array.from(render().rows, (r) => r.trip_key), ["cached"]);
   pending.resolve(answer("updated"));
   await refresh;
   assert.equal(render().loadingStored, false);
+});
+
+test("polling an empty view never flashes the loading indicator", async () => {
+  const pending = deferred();
+  let reads = 0;
+  const empty = { results: [], sources: [], last_seen: "" };
+  const render = host({ storedFlights: () => ++reads === 1 ? Promise.resolve(empty) : pending.promise });
+  render().selectView(true);
+  await render().loadStored(request);
+  assert.equal(render().loadingStored, false);
+  const poll = render().loadStored(request);
+  assert.equal(render().loadingStored, false, "the 3-second refresh must not swap the empty state for a spinner");
+  pending.resolve(empty);
+  await poll;
+  assert.equal(render().loadingStored, false);
+  render().selectView(true);
+  assert.equal(render().loadingStored, true, "a new view loads again");
 });
 
 test("stored and live datasets retain flights beyond the old 300-row display cap", async () => {

@@ -1,6 +1,6 @@
 import { useCallback, useRef, useState } from "react";
 import { Icon } from "./Icon";
-import { useDismiss } from "./Popover";
+import { opensOnArrow, useDismiss, useMenuKeys } from "./Popover";
 import { PAIR_VIEWS, PAIR_VIEW_LABELS, type PairView } from "./pairPicking";
 
 const HINTS: Record<PairView, string> = {
@@ -18,13 +18,15 @@ export function PairViewPicker({ view, onChange }: { view: PairView; onChange: (
   const root = useRef<HTMLDivElement>(null);
   const close = useCallback(() => setOpen(false), []);
   useDismiss(open, close, root);
+  const list = useRef<HTMLDivElement>(null);
+  const menuKeys = useMenuKeys(open, list);
   return <div className="view-control pair-view-picker" ref={root}>
     <button type="button" aria-haspopup="menu" aria-expanded={open} aria-label={`View: ${PAIR_VIEW_LABELS[view]}`} title={`View: ${PAIR_VIEW_LABELS[view]}`}
-      onClick={() => setOpen((was) => !was)}>
+      onClick={() => setOpen((was) => !was)} onKeyDown={open ? undefined : opensOnArrow(() => setOpen(true))}>
       <Icon name="view" className="control-icon" />
       <span className="control-text">View <b>{SHORT[view]}</b></span> <b>▾</b>
     </button>
-    {open && <div className="popover align-right sort-menu" role="menu" aria-label="View">
+    {open && <div className="popover align-right sort-menu" role="menu" aria-label="View" ref={list} onKeyDown={menuKeys}>
       {PAIR_VIEWS.map((option) => <button type="button" role="menuitemradio" key={option} aria-checked={option === view}
         title={HINTS[option]} onClick={() => { onChange(option); close(); }}>
         {PAIR_VIEW_LABELS[option]}{option === view && <Icon name="done" />}

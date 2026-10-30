@@ -1,5 +1,6 @@
 import type { FlightRow, Leg, Segment } from "./api";
 import { durationMinutes } from "./flightRatings";
+import { yearIfFar } from "./dates";
 
 export const clock = (iso: string) => iso?.slice(11, 16) || "–";
 export function dayOffset(from: string, to: string) {
@@ -319,7 +320,7 @@ export function scaleClock(minute: number) {
 export function wallDay(iso: string) {
   const stamp = wallStamp(iso);
   return stamp === null ? "" : new Date(stamp * 60000)
-    .toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric", timeZone: "UTC" });
+    .toLocaleDateString("en-US", { weekday: "short", month: "short", day: "numeric", ...yearIfFar(iso), timeZone: "UTC" });
 }
 const later = (from: string, to: string) => { const days = dayOffset(from, to); return days > 0 ? ` (+${days})` : ""; };
 /** A timeline bar's tooltip: what it is, then when, one fact per line. */

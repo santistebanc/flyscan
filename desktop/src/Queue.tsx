@@ -4,9 +4,10 @@ import type { QueryJob, QueueJob } from "./api";
 import type { QueueController, QueueMutation } from "./useQueue";
 import { canCancel, canRetry, queueStatusCounts, sourceIsPending, splitQueueGroups, sourceDetail, sourceLabel } from "./queueModel";
 import { Icon, Spinner } from "./Icon";
+import { yearIfFar } from "./dates";
 
 const day = (iso: string) => new Date(`${iso}T12:00:00`).toLocaleDateString(undefined,
-  { month: "short", day: "numeric", ...(iso.slice(0, 4) !== String(new Date().getFullYear()) ? { year: "numeric" as const } : {}) });
+  { month: "short", day: "numeric", ...yearIfFar(iso) });
 
 export function ActionButton({ action, label, busy, pending = false, onClick }: {
   action: "cancel" | "retry"; label: string; busy: boolean; pending?: boolean; onClick: () => void;
@@ -76,7 +77,7 @@ function QueryGroup({ group, busy, pending, expanded, onToggle, onAct }: {
         title={`${group.origin} to ${group.destination}, ${dates}${options.length ? ` · ${options.join(" · ")}` : ""}`}
         aria-controls={expanded ? `query-${group.id}` : undefined} onClick={onToggle}>
         <Icon name="chevron-right" className="caret" />
-        <span className="query-route">{group.origin} → {group.destination}</span>
+        <span className="query-route">{group.origin} {group.ret ? "↔" : "→"} {group.destination}</span>
         <span className="query-dates">{dates}</span>
         {options.length > 0 && <span className="query-options">{options.join(" · ")}</span>}
       </button>

@@ -179,6 +179,13 @@ export function useFlights(api: FlightScraperApi | null, onChallenge?: () => voi
   const token = useRef(0);
   const searching = useRef(false);
   const storedRead = useRef<{ key: string; token: number; api: FlightScraperApi; result: Promise<void> } | null>(null);
+  /**
+   * Whether the view on screen has had its first answer from the database.
+   * Only that first read is "loading": the refreshes after it run every few
+   * seconds, and showing them would blink an empty list into a spinner and
+   * back each time.
+   */
+  const answered = useRef(false);
 
   const sources = merge(stored, live);
   const anyRunning = sources.some((s) => s.running);
@@ -202,6 +209,7 @@ export function useFlights(api: FlightScraperApi | null, onChallenge?: () => voi
     searching.current = false;
     token.current++;
     storedRead.current = null;
+    answered.current = false;
     stream.current?.close();
     stream.current = null;
     searchId.current = null;
@@ -227,7 +235,7 @@ export function useFlights(api: FlightScraperApi | null, onChallenge?: () => voi
       return pending.result;
     }
     const mine = ++token.current;
-    setLoadingStored(true);
+    if (!answered.current) setLoadingStored(true);
     const result = (async () => {
       try {
         const answer = await api.storedFlights(request);
@@ -253,7 +261,10 @@ export function useFlights(api: FlightScraperApi | null, onChallenge?: () => voi
     try {
       await result;
     } finally {
-      if (mine === token.current) setLoadingStored(false);
+      if (mine === token.current) {
+        answered.current = true;
+        setLoadingStored(false);
+      }
       if (storedRead.current?.result === result) storedRead.current = null;
     }
   }, [api, publish]);
