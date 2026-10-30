@@ -7,7 +7,7 @@
 
 import type { FlightRow } from "./api";
 
-export const SOURCES_KEY = "flight-scraper:disabled-sources";
+export const SOURCES_KEY = "flyscan:disabled-sources";
 
 /** The stored list, kept only if it is a list of names. */
 export function sanitizeDisabled(raw: unknown): string[] {

@@ -34,7 +34,7 @@ def set_version(root: Path, version: str) -> None:
             raise ValueError(f"Missing version in {name}")
     path = root / "desktop/src-tauri/Cargo.lock"
     changes[path], count = re.subn(
-        r'(name = "flight-scraper-desktop"\nversion = )"[^"]+"',
+        r'(name = "flyscan-desktop"\nversion = )"[^"]+"',
         rf'\g<1>"{version}"',
         path.read_text(encoding="utf-8"),
         count=1,
@@ -43,14 +43,14 @@ def set_version(root: Path, version: str) -> None:
         raise ValueError("Missing desktop version in Cargo.lock")
     path = root / "uv.lock"
     changes[path], count = re.subn(
-        r'(name = "flight-scraper"\r?\nversion = )"[^"]+"',
+        r'(name = "flyscan"\r?\nversion = )"[^"]+"',
         rf'\g<1>"{version}"',
         path.read_text(encoding="utf-8"),
         count=1,
     )
     if count != 1:
         raise ValueError("Missing service version in uv.lock")
-    path = root / "flight_scraper/__init__.py"
+    path = root / "flyscan/__init__.py"
     changes[path], count = re.subn(
         r'__version__ = "[^"]+"',
         f'__version__ = "{version}"',

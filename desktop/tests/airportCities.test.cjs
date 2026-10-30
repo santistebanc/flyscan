@@ -51,7 +51,7 @@ test("duplicate visible labels share an airport lookup and resolved names persis
 });
 
 test("country metadata enriches a city-only cache only when details request it and survives reload", async () => {
-  const key='flight-scraper.airport-cities-v2',now=1_800_000_000_000;
+  const key='flyscan.airport-cities-v2',now=1_800_000_000_000;
   const h=host(async code=>[{...place(code,'Berlin'),country:'Germany'}],{
     [key]:JSON.stringify({BER:{city:'Berlin',checkedAt:now}})
   });
@@ -114,7 +114,7 @@ test("background lookups have at most three requests in flight and skip unmounte
   assert.ok(!h.calls.includes("EEE"));
 });
 test("cache writes are batched and known names remain visible while old data refreshes", async () => {
-  const h=host(async code=>[place(code,"Updated")],{'flight-scraper.airport-cities':JSON.stringify({LHR:"London",BAD:5})});
+  const h=host(async code=>[place(code,"Updated")],{'flyscan.airport-cities':JSON.stringify({LHR:"London",BAD:5})});
   assert.equal(h.cache.snapshot().LHR,"London");
   h.cache.remember([place("CDG","Paris")]);h.cache.remember([place("ORD","Chicago")]);
   await h.advance(250);assert.equal(h.writes.length,1);
@@ -129,7 +129,7 @@ test("stop/start survives effect remounts and cached city names have a bounded p
   assert.ok(Object.keys(JSON.parse(h.storage.get(h.key))).length<=2048);
 });
 test("expired names revalidate in the background and expired misses do not survive reloads", async () => {
-  const key='flight-scraper.airport-cities-v2',now=1_800_000_000_000;
+  const key='flyscan.airport-cities-v2',now=1_800_000_000_000;
   const h=host(async code=>[place(code,"Resolved")],{[key]:JSON.stringify({
     CDG:{city:"Paris",checkedAt:now-181*86_400_000},ORD:{city:null,checkedAt:now-11*60_000},
     BAD:{city:22,checkedAt:now},XXX:{city:"XXX",checkedAt:now}
@@ -141,7 +141,7 @@ test("expired names revalidate in the background and expired misses do not survi
   assert.equal(h.calls.length,2);
 });
 test("a reload retries cached blank labels from an older server while preserving known names", async () => {
-  const key='flight-scraper.airport-cities-v2',now=1_800_000_000_000;
+  const key='flyscan.airport-cities-v2',now=1_800_000_000_000;
   const h=host(async code=>[place(code,"Paris")],{[key]:JSON.stringify({
     CDG:{city:null,checkedAt:now},NUE:{city:"Nuremberg",checkedAt:now}
   })});

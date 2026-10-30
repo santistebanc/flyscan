@@ -1,5 +1,5 @@
 import { createContext, useContext, useEffect, useSyncExternalStore, type ReactNode } from "react";
-import type { FlightScraperApi } from "./api";
+import type { FlyscanApi } from "./api";
 
 const noop = (_code: string) => {};
 const EMPTY: Record<string, string> = {};
@@ -7,7 +7,7 @@ const empty = () => EMPTY;
 const subscribe = () => () => {};
 const Context = createContext<{ cities: Record<string, string>; countries: Record<string, string>;
   ensure: (code: string, withCountry?: boolean) => (() => void) | void }>({ cities: EMPTY, countries: EMPTY, ensure: noop });
-export function AirportNamesProvider({ api, children }: { api: FlightScraperApi | null; children: ReactNode }) {
+export function AirportNamesProvider({ api, children }: { api: FlyscanApi | null; children: ReactNode }) {
   const cache = api?.airportCities;
   const cities = useSyncExternalStore(cache?.subscribe ?? subscribe, cache?.snapshot ?? empty, empty);
   const countries = useSyncExternalStore(cache?.subscribe ?? subscribe, cache?.countrySnapshot ?? empty, empty);

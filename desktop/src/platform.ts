@@ -29,7 +29,7 @@ export const isDesktop = "__TAURI_INTERNALS__" in window;
  *
  * The shell reserves a free port at launch and is the only one who knows it.
  * In a browser there is no shell, so it is `?api=…`, else the page's own
- * origin: `flight-scraper serve` serves the built bundle beside the API, and
+ * origin: `flyscan serve` serves the built bundle beside the API, and
  * the Vite dev server forwards /v1 to the service. The origin, not a fixed
  * address, is what lets a phone use a dev server on another machine.
  */

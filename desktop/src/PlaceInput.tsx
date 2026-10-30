@@ -8,7 +8,7 @@
  */
 
 import { Fragment, useCallback, useEffect, useId, useMemo, useRef, useState, type KeyboardEvent } from "react";
-import type { FlightScraperApi, PlaceSuggestion } from "./api";
+import type { FlyscanApi, PlaceSuggestion } from "./api";
 import { useAirportCity } from "./AirportLabel";
 import { SearchSegment, useDismiss, useKeepInView, useRevealOption } from "./Popover";
 import {
@@ -51,7 +51,7 @@ export function PlaceInput({ label, value, onChange, api, open, onToggle, sugges
   label: string;
   value: string;
   onChange: (next: string) => void;
-  api: FlightScraperApi | null;
+  api: FlyscanApi | null;
   open: boolean;
   onToggle: (open: boolean) => void;
   /** Listed first, and kept while typing when the code or note matches. */

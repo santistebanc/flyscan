@@ -8,9 +8,9 @@ Read at review time. Each rule describes what the code already does; new code ma
 2. **Comments explain why.** Module docstrings say what the module is for and the design choice behind it (see `models.py`). Constants with a non-obvious value carry a `#:` comment giving the reason. Comments that restate the code are noise.
 3. **Challenges go to a person.** Code that meets a challenge stops asking that source, surfaces the URL and waits for clearance. Solving, answering or working around a challenge in code is never acceptable.
 
-## Python (`flight_scraper/`)
+## Python (`flyscan/`)
 
-4. **Network access lives in sources.** Only `flight_scraper/sources/` and the existing fetchers (`fx`, `places`) talk to the network, through the session in `sources/base.py`. Every new request path is replayable by `flight_scraper.capture` (record/replay), so tests can cover it offline.
+4. **Network access lives in sources.** Only `flyscan/sources/` and the existing fetchers (`fx`, `places`) talk to the network, through the session in `sources/base.py`. Every new request path is replayable by `flyscan.capture` (record/replay), so tests can cover it offline.
 5. **Failures use the error hierarchy.** Raise `RetryableError`, `RateLimited`, `SourceError` or `ChallengeRequired` (from `task_queue` and `sources/base.py`) and decide retryable versus permanent where the failure is detected. Re-raise with `from exc`. A failing source never stops the others.
 6. **The model stays source-agnostic.** Sources reduce their responses to `SearchQuery`, `Itinerary` and `Offer` (`models.py`); source-specific shapes stay inside the source module.
 7. **Types.** Public functions and dataclass fields are annotated. Match the annotation style of the file you edit (most files use `typing.List`/`Optional`).

@@ -7,9 +7,9 @@ from datetime import date, timedelta
 from pathlib import Path
 from unittest import mock
 
-from flight_scraper.aggregate import Aggregator
-from flight_scraper.scheduler import Scheduler, default_scheduler, reset_default_scheduler
-from flight_scraper.task_queue import QueueFull
+from flyscan.aggregate import Aggregator
+from flyscan.scheduler import Scheduler, default_scheduler, reset_default_scheduler
+from flyscan.task_queue import QueueFull
 from tests import quiet_errorlog
 from tests.test_scheduler_queue import QUERY, FakeSource
 from tests.test_task_queue import eventually
@@ -136,7 +136,7 @@ class ExecutionSettings(unittest.TestCase):
             scheduler = Scheduler(db_path=str(Path(directory) / "db"))
             try:
                 source = FakeSource()
-                with mock.patch("flight_scraper.store.fx.get_rates"):
+                with mock.patch("flyscan.store.fx.get_rates"):
                     scheduler.submit(source, QUERY).result(2)
                     scheduler.submit(source, QUERY, ttl=timedelta(hours=6)).result(2)
                     scheduler.submit(source, QUERY, ttl=timedelta(0)).result(2)
@@ -145,10 +145,10 @@ class ExecutionSettings(unittest.TestCase):
                 scheduler.shutdown(wait=True)
 
     def test_http_rejects_conflicting_settings_before_starting_search(self):
-        from flight_scraper.web import create_app
+        from flyscan.web import create_app
 
         first = default_scheduler(db_path=None, max_workers=2)
-        with mock.patch("flight_scraper.web.start_job") as start:
+        with mock.patch("flyscan.web.start_job") as start:
             client = create_app().test_client()
             response = client.post(
                 "/v1/searches",
@@ -162,14 +162,14 @@ class ExecutionSettings(unittest.TestCase):
             self.assertEqual(response.status_code, 400)
             self.assertIn("ledger", response.json["error"])
             start.assert_not_called()
-            params = client.application.extensions["flight_scraper"]["parse_params"]
+            params = client.application.extensions["flyscan"]["parse_params"]
             parsed, error = params({"origin": "BER", "destination": "CDG", "start": "2026-12-21"})
             self.assertIsNone(error)
             self.assertIsNone(parsed["db"])
             self.assertEqual(parsed["workers"], first.max_workers)
 
     def test_search_identity_includes_freshness_refresh_and_ledger(self):
-        from flight_scraper.api import search_fingerprint
+        from flyscan.api import search_fingerprint
 
         params = {"db": "a", "cache_hours": 6, "refresh": False}
         original = search_fingerprint(params)
@@ -178,13 +178,13 @@ class ExecutionSettings(unittest.TestCase):
 
     def test_result_reader_uses_the_writers_ledger(self):
         with tempfile.TemporaryDirectory() as directory:
-            from flight_scraper.models import Itinerary, Leg, Offer
+            from flyscan.models import Itinerary, Leg, Offer
 
             scheduler = Scheduler(db_path=str(Path(directory) / "db"))
             try:
                 offer = Offer(Itinerary(QUERY, Leg("BER", "CDG")), "test", 10, "EUR")
                 offer.price_eur = 10
-                with mock.patch("flight_scraper.store.fx.get_rates"):
+                with mock.patch("flyscan.store.fx.get_rates"):
                     self.assertTrue(
                         scheduler.submit(FakeSource(lambda query: [offer]), QUERY).result(2).ok
                     )
@@ -213,7 +213,7 @@ class ProgressIdentity(unittest.TestCase):
                 self.assertEqual(data.get("attempt"), 1)
 
     def test_partial_answers_keep_distinct_return_dates(self):
-        from flight_scraper.models import Itinerary, Leg, Offer
+        from flyscan.models import Itinerary, Leg, Offer
 
         scheduler = Scheduler(db_path=None)
         self.addCleanup(lambda: scheduler.shutdown(wait=True))
@@ -223,7 +223,7 @@ class ProgressIdentity(unittest.TestCase):
         source = FakeSource(lambda q: [Offer(Itinerary(q, Leg("BER", "CDG")), "test", 10, "EUR")])
         with (
             mock.patch.object(search, "_sources", return_value=[source]),
-            mock.patch("flight_scraper.aggregate.merge", return_value=[]),
+            mock.patch("flyscan.aggregate.merge", return_value=[]),
         ):
             list(search.search_trips(QUERY, [(QUERY.depart, ret) for ret in returns]))
         self.assertEqual(
@@ -233,7 +233,7 @@ class ProgressIdentity(unittest.TestCase):
 
 class RecoveryShutdown(unittest.TestCase):
     def test_browser_wait_is_cancelled_and_late_answer_is_discarded(self):
-        from flight_scraper.challenge import ChallengeCoordinator
+        from flyscan.challenge import ChallengeCoordinator
 
         control = ChallengeCoordinator()
         entered = threading.Event()
@@ -245,10 +245,10 @@ class RecoveryShutdown(unittest.TestCase):
 
         with (
             mock.patch(
-                "flight_scraper.challenge.probe_challenge",
+                "flyscan.challenge.probe_challenge",
                 return_value=("https://example.test/check", "challenged"),
             ),
-            mock.patch("flight_scraper.challenge.solve", side_effect=solve),
+            mock.patch("flyscan.challenge.solve", side_effect=solve),
             mock.patch.object(control, "clear") as clear,
         ):
             control.start_recovery("test")
@@ -258,7 +258,7 @@ class RecoveryShutdown(unittest.TestCase):
             clear.assert_not_called()
 
     def test_owned_ledger_is_retained_until_active_recovery_exits(self):
-        from flight_scraper.challenge import ChallengeCoordinator
+        from flyscan.challenge import ChallengeCoordinator
 
         ledger = mock.Mock()
         ledger.pending_challenges.return_value = {}
@@ -271,7 +271,7 @@ class RecoveryShutdown(unittest.TestCase):
             return None, "clear"
 
         try:
-            with mock.patch("flight_scraper.challenge.probe_challenge", side_effect=probe):
+            with mock.patch("flyscan.challenge.probe_challenge", side_effect=probe):
                 control.start_recovery("test")
                 self.assertTrue(entered.wait(2))
                 control.close(wait=False)
@@ -287,15 +287,15 @@ class RecoveryShutdown(unittest.TestCase):
             control.close()
 
     def test_closed_coordinator_rejects_new_recovery(self):
-        from flight_scraper.challenge import ChallengeCoordinator
+        from flyscan.challenge import ChallengeCoordinator
 
         control = ChallengeCoordinator()
         control.close()
-        with mock.patch("flight_scraper.challenge.probe_challenge", return_value=(None, "error")):
+        with mock.patch("flyscan.challenge.probe_challenge", return_value=(None, "error")):
             self.assertFalse(control.start_recovery("test"))
 
     def test_failed_thread_start_releases_the_source_reservation(self):
-        from flight_scraper.challenge import ChallengeCoordinator
+        from flyscan.challenge import ChallengeCoordinator
 
         control = ChallengeCoordinator()
         try:
@@ -319,7 +319,7 @@ class RecoveryShutdown(unittest.TestCase):
 
         try:
             with (
-                mock.patch("flight_scraper.challenge.probe_challenge", side_effect=probe),
+                mock.patch("flyscan.challenge.probe_challenge", side_effect=probe),
                 mock.patch.object(scheduler.challenge_control, "clear") as clear,
             ):
                 scheduler.challenge_control.start_recovery("test")

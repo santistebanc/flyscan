@@ -1,7 +1,7 @@
 import { getVersion } from "@tauri-apps/api/app";
 import { invoke } from "@tauri-apps/api/core";
 import { check } from "@tauri-apps/plugin-updater";
-import { FlightScraperApi } from "./api";
+import { FlyscanApi } from "./api";
 import { apiConnection } from "./platform";
 import { UpdateManager, UPDATE_PREFERENCES_KEY } from "./updates";
 
@@ -15,7 +15,7 @@ export const desktopUpdates = new UpdateManager({
   savePreferences(value) { try { localStorage.setItem(UPDATE_PREFERENCES_KEY, JSON.stringify(value)); } catch { /* Session preferences still work. */ } },
   async beforeInstall() {
     const { base, apiKey } = await apiConnection();
-    const queue = await new FlightScraperApi(base, apiKey).queue();
+    const queue = await new FlyscanApi(base, apiKey).queue();
     if (queue.scheduler.running || queue.scheduler.queued) {
       throw new Error("Finish or cancel active searches before updating.");
     }

@@ -44,7 +44,7 @@ src-tauri/        spawns the sidecar on a free port; open_challenge, open_extern
 ```
 
 React + TypeScript, built with Vite. This is the **only** frontend: the same
-bundle is loaded by the desktop shell, served by `flight-scraper serve`, and run
+bundle is loaded by the desktop shell, served by `flyscan serve`, and run
 with live reload during development. There used to be a second, server-rendered
 UI in the Python package; keeping two in step failed often enough that deleting
 one was the fix.
@@ -77,7 +77,7 @@ exactly that party — never a scrape. Quote currency is the one exception to th
 re-read: it changes what the sources are asked to quote, but stored prices are
 EUR only, so re-querying on it could not return anything different.
 
-The search form is remembered under `flight-scraper:form`, so a reload lands back
+The search form is remembered under `flyscan:form`, so a reload lands back
 where you left off. A departure date that has already passed is
 **pushed forward** rather than restored or discarded — coming back next week
 should not re-run a search for last Tuesday, which can only come back empty, but
@@ -103,7 +103,7 @@ opens in a real Chromium on a phone-shaped virtual screen, which noVNC streams
 on :6080. The check opens as soon as a source asks, since starting a browser on
 the shared Beelink takes a while, and Verify, or Open stream once it is open,
 shows the stream in a new tab. `beelink/dev.sh stop` and `status` do what
-they say. Its data lives in `~/.local/share/flight-scraper-dev`.
+they say. Its data lives in `~/.local/share/flyscan-dev`.
 
 **Using it: the installed desktop app**, built and published by the Release
 workflow (see [`../packaging/README.md`](../packaging/README.md)) and updated
@@ -116,12 +116,12 @@ updater, the sidecar lifecycle. Build the sidecar first, then:
 
 ```bash
 cd desktop
-cp ../packaging/dist/flight-scraper-sidecar.exe    src-tauri/binaries/flight-scraper-sidecar-$(rustc -vV | sed -n 's/host: //p').exe
+cp ../packaging/dist/flyscan-sidecar.exe    src-tauri/binaries/flyscan-sidecar-$(rustc -vV | sed -n 's/host: //p').exe
 npm run tauri dev
 ```
 
 The suffix is not optional: Tauri resolves `externalBin` by target triple and
-the build fails without an exact match. `FLIGHT_SCRAPER_SIDECAR` overrides the
+the build fails without an exact match. `FLYSCAN_SIDECAR` overrides the
 path. A Rust edit costs a full stop-rebuild-restart, because the running app
 holds the sidecar binary the build has to replace.
 

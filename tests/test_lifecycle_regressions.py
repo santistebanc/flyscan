@@ -12,10 +12,10 @@ from pathlib import Path
 from types import SimpleNamespace
 from unittest import mock
 
-from flight_scraper.jobs import EventLog, Job, JobRegistry
-from flight_scraper.scheduler import Scheduler
-from flight_scraper.store import FlightStore
-from flight_scraper.task_queue import ActionRequired, TaskQueue
+from flyscan.jobs import EventLog, Job, JobRegistry
+from flyscan.scheduler import Scheduler
+from flyscan.store import FlightStore
+from flyscan.task_queue import ActionRequired, TaskQueue
 from tests import quiet_errorlog
 from tests.test_scheduler_queue import QUERY, FakeSource
 from tests.test_task_queue import eventually
@@ -99,47 +99,43 @@ class SearchLifecycle(unittest.TestCase):
 class SearchTransportTests(unittest.TestCase):
     def setUp(self):
         quiet_errorlog(self)
-        from flight_scraper.web import create_app
+        from flyscan.web import create_app
 
         self.registry = JobRegistry()
-        patch = mock.patch("flight_scraper.web.JOBS", self.registry)
+        patch = mock.patch("flyscan.web.JOBS", self.registry)
         patch.start()
         self.addCleanup(patch.stop)
         self.app = create_app()
         self.client = self.app.test_client()
         self.payload = {"origin": "BER", "destination": "CDG", "start": "2026-12-21", "db": ""}
         patch = mock.patch(
-            "flight_scraper.searches.resolve",
+            "flyscan.searches.resolve",
             side_effect=lambda code, **kw: SimpleNamespace(code=code),
         )
         patch.start()
         self.addCleanup(patch.stop)
 
     def test_export_error_closes_actual_search_stream_and_keeps_results(self):
-        from flight_scraper.aggregate import DayResult
-        from flight_scraper.models import Itinerary, Leg, Offer
+        from flyscan.aggregate import DayResult
+        from flyscan.models import Itinerary, Leg, Offer
 
         offer = Offer(Itinerary(QUERY, Leg("BER", "CDG")), "test", 10, "EUR")
         day = DayResult(QUERY, [], [SimpleNamespace(best=offer)])
         # DayResult.offers reads source results, while merged is only presentation.
-        from flight_scraper.sources.base import SourceResult
+        from flyscan.sources.base import SourceResult
 
         day.results = [SourceResult("test", offers=[offer])]
         aggregator = mock.Mock()
         aggregator.search_trips.return_value = iter([day])
         aggregator.stored_offers.return_value = None
         with (
-            mock.patch("flight_scraper.searches.Aggregator", return_value=aggregator),
+            mock.patch("flyscan.searches.Aggregator", return_value=aggregator),
+            mock.patch("flyscan.searches._merged_row", return_value={"best": {"price_base": 10}}),
             mock.patch(
-                "flight_scraper.searches._merged_row", return_value={"best": {"price_base": 10}}
-            ),
-            mock.patch(
-                "flight_scraper.searches.offer_to_row",
+                "flyscan.searches.offer_to_row",
                 return_value={"depart_date": "2026-12-21", "price_base": 10},
             ),
-            mock.patch(
-                "flight_scraper.searches.write_csv", side_effect=OSError("export disk full")
-            ),
+            mock.patch("flyscan.searches.write_csv", side_effect=OSError("export disk full")),
         ):
             created = self.client.post("/v1/searches", json=self.payload)
             self.assertEqual(created.status_code, 202)
@@ -163,7 +159,7 @@ class SearchTransportTests(unittest.TestCase):
             release.wait(2)
             return aggregator
 
-        with mock.patch("flight_scraper.searches.Aggregator", side_effect=construct):
+        with mock.patch("flyscan.searches.Aggregator", side_effect=construct):
             created = self.client.post("/v1/searches", json=self.payload)
             job = self.registry.get(created.json["search_id"])
             self.assertTrue(constructing.wait(2))
@@ -183,7 +179,7 @@ class SearchTransportTests(unittest.TestCase):
             entered.set()
             release.wait(2)
 
-        with mock.patch("flight_scraper.web.execute_search", side_effect=run) as runner:
+        with mock.patch("flyscan.web.execute_search", side_effect=run) as runner:
             first = self.client.post("/v1/searches", json=self.payload)
             self.assertTrue(entered.wait(2))
             second = self.client.post("/v1/searches", json=self.payload)
@@ -215,7 +211,7 @@ class ChallengeLifecycle(unittest.TestCase):
                     [
                         sys.executable,
                         "-c",
-                        "import sys; from flight_scraper.store import FlightStore; "
+                        "import sys; from flyscan.store import FlightStore; "
                         "store=FlightStore(sys.argv[1]); store.clear_challenges('test'); store.close()",
                         path,
                     ],
@@ -223,7 +219,7 @@ class ChallengeLifecycle(unittest.TestCase):
                     capture_output=True,
                     timeout=5,
                 )
-                with mock.patch("flight_scraper.store.fx.get_rates"):
+                with mock.patch("flyscan.store.fx.get_rates"):
                     self.assertTrue(future.result(2).ok)
                 self.assertEqual(source.calls, 1)
                 self.assertFalse(scheduler.challenges())
@@ -231,7 +227,7 @@ class ChallengeLifecycle(unittest.TestCase):
                 scheduler.shutdown(wait=True)
 
     def test_cookie_clearance_is_visible_to_existing_cookie_reader(self):
-        from flight_scraper.challenge import ChallengeStore
+        from flyscan.challenge import ChallengeStore
 
         with tempfile.TemporaryDirectory() as directory:
             reader, writer = ChallengeStore(directory), ChallengeStore(directory)
@@ -243,8 +239,8 @@ class ChallengeLifecycle(unittest.TestCase):
             self.assertEqual(reader.load("test"), {})
 
     def test_cli_clearance_uses_selected_database_for_all_probe_outcomes(self):
-        from flight_scraper.challenge import ChallengeStore
-        from flight_scraper.cli import cmd_unblock
+        from flyscan.challenge import ChallengeStore
+        from flyscan.cli import cmd_unblock
 
         with tempfile.TemporaryDirectory() as directory:
             path = str(Path(directory) / "selected.db")
@@ -264,16 +260,14 @@ class ChallengeLifecycle(unittest.TestCase):
 
                 url = "https://example.test/fresh" if outcome == "challenged" else None
                 with (
-                    mock.patch("flight_scraper.cli._configure_console"),
-                    mock.patch("flight_scraper.cli.CHALLENGE_STORE", cookies),
+                    mock.patch("flyscan.cli._configure_console"),
+                    mock.patch("flyscan.cli.CHALLENGE_STORE", cookies),
                     mock.patch(
-                        "flight_scraper.scheduler.default_scheduler",
+                        "flyscan.scheduler.default_scheduler",
                         side_effect=AssertionError("wrong ledger"),
                     ),
-                    mock.patch(
-                        "flight_scraper.challenge.probe_challenge", return_value=(url, outcome)
-                    ),
-                    mock.patch("flight_scraper.challenge.solve", side_effect=solve) as solved,
+                    mock.patch("flyscan.challenge.probe_challenge", return_value=(url, outcome)),
+                    mock.patch("flyscan.challenge.solve", side_effect=solve) as solved,
                     redirect_stdout(io.StringIO()),
                 ):
                     self.assertEqual(cmd_unblock(args), 0)
@@ -285,7 +279,7 @@ class ChallengeLifecycle(unittest.TestCase):
                 self.assertEqual(solved.call_count, 0 if outcome == "clear" else 1)
 
     def test_cookie_adapter_clears_and_resumes_original_future(self):
-        from flight_scraper.challenge import ChallengeStore
+        from flyscan.challenge import ChallengeStore
 
         with tempfile.TemporaryDirectory() as directory:
             scheduler = Scheduler(db_path=None)
@@ -302,20 +296,16 @@ class ChallengeLifecycle(unittest.TestCase):
                 scheduler.shutdown(wait=True)
 
     def test_probe_failure_without_url_and_unsolved_browser_keep_challenge(self):
-        from flight_scraper.challenge import ChallengeCoordinator, ChallengeStore
+        from flyscan.challenge import ChallengeCoordinator, ChallengeStore
 
         with tempfile.TemporaryDirectory() as directory:
             with ChallengeCoordinator(cookies=ChallengeStore(directory)) as recovery:
-                with mock.patch(
-                    "flight_scraper.challenge.probe_challenge", return_value=(None, "error")
-                ):
+                with mock.patch("flyscan.challenge.probe_challenge", return_value=(None, "error")):
                     self.assertFalse(recovery.recover("test")["solved"])
                 recovery.record("test", "https://example.test/stored")
                 with (
-                    mock.patch(
-                        "flight_scraper.challenge.probe_challenge", return_value=(None, "error")
-                    ),
-                    mock.patch("flight_scraper.challenge.solve", return_value={"solved": False}),
+                    mock.patch("flyscan.challenge.probe_challenge", return_value=(None, "error")),
+                    mock.patch("flyscan.challenge.solve", return_value={"solved": False}),
                 ):
                     self.assertFalse(recovery.recover("test")["solved"])
                 self.assertIn("test", recovery.pending())
@@ -349,10 +339,10 @@ class ChallengeLifecycle(unittest.TestCase):
 
             with (
                 mock.patch(
-                    "flight_scraper.challenge.probe_challenge",
+                    "flyscan.challenge.probe_challenge",
                     return_value=("https://example.test/check", "challenged"),
                 ),
-                mock.patch("flight_scraper.challenge.solve", side_effect=solve) as browser,
+                mock.patch("flyscan.challenge.solve", side_effect=solve) as browser,
             ):
                 self.assertTrue(scheduler.challenge_control.start_recovery("test"))
                 self.assertTrue(entered.wait(2))

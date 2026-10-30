@@ -98,7 +98,7 @@ Hardware and cloud signing services may need a custom Tauri sign command.
 
 Data, caches, challenge cookies, exports and `sidecar.log` live under
 `%LOCALAPPDATA%/com.flightscraper.desktop/`. The installation directory contains
-code only. `FLIGHT_SCRAPER_DATA_DIR` can override the data path for isolated tests.
+code only. `FLYSCAN_DATA_DIR` can override the data path for isolated tests.
 
 The shell starts a hidden service on a random loopback port with a fresh session
 credential and waits up to 45 seconds for authenticated health before showing
@@ -121,7 +121,7 @@ session authentication, EventSource authentication, CORS, bundled UI, SQLite and
 the production server without contacting flight sources:
 
 ```powershell
-./packaging/.venv-x64/Scripts/python.exe packaging/smoke_sidecar.py packaging/dist/x64/flight-scraper-sidecar.exe
+./packaging/.venv-x64/Scripts/python.exe packaging/smoke_sidecar.py packaging/dist/x64/flyscan-sidecar.exe
 ```
 
 To test the actual installer on a Windows desktop with no existing installation,
@@ -145,9 +145,9 @@ a plain HTTP request at all; a browser gets a captcha where it gets a 200.
 ```bash
 uv pip install pyinstaller
 python -m PyInstaller --noconfirm --clean --onefile \
-  --name flight-scraper-sidecar \
+  --name flyscan-sidecar \
   --distpath packaging/dist --workpath packaging/build --specpath packaging \
-  --collect-all curl_cffi --collect-submodules flight_scraper \
+  --collect-all curl_cffi --collect-submodules flyscan \
   --add-data "../desktop/dist;frontend" \
   --exclude-module playwright --exclude-module patchright \
   --exclude-module scrapling --exclude-module tkinter --exclude-module matplotlib \
@@ -174,8 +174,8 @@ separate `playwright install` step.
 ## Running it
 
 ```
-flight-scraper-sidecar --port 5111      # serve the API (the default)
-flight-scraper-sidecar scrape BER LON 2026-10-06 --top 5   # any CLI command
+flyscan-sidecar --port 5111      # serve the API (the default)
+flyscan-sidecar scrape BER LON 2026-10-06 --top 5   # any CLI command
 ```
 
 Anything that is not a known subcommand is treated as arguments to `serve`,
@@ -191,3 +191,10 @@ so the shell can just pass a port it has already reserved.
 
 The ~2.2 s is onefile unpacking to a temp directory on every launch. If that
 matters, `--onedir` trades a single file for a faster start.
+
+## Rename compatibility
+
+The application identifier `com.flightscraper.desktop`, public downloads repository
+`santistebanc/flight-scraper-releases`, and existing signing-key backup location
+are deliberately stable so installed applications retain their data and update trust.
+The source repository, Python package and command are now named `flyscan`.

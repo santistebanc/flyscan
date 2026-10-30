@@ -12,9 +12,9 @@ just asked for a human.
 import unittest
 from datetime import date
 
-from flight_scraper.models import SearchQuery
-from flight_scraper.sources import REGISTRY
-from flight_scraper.sources.base import ChallengeRequired
+from flyscan.models import SearchQuery
+from flyscan.sources import REGISTRY
+from flyscan.sources.base import ChallengeRequired
 from tests import quiet_errorlog
 
 QUERY = SearchQuery(

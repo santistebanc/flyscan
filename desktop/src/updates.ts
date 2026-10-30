@@ -1,6 +1,6 @@
 /** One update lifecycle per app, independent of React mounts and queue polling. */
 export const UPDATE_INTERVAL = 6 * 60 * 60 * 1000;
-export const UPDATE_PREFERENCES_KEY = "flight-scraper.updates";
+export const UPDATE_PREFERENCES_KEY = "flyscan.updates";
 export interface UpdatePreferences { autoDownload: boolean; installOnStartup: boolean }
 export type UpdateStatus = "idle" | "checking" | "current" | "available" | "downloading" | "ready" | "installing" | "error";
 export interface UpdateState {

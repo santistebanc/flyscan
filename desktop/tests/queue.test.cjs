@@ -167,10 +167,10 @@ test("queue summary counts logical source tasks, including work needing input", 
 
 test("queue reads remain global; selection and exact group controls use separate endpoints", async () => {
   const calls = [];
-  const { FlightScraperApi } = load("api.ts", {
+  const { FlyscanApi } = load("api.ts", {
     fetch: async (url, init) => { calls.push({ url, ...init }); return { ok: true, json: async () => ({}) }; },
   });
-  const api = new FlightScraperApi("http://local");
+  const api = new FlyscanApi("http://local");
   await api.queue();
   await api.selectQueueQuery({ origin: "BER", destination: "CDG", start: "2026-12-21", currency: "USD" });
   await api.queryJobAction("one", "retry");

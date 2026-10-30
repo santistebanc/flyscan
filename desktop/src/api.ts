@@ -338,7 +338,7 @@ export interface PendingChallenge {
   error?: string | null;
 }
 
-export class FlightScraperApi {
+export class FlyscanApi {
   readonly airportCities = new AirportCities((code) => this.places(code));
   private placeQueries = new Map<string, { until: number; promise: Promise<PlaceSuggestion[]> }>();
   constructor(private readonly base: string, private readonly apiKey?: string) {}

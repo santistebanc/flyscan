@@ -11,7 +11,7 @@ set -euo pipefail
 export PATH="$HOME/.local/bin:$PATH"
 
 CHECKOUT="$(cd "$(dirname "$0")/.." && pwd)"
-DATA="$HOME/.local/share/flight-scraper-dev"
+DATA="$HOME/.local/share/flyscan-dev"
 UNITS="$HOME/.config/systemd/user"
 HOST_IP="$(tailscale ip -4)"
 HOST_NAME="$(hostname)"
@@ -22,7 +22,7 @@ VNC_PORT=5998
 DISPLAY_NUMBER=98
 #: Phone-shaped, so a streamed check fills a phone's screen. The check window is sized to it.
 SCREEN=520x900
-SERVICES=(flight-scraper-dev-web flight-scraper-dev-api flight-scraper-dev-novnc flight-scraper-dev-vnc flight-scraper-dev-display)
+SERVICES=(flyscan-dev-web flyscan-dev-api flyscan-dev-novnc flyscan-dev-vnc flyscan-dev-display)
 
 case "${1:-}" in
   stop)
@@ -31,7 +31,7 @@ case "${1:-}" in
     exit 0
     ;;
   status)
-    systemctl --user show flight-scraper-dev-api.service -p WorkingDirectory --value | sed 's/^/Checkout: /'
+    systemctl --user show flyscan-dev-api.service -p WorkingDirectory --value | sed 's/^/Checkout: /'
     systemctl --user is-active "${SERVICES[@]/%/.service}" | paste -d' ' <(printf '%s\n' "${SERVICES[@]}") -
     exit 0
     ;;
@@ -49,20 +49,20 @@ fi
 mkdir -p "$DATA" "$UNITS"
 
 VIEWER="http://$HOST_NAME:$NOVNC_PORT/vnc.html?autoconnect=1&reconnect=1&resize=scale"
-cat >"$UNITS/flight-scraper-dev-display.service" <<EOF
+cat >"$UNITS/flyscan-dev-display.service" <<EOF
 [Unit]
-Description=flight-scraper dev: virtual screen :$DISPLAY_NUMBER
+Description=flyscan dev: virtual screen :$DISPLAY_NUMBER
 [Service]
 ExecStart=/usr/bin/Xvfb :$DISPLAY_NUMBER -screen 0 ${SCREEN}x24 -nolisten tcp
 Restart=on-failure
 [Install]
 WantedBy=default.target
 EOF
-cat >"$UNITS/flight-scraper-dev-vnc.service" <<EOF
+cat >"$UNITS/flyscan-dev-vnc.service" <<EOF
 [Unit]
-Description=flight-scraper dev: VNC of the virtual screen, local only
-BindsTo=flight-scraper-dev-display.service
-After=flight-scraper-dev-display.service
+Description=flyscan dev: VNC of the virtual screen, local only
+BindsTo=flyscan-dev-display.service
+After=flyscan-dev-display.service
 [Service]
 ExecStart=/usr/bin/x11vnc -display :$DISPLAY_NUMBER -rfbport $VNC_PORT -localhost -forever -shared -nopw -quiet
 Restart=on-failure
@@ -70,11 +70,11 @@ RestartSec=2
 [Install]
 WantedBy=default.target
 EOF
-cat >"$UNITS/flight-scraper-dev-novnc.service" <<EOF
+cat >"$UNITS/flyscan-dev-novnc.service" <<EOF
 [Unit]
-Description=flight-scraper dev: noVNC stream on the tailnet
-BindsTo=flight-scraper-dev-vnc.service
-After=flight-scraper-dev-vnc.service
+Description=flyscan dev: noVNC stream on the tailnet
+BindsTo=flyscan-dev-vnc.service
+After=flyscan-dev-vnc.service
 [Service]
 ExecStart=/usr/bin/websockify --web /usr/share/novnc $HOST_IP:$NOVNC_PORT 127.0.0.1:$VNC_PORT
 Restart=on-failure
@@ -82,18 +82,18 @@ RestartSec=2
 [Install]
 WantedBy=default.target
 EOF
-cat >"$UNITS/flight-scraper-dev-api.service" <<EOF
+cat >"$UNITS/flyscan-dev-api.service" <<EOF
 [Unit]
-Description=flight-scraper dev: service ($CHECKOUT)
-Wants=flight-scraper-dev-novnc.service
-After=flight-scraper-dev-novnc.service
+Description=flyscan dev: service ($CHECKOUT)
+Wants=flyscan-dev-novnc.service
+After=flyscan-dev-novnc.service
 [Service]
 WorkingDirectory=$CHECKOUT
-Environment=FLIGHT_SCRAPER_DATA_DIR=$DATA
+Environment=FLYSCAN_DATA_DIR=$DATA
 Environment=DISPLAY=:$DISPLAY_NUMBER
-Environment=FLIGHT_SCRAPER_CHECK_SCREEN=$SCREEN
-Environment="FLIGHT_SCRAPER_CHALLENGE_VIEWER_URL=$VIEWER"
-ExecStart=$CHECKOUT/.venv/bin/flight-scraper serve --debug --host 127.0.0.1 --port $API_PORT
+Environment=FLYSCAN_CHECK_SCREEN=$SCREEN
+Environment="FLYSCAN_CHALLENGE_VIEWER_URL=$VIEWER"
+ExecStart=$CHECKOUT/.venv/bin/flyscan serve --debug --host 127.0.0.1 --port $API_PORT
 # The Beelink is shared and often busy; a check's browser starts a third faster with priority.
 CPUWeight=1000
 Restart=on-failure
@@ -101,15 +101,15 @@ RestartSec=3
 [Install]
 WantedBy=default.target
 EOF
-cat >"$UNITS/flight-scraper-dev-web.service" <<EOF
+cat >"$UNITS/flyscan-dev-web.service" <<EOF
 [Unit]
-Description=flight-scraper dev: UI with hot reload ($CHECKOUT)
-Wants=flight-scraper-dev-api.service
-After=flight-scraper-dev-api.service
+Description=flyscan dev: UI with hot reload ($CHECKOUT)
+Wants=flyscan-dev-api.service
+After=flyscan-dev-api.service
 [Service]
 WorkingDirectory=$CHECKOUT/desktop
-Environment=FLIGHT_SCRAPER_DEV_HOST=$HOST_NAME
-Environment=FLIGHT_SCRAPER_API=http://127.0.0.1:$API_PORT
+Environment=FLYSCAN_DEV_HOST=$HOST_NAME
+Environment=FLYSCAN_API=http://127.0.0.1:$API_PORT
 ExecStart=$CHECKOUT/desktop/node_modules/.bin/vite --host $HOST_IP
 Restart=on-failure
 RestartSec=3
@@ -120,9 +120,9 @@ EOF
 systemctl --user daemon-reload
 systemctl --user enable -q "${SERVICES[@]/%/.service}"
 # Restarting the screen stops what is bound to it, so bring the stream back explicitly.
-systemctl --user restart flight-scraper-dev-display.service
-systemctl --user start flight-scraper-dev-vnc.service flight-scraper-dev-novnc.service
-systemctl --user restart flight-scraper-dev-api.service flight-scraper-dev-web.service
+systemctl --user restart flyscan-dev-display.service
+systemctl --user start flyscan-dev-vnc.service flyscan-dev-novnc.service
+systemctl --user restart flyscan-dev-api.service flyscan-dev-web.service
 
 for _ in $(seq 1 40); do
   curl -sf -o /dev/null "http://$HOST_IP:$WEB_PORT/v1/health" && break
@@ -130,7 +130,7 @@ for _ in $(seq 1 40); do
 done
 curl -sf -o /dev/null "http://$HOST_IP:$WEB_PORT/v1/health" || {
   echo "The dev slot did not come up:" >&2
-  journalctl --user -u flight-scraper-dev-api.service -u flight-scraper-dev-web.service -n 30 --no-pager >&2
+  journalctl --user -u flyscan-dev-api.service -u flyscan-dev-web.service -n 30 --no-pager >&2
   exit 1
 }
 echo "Dev slot on $CHECKOUT: http://$HOST_NAME:$WEB_PORT"

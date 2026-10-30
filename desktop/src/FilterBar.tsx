@@ -8,7 +8,7 @@ import { roundLimitPresets, type ConnectionFilterOptions, type FilterRanges } fr
 import { ANY_ARRIVAL, DEFAULT_FILTERS, filtersActive, filtersChanged, formatArrival, formatClock, setDirectionLimits,
   setSeparate, type DirectionLimits, type DirectionalFilter, type ListFilters } from "./flightFilters";
 
-export const FILTERS_KEY = "flight-scraper:list-filters";
+export const FILTERS_KEY = "flyscan:list-filters";
 type Panel = "stops" | "price" | "duration" | "layovers" | "times";
 /** What a filter shows instead of its name when the results bar is narrow. */
 const FILTER_ICONS = { stops: "stops", price: "price", duration: "duration", layovers: "connection", times: "waiting" } as const;

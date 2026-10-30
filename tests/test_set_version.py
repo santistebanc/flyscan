@@ -20,7 +20,7 @@ FILES = (
     "desktop/src-tauri/Cargo.lock",
     "pyproject.toml",
     "uv.lock",
-    "flight_scraper/__init__.py",
+    "flyscan/__init__.py",
 )
 
 
@@ -40,10 +40,8 @@ class SetVersion(unittest.TestCase):
         text = {name: (self.root / name).read_text(encoding="utf-8") for name in FILES}
         self.assertEqual(json.loads(text["desktop/package.json"])["version"], "9.8.7")
         self.assertEqual(json.loads(text["desktop/src-tauri/tauri.conf.json"])["version"], "9.8.7")
-        self.assertIn(
-            'name = "flight-scraper"\nversion = "9.8.7"', text["uv.lock"].replace("\r\n", "\n")
-        )
-        self.assertIn('__version__ = "9.8.7"', text["flight_scraper/__init__.py"])
+        self.assertIn('name = "flyscan"\nversion = "9.8.7"', text["uv.lock"].replace("\r\n", "\n"))
+        self.assertIn('__version__ = "9.8.7"', text["flyscan/__init__.py"])
 
     def test_an_unstable_version_changes_nothing(self):
         before = (self.root / "uv.lock").read_bytes()

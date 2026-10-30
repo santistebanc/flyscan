@@ -6,10 +6,10 @@ import unittest
 from datetime import date
 from pathlib import Path
 
-from flight_scraper.models import Itinerary, SearchQuery
-from flight_scraper.sources.kayak import Momondo
-from flight_scraper.sources.travelpayouts import Travelpayouts, _elapsed_minutes
-from flight_scraper.store import FlightStore, _merge_segments
+from flyscan.models import Itinerary, SearchQuery
+from flyscan.sources.kayak import Momondo
+from flyscan.sources.travelpayouts import Travelpayouts, _elapsed_minutes
+from flyscan.store import FlightStore, _merge_segments
 
 FIXTURES = Path(__file__).parent / "fixtures"
 QUERY = SearchQuery("BER", "SLP", date(2026, 12, 10), ret=date(2026, 12, 12))

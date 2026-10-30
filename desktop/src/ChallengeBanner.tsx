@@ -1,12 +1,12 @@
 import { useRef, useState } from "react";
-import type { FlightScraperApi, PendingChallenge } from "./api";
+import type { FlyscanApi, PendingChallenge } from "./api";
 import { isDesktop, openChallenge, openExternal } from "./platform";
 import { Icon, Spinner } from "./Icon";
 import { sourceLabel } from "./queueModel";
 
 /** Each source owns its verification request; other sources remain available. */
 export function ChallengeBanner({ api, pending, canSolveHere, viewerUrl = null, onCleared }: {
-  api: FlightScraperApi | null;
+  api: FlyscanApi | null;
   pending: PendingChallenge[];
   canSolveHere: boolean;
   /** Where the server's display is streamed (the preview), so a check it opens can be solved from anywhere. */

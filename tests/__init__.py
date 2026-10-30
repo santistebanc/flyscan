@@ -4,7 +4,7 @@ import tempfile
 from pathlib import Path
 from unittest import mock
 
-from flight_scraper import errorlog
+from flyscan import errorlog
 
 
 def quiet_errorlog(case) -> Path:

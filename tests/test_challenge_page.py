@@ -5,8 +5,8 @@ from unittest import mock
 
 import pytest
 
-from flight_scraper import challenge
-from flight_scraper.challenge_page import check_page_script
+from flyscan import challenge
+from flyscan.challenge_page import check_page_script
 
 FIXTURE = Path(__file__).parent / "fixtures" / "momondo-security-check-reference.html"
 
@@ -158,7 +158,7 @@ def test_an_untidied_check_keeps_an_ordinary_window(tmp_path):
 
 def test_the_check_window_fills_a_screen_of_the_configured_size(tmp_path, monkeypatch):
     # The preview's virtual screen is phone-shaped, so the check fills a phone's view of it.
-    monkeypatch.setenv("FLIGHT_SCRAPER_CHECK_SCREEN", "520x900")
+    monkeypatch.setenv("FLYSCAN_CHECK_SCREEN", "520x900")
     page = mock.Mock(url="https://www.momondo.ie/home")
     context = mock.Mock(pages=[page], cookies=lambda: [])
     context.new_cdp_session.return_value.send.return_value = {"windowId": 7}

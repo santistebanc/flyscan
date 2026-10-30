@@ -31,6 +31,6 @@ jobs:
       - name: Placeholders tauri-build expects (web build + Python sidecar)
         run: |
           mkdir -p desktop/dist desktop/src-tauri/binaries
-          touch "desktop/src-tauri/binaries/flight-scraper-sidecar-$(rustc -vV | sed -n 's/^host: //p')"
+          touch "desktop/src-tauri/binaries/flyscan-sidecar-$(rustc -vV | sed -n 's/^host: //p')"
       - run: cargo check --locked
         working-directory: desktop/src-tauri

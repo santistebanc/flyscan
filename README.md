@@ -1,4 +1,4 @@
-# flight-scraper
+# flyscan
 
 Searches five flight metasearch sources at once, merges the results so the same
 flight from different sellers becomes one row, and converts every price into a
@@ -9,7 +9,7 @@ same Ryanair seat on the same day comes back €28 apart depending on who is
 selling it.
 
 ```bash
-flight-scraper scrape berlin london 2026-09-19
+flyscan scrape berlin london 2026-09-19
 ```
 
 ```
@@ -36,7 +36,7 @@ flight-scraper scrape berlin london 2026-09-19
 
 ```bash
 uv sync                          # the CLI, the service and the dev tools
-uv run flight-scraper --help
+uv run flyscan --help
 ./dev.sh                         # the app with live reload: http://localhost:1420
 ```
 
@@ -49,38 +49,38 @@ is in [`desktop/README.md`](desktop/README.md#running-it).
 
 ```bash
 # one date, every source
-flight-scraper scrape berlin london 2026-08-22
+flyscan scrape berlin london 2026-08-22
 
 # a range of departure dates
-flight-scraper scrape BER LON 2026-09-01 2026-09-14
+flyscan scrape BER LON 2026-09-01 2026-09-14
 
 # round trip, two adults, business, prices shown in GBP
-flight-scraper scrape berlin london 2026-09-01 --return 2026-09-08 \
+flyscan scrape berlin london 2026-09-01 --return 2026-09-08 \
     --adults 2 --cabin business --base-currency GBP
 
 # a family
-flight-scraper scrape BER LON 2026-09-12 --return 2026-09-19 \
+flyscan scrape BER LON 2026-09-12 --return 2026-09-19 \
     --adults 2 --children 3 --infants 2
 
 # skip the slow ones
-flight-scraper scrape BER LON +7 --sources ff-kiwi ff-kayak momondo
+flyscan scrape BER LON +7 --sources ff-kiwi ff-kayak momondo
 
 # ask every source again regardless of what was cached
-flight-scraper scrape BER LON 2026-09-12 --cache-hours 0
+flyscan scrape BER LON 2026-09-12 --cache-hours 0
 
-flight-scraper query --origin BER --max-stops 1 --top 20   # read the store back
-flight-scraper query --summary                             # per-source totals
-flight-scraper places berlin                               # find an IATA code
-flight-scraper sources                                     # list the sources
-flight-scraper rates                                       # show FX rates in use
-flight-scraper prune                                       # forget departed flights
-flight-scraper cache                                       # what has been cached
-flight-scraper cache --purge                               # drop stale entries
-flight-scraper serve                                       # local web UI
+flyscan query --origin BER --max-stops 1 --top 20   # read the store back
+flyscan query --summary                             # per-source totals
+flyscan places berlin                               # find an IATA code
+flyscan sources                                     # list the sources
+flyscan rates                                       # show FX rates in use
+flyscan prune                                       # forget departed flights
+flyscan cache                                       # what has been cached
+flyscan cache --purge                               # drop stale entries
+flyscan serve                                       # local web UI
 ```
 
 The UI is a React + TypeScript app in `desktop/`, built once and served by
-`flight-scraper serve` at <http://127.0.0.1:5000> — the same bundle the desktop
+`flyscan serve` at <http://127.0.0.1:5000> — the same bundle the desktop
 shell loads. There is deliberately no server-rendered UI: there used to be one
 here *and* the desktop app, each with its own copy of the list, detail panel and
 price formatting, and they drifted in ways that only surfaced at runtime.
@@ -112,7 +112,7 @@ scraped for it yet the page says so rather than showing a one-adult price for a
 family of four. The detail panel is read-only for the same reason: every price in
 it is already for the travellers that were asked about.
 
-`flight-scraper serve` serves the built bundle (`npm run build --prefix desktop`;
+`flyscan serve` serves the built bundle (`npm run build --prefix desktop`;
 without it, `/` explains how and the API still works). While developing, `./dev.sh`
 runs the same app with live reload. The desktop app wraps the identical bundle;
 see `desktop/README.md`. The server exposes a versioned API at `/v1` for any other
@@ -369,7 +369,7 @@ re-scrapes, and never touches stored data. Switching EUR → USD → GBP → EUR
 returns exactly the original figures.
 
 Two sources ignore `--currency` and always quote their own: `ff-kayak` and
-`momondo` follow their `.ie` host domain and quote EUR. `flight-scraper sources`
+`momondo` follow their `.ie` host domain and quote EUR. `flyscan sources`
 lists which is which. The other three honour it. Either way each offer records the currency it was actually
 quoted in, so the conversion is right regardless.
 
@@ -433,8 +433,8 @@ fetch lookup, on the same route triple for trips, and on price both globally and
 per trip.
 
 ```bash
-flight-scraper query --origin BER --destination LON --start 2026-09-01 --max-stops 1
-flight-scraper query --summary --base-currency GBP
+flyscan query --origin BER --destination LON --start 2026-09-01 --max-stops 1
+flyscan query --summary --base-currency GBP
 ```
 
 Schema changes after this layout go in `MIGRATIONS` in `store.py`, appended and
@@ -444,14 +444,14 @@ an installed app keeps its data, prices added by hand included, across updates. 
 database written by a newer version is refused rather than misread.
 
 Every file the app keeps (`flights.db`, `.challenges/`, the place and rate caches,
-`.errors/`, `out/`) sits in the working directory. Set `FLIGHT_SCRAPER_DATA_DIR`
+`.errors/`, `out/`) sits in the working directory. Set `FLYSCAN_DATA_DIR`
 to give an environment its own folder; the desktop app runs its service in the
 app's data folder for the same reason.
 
 ## Layout
 
 ```
-flight_scraper/
+flyscan/
   models.py      SearchQuery, Itinerary, Offer — and trip_key, the merge key
   sources/
     base.py          what a source must provide
@@ -490,7 +490,7 @@ Adding a source means writing a `Source` subclass and listing it in
 
 ## The API
 
-`flight-scraper serve` exposes `/v1` alongside the built frontend, so another
+`flyscan serve` exposes `/v1` alongside the built frontend, so another
 frontend can drive it.
 
 ```
@@ -542,7 +542,7 @@ still in flight. Pass `force: true` to override.
 SSE connection. `/results` works mid-run, filtered by `?day=`, `?max_stops=`,
 `?limit=`.
 
-Set `FLIGHT_SCRAPER_API_KEY` to require `Authorization: Bearer <key>` or
+Set `FLYSCAN_API_KEY` to require `Authorization: Bearer <key>` or
 `X-API-Key`; unset means open, which is fine on localhost and not elsewhere —
 an unauthenticated caller spends *your* IP's standing with the sources. CORS is
 permissive by default.
@@ -596,7 +596,7 @@ same source and date at the same moment share one scrape, and each gets its own
 copy of the result.
 
 Choose the process ledger and worker count when starting the server:
-`flight-scraper serve --db path/to/flights.db --workers 12`. Searches inherit
+`flyscan serve --db path/to/flights.db --workers 12`. Searches inherit
 these settings; conflicting database or worker settings are rejected rather
 than silently ignored. Results are read through the same scheduler that writes
 them. `cache_hours` remains a per-search policy, so a short freshness window
@@ -621,9 +621,9 @@ single scrape from Python with:
 
 ```python
 from datetime import date
-from flight_scraper.models import SearchQuery
-from flight_scraper.scheduler import default_scheduler
-from flight_scraper.sources import REGISTRY
+from flyscan.models import SearchQuery
+from flyscan.scheduler import default_scheduler
+from flyscan.sources import REGISTRY
 
 future = default_scheduler().submit(
     REGISTRY["ff-sky"](),
@@ -743,8 +743,8 @@ Register a handler on the existing shared queue. This also supports future route
 calculation jobs without importing scraping types into the queue module:
 
 ```python
-from flight_scraper.scheduler import default_scheduler
-from flight_scraper.task_queue import ResourceLimit, RetryPolicy
+from flyscan.scheduler import default_scheduler
+from flyscan.task_queue import ResourceLimit, RetryPolicy
 
 queue = default_scheduler().queue
 
@@ -803,18 +803,18 @@ So the run stops asking and hands you the link:
 ```
   ff-kayak wants a human to confirm you are one:
     https://ie-kayak.flightsfinder.com/security/check?out=%2Fflights%2FBER-LON%2F2026-10-02&t=UFYe…
-    open it, or run:  flight-scraper unblock ff-kayak
+    open it, or run:  flyscan unblock ff-kayak
 ```
 
 ```bash
-flight-scraper unblock ff-kayak      # opens it in a visible browser and waits for you
-flight-scraper unblock --status      # which sources have been cleared, and how long ago
-flight-scraper unblock ff-kayak --forget    # discard a stored clearance
+flyscan unblock ff-kayak      # opens it in a visible browser and waits for you
+flyscan unblock --status      # which sources have been cleared, and how long ago
+flyscan unblock ff-kayak --forget    # discard a stored clearance
 ```
 
 `unblock` works standalone. Pending challenges are stored in the selected
 SQLite database; clearance cookies and browser profiles live in `.challenges/`.
-Use `flight-scraper unblock ff-kayak --db path/to/flights.db` to clear a custom
+Use `flyscan unblock ff-kayak --db path/to/flights.db` to clear a custom
 database. CLI and browser recovery share `ChallengeCoordinator`, including
 probing for a current challenge URL and falling back to the recorded URL only
 when probing fails. An unsuccessful probe with no recorded URL leaves the
@@ -868,10 +868,10 @@ no browser to open — as in the packaged sidecar, which excludes Playwright
 deliberately because the desktop shell uses its own webview instead.
 
 **A server with no one at its screen can still have the check cleared.** With
-`FLIGHT_SCRAPER_CHALLENGE_VIEWER_URL` set to a page streaming its display (noVNC,
+`FLYSCAN_CHALLENGE_VIEWER_URL` set to a page streaming its display (noVNC,
 on the Beelink), `/challenges` reports it as `viewer_url`, the check opens the
 moment a source asks rather than on Verify, and the UI offers the stream in a
-new tab. `FLIGHT_SCRAPER_CHECK_SCREEN` sizes the check window to that display.
+new tab. `FLYSCAN_CHECK_SCREEN` sizes the check window to that display.
 
 ## When something goes wrong
 
@@ -879,16 +879,16 @@ Failures are written to `.errors/errors.jsonl`, one JSON object per line, and
 read back with:
 
 ```bash
-flight-scraper errors                  # what has been failing, and the last few
-flight-scraper errors --where source.ff-kayak --json
-flight-scraper errors --clear
+flyscan errors                  # what has been failing, and the last few
+flyscan errors --where source.ff-kayak --json
+flyscan errors --clear
 ```
 
 The message is never the useful part. "poll returned HTTP 404" is the same
 sentence whether the route was wrong, the session expired, or the site is
 blocking us — so every entry carries the **context it happened in**: the route,
 the dates, the party, the URL that answered, how many attempts it took. A source
-failure also carries the `flight-scraper capture` line that would record it, so
+failure also carries the `flyscan capture` line that would record it, so
 the next step after reading one is a fixture rather than another guess.
 
 `GET /v1/errors` serves the same thing to a frontend, and the page posts its own
@@ -912,7 +912,7 @@ bytes that caused it are long gone. So the parsers are tested against recorded
 searches:
 
 ```bash
-flight-scraper capture ff-sky BER CDG 2026-09-28 --out tests/recordings/ff-sky-ber-cdg --trim
+flyscan capture ff-sky BER CDG 2026-09-28 --out tests/recordings/ff-sky-ber-cdg --trim
 ```
 
 That runs one real search and writes down every exchange it makes — method,
@@ -997,8 +997,8 @@ Nothing about a departed flight can become useful again, and the database
 otherwise only grows.
 
 ```bash
-flight-scraper prune                      # drop everything before today
-flight-scraper prune --before 2026-09-01
+flyscan prune                      # drop everything before today
+flyscan prune --before 2026-09-01
 ```
 
 That drops fetches for departed dates; their offers go with them through the

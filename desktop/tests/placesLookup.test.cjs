@@ -17,7 +17,7 @@ function host() {
     localStorage: { getItem: key => storage.get(key) ?? null, setItem: (key, value) => storage.set(key, value) },
     fetch: async (url) => { calls.push(url); if (fail) throw new Error("Offline"); return { ok: true, json: async () => places }; },
   });
-  return { api: new mod.exports.FlightScraperApi("http://127.0.0.1:5111"), calls, storage,
+  return { api: new mod.exports.FlyscanApi("http://127.0.0.1:5111"), calls, storage,
     advance(ms) { now += ms; }, fail(value) { fail = value; } };
 }
 test("From/To and city labels share one in-flight request and a short query cache", async () => {

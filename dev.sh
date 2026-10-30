@@ -5,7 +5,7 @@
 # ./data, apart from any installed app. On the Beelink, use beelink/dev.sh instead.
 set -euo pipefail
 cd "$(dirname "$0")"
-export FLIGHT_SCRAPER_DATA_DIR="${FLIGHT_SCRAPER_DATA_DIR:-$PWD/data}"
+export FLYSCAN_DATA_DIR="${FLYSCAN_DATA_DIR:-$PWD/data}"
 
 uv sync -q
 [ -d desktop/node_modules ] || npm ci --prefix desktop --no-audit --no-fund
@@ -14,7 +14,7 @@ uv sync -q
 # has its own pids; the service needs the Windows one.
 parent=$$
 [ -r /proc/$$/winpid ] && parent="$(cat /proc/$$/winpid)"
-uv run flight-scraper serve --debug --port 5111 --exit-with-parent "$parent" &
+uv run flyscan serve --debug --port 5111 --exit-with-parent "$parent" &
 trap 'kill $! 2>/dev/null || true' EXIT
 
 npm run dev --prefix desktop

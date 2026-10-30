@@ -13,7 +13,7 @@ function client(key) {
     fetch: async (url, options) => { calls.push({ url, options }); return { ok: true, json: async () => ({ status: "ok" }) }; },
     EventSource: class { constructor(url) { streams.push(url); } },
   });
-  return { api: new mod.exports.FlightScraperApi("http://127.0.0.1:51234", key), calls, streams };
+  return { api: new mod.exports.FlyscanApi("http://127.0.0.1:51234", key), calls, streams };
 }
 
 test("desktop API requests and event streams carry their session credential", async () => {

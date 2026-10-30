@@ -15,7 +15,7 @@ for stream in (sys.stdout, sys.stderr):
     if stream is not None and hasattr(stream, "reconfigure"):
         stream.reconfigure(line_buffering=True, write_through=True)
 
-from flight_scraper.cli import build_parser, main  # noqa: E402  (stdout must be reconfigured first)
+from flyscan.cli import build_parser, main  # noqa: E402  (stdout must be reconfigured first)
 
 
 def _subcommands() -> set:

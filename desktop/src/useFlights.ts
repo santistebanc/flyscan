@@ -16,7 +16,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import type {
   FlightRow,
-  FlightScraperApi,
+  FlyscanApi,
   SearchEvent,
   SearchRequest,
   SourceName,
@@ -138,7 +138,7 @@ function merge(stored: SourceStatus[], live: Record<string, LiveState>): SourceV
  *   so the banner can refresh — it reads its list from `/challenges`, which was
  *   last fetched at connect.
  */
-export function useFlights(api: FlightScraperApi | null, onChallenge?: () => void) {
+export function useFlights(api: FlyscanApi | null, onChallenge?: () => void) {
   const [rows, setRows] = useState<FlightRow[]>([]);
   const [total, setTotal] = useState(0);
   const [freshness, setFreshness] = useState<Freshness>({ kind: "none" });
@@ -178,7 +178,7 @@ export function useFlights(api: FlightScraperApi | null, onChallenge?: () => voi
   /** Guards against a late response overwriting a newer one. */
   const token = useRef(0);
   const searching = useRef(false);
-  const storedRead = useRef<{ key: string; token: number; api: FlightScraperApi; result: Promise<void> } | null>(null);
+  const storedRead = useRef<{ key: string; token: number; api: FlyscanApi; result: Promise<void> } | null>(null);
   /**
    * Whether the view on screen has had its first answer from the database.
    * Only that first read is "loading": the refreshes after it run every few

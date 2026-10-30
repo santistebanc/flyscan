@@ -7,12 +7,12 @@ from pathlib import Path
 from types import SimpleNamespace
 from unittest import mock
 
-from flight_scraper.aggregate import merge
-from flight_scraper.jobs import Job
-from flight_scraper.models import Itinerary, Leg, Offer, SearchQuery
-from flight_scraper.searches import execute_search
-from flight_scraper.store import FlightStore
-from flight_scraper.web import create_app
+from flyscan.aggregate import merge
+from flyscan.jobs import Job
+from flyscan.models import Itinerary, Leg, Offer, SearchQuery
+from flyscan.searches import execute_search
+from flyscan.store import FlightStore
+from flyscan.web import create_app
 
 QUERY = SearchQuery("BER", "CDG", date(2026, 12, 21))
 
@@ -39,7 +39,7 @@ class FullFlightData(unittest.TestCase):
             db = str(Path(directory) / "flights.db")
             store = FlightStore(db)
             try:
-                with mock.patch("flight_scraper.store.fx.get_rates"):
+                with mock.patch("flyscan.store.fx.get_rates"):
                     store.complete_fetch(store.begin_fetch(QUERY, "test"), offers(1105))
                 self.assertEqual(len(store.browse(limit=25)), 25)
                 self.assertEqual(len(store.browse(limit=None)), 1105)
@@ -89,12 +89,12 @@ class FullFlightData(unittest.TestCase):
         )
         with (
             tempfile.TemporaryDirectory() as directory,
-            mock.patch("flight_scraper.searches.OUT_DIR", Path(directory)),
+            mock.patch("flyscan.searches.OUT_DIR", Path(directory)),
             mock.patch(
-                "flight_scraper.searches.resolve",
+                "flyscan.searches.resolve",
                 side_effect=lambda code, **_: SimpleNamespace(code=code),
             ),
-            mock.patch("flight_scraper.searches.Aggregator") as factory,
+            mock.patch("flyscan.searches.Aggregator") as factory,
         ):
             aggregator = factory.return_value
             aggregator.stored_offers.return_value = None

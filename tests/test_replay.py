@@ -1,7 +1,7 @@
 """Run every recorded search against its recording, and never the network.
 
 Each case under `tests/recordings/` is one real search someone captured with
-`flight-scraper capture`. Replaying it re-runs the parser over the exact bytes
+`flyscan capture`. Replaying it re-runs the parser over the exact bytes
 the site sent, and checks both how many offers came out *and* a digest of what
 was in them — markup that still parses but loses flight numbers is the failure
 that a count alone waves through.
@@ -10,7 +10,7 @@ that a count alone waves through.
 import unittest
 from pathlib import Path
 
-from flight_scraper.capture import (
+from flyscan.capture import (
     Exchange,
     PlayerSession,
     Recording,

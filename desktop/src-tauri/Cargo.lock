@@ -1023,7 +1023,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "flight-scraper-desktop"
+name = "flyscan-desktop"
 version = "0.3.7"
 dependencies = [
  "base64 0.22.1",

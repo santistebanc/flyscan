@@ -39,17 +39,17 @@ try {
     }
     Invoke-Native "npm.cmd" @("audit", "--prefix", "desktop", "--audit-level=high")
     Invoke-Native "npm.cmd" @("run", "build", "--prefix", "desktop")
-    $sidecar = Join-Path $projectRoot "packaging/dist/x64/flight-scraper-sidecar.exe"
+    $sidecar = Join-Path $projectRoot "packaging/dist/x64/flyscan-sidecar.exe"
     $started = [DateTime]::UtcNow
-    Invoke-Native $buildPython @("-m", "PyInstaller", "--noconfirm", "--clean", "--distpath", "packaging/dist/x64", "--workpath", "packaging/build/x64", "packaging/flight-scraper-sidecar.spec")
+    Invoke-Native $buildPython @("-m", "PyInstaller", "--noconfirm", "--clean", "--distpath", "packaging/dist/x64", "--workpath", "packaging/build/x64", "packaging/flyscan-sidecar.spec")
     if (-not (Test-Path -LiteralPath $sidecar) -or (Get-Item -LiteralPath $sidecar).LastWriteTimeUtc -lt $started) { throw "The sidecar was not rebuilt; refusing to package a stale binary." }
     Invoke-Native $buildPython @("packaging/smoke_sidecar.py", $sidecar)
     $binaryDirectory = Join-Path $projectRoot "desktop/src-tauri/binaries"
     New-Item -ItemType Directory -Path $binaryDirectory -Force | Out-Null
-    Copy-Item -LiteralPath $sidecar -Destination (Join-Path $binaryDirectory "flight-scraper-sidecar-$target.exe") -Force
+    Copy-Item -LiteralPath $sidecar -Destination (Join-Path $binaryDirectory "flyscan-sidecar-$target.exe") -Force
     Invoke-Native "rustup" @("target", "add", $target)
     if (-not $SkipTests) {
-        Invoke-Native "cargo" @("test", "--manifest-path", "desktop/src-tauri/Cargo.toml", "--release", "--target", $target, "--locked", "--bin", "flight-scraper-desktop")
+        Invoke-Native "cargo" @("test", "--manifest-path", "desktop/src-tauri/Cargo.toml", "--release", "--target", $target, "--locked", "--bin", "flyscan-desktop")
     }
     $tauriArguments = @("run", "tauri", "--prefix", "desktop", "--", "build", "--target", $target, "--bundles", "nsis", "--ci")
     $overridesFile = Join-Path $projectRoot "packaging/build/bundle-overrides.json"
@@ -59,11 +59,11 @@ try {
     $tauriArguments += @("--config", $overridesFile)
     $tauriArguments += @("--", "--locked")
     Invoke-Native "npm.cmd" $tauriArguments
-    $installer = Join-Path $projectRoot "desktop/src-tauri/target/$target/release/bundle/nsis/Flight Scraper_${version}_x64-setup.exe"
+    $installer = Join-Path $projectRoot "desktop/src-tauri/target/$target/release/bundle/nsis/Flyscan_${version}_x64-setup.exe"
     if (-not (Test-Path -LiteralPath $installer)) { throw "NSIS installer was not produced." }
     $releaseDirectory = Join-Path $projectRoot "release"
     New-Item -ItemType Directory -Path $releaseDirectory -Force | Out-Null
-    $releaseName = "Flight-Scraper-$version-windows-x64-setup.exe"
+    $releaseName = "Flyscan-$version-windows-x64-setup.exe"
     $releasePath = Join-Path $releaseDirectory $releaseName
     Copy-Item -LiteralPath $installer -Destination $releasePath -Force
     $hash = (Get-FileHash -LiteralPath $releasePath -Algorithm SHA256).Hash.ToLowerInvariant()

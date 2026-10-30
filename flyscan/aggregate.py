@@ -7,7 +7,7 @@ running them date-by-date would idle every fast source until the slowest one on
 that date finished.
 
 The pacing is not this module's business. Every job goes to the process-wide
-:class:`~flight_scraper.scheduler.Scheduler`, which owns the per-source gates,
+:class:`~flyscan.scheduler.Scheduler`, which owns the per-source gates,
 the worker pool and the store — so two searches running at once share one set
 of rate limits instead of each inventing its own, and two callers asking the
 same question at the same moment share one scrape.

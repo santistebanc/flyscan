@@ -14,7 +14,7 @@ import {
 } from "react";
 import { defaultRangeExtractor, useWindowVirtualizer } from "@tanstack/react-virtual";
 import {
-  FlightScraperApi,
+  FlyscanApi,
   type Cabin,
   type FlightRow,
   type PendingChallenge,
@@ -103,7 +103,7 @@ interface RememberedForm {
   currency: string;
 }
 
-const FORM_KEY = "flight-scraper:form";
+const FORM_KEY = "flyscan:form";
 
 const DAY_MS = 86_400_000;
 /** Where the side panel becomes a sheet along the bottom; styles.css uses the same width. */
@@ -490,7 +490,7 @@ type PopoverName = "from" | "to" | "depart" | "return" | "travellers" | "sources
 const POPOVERS: PopoverName[] = ["from", "to", "depart", "return", "travellers", "sources"];
 
 function Shell() {
-  const [api, setApi] = useState<FlightScraperApi | null>(null);
+  const [api, setApi] = useState<FlyscanApi | null>(null);
   const [pending, setPending] = useState<PendingChallenge[]>([]);
   const [canSolveHere, setCanSolveHere] = useState(false);
   const [viewerUrl, setViewerUrl] = useState<string | null>(null);
@@ -791,7 +791,7 @@ function Shell() {
     let live = true;
     (async () => {
       const { base, apiKey } = await apiConnection();
-      const client = new FlightScraperApi(base, apiKey);
+      const client = new FlyscanApi(base, apiKey);
       for (let attempt = 0; attempt < 40 && live; attempt++) {
         try {
           await client.health();
@@ -1187,11 +1187,11 @@ function Shell() {
 }
 
 export default function App() {
-  const [api, setApi] = useState<FlightScraperApi | null>(null);
+  const [api, setApi] = useState<FlyscanApi | null>(null);
   // The provider needs a client to fetch rates; the shell builds its own once
   // the sidecar answers. Resolving the base once here keeps them in step.
   useEffect(() => {
-    apiConnection().then(({ base, apiKey }) => setApi(new FlightScraperApi(base, apiKey))).catch(() => {});
+    apiConnection().then(({ base, apiKey }) => setApi(new FlyscanApi(base, apiKey))).catch(() => {});
   }, []);
   return (
     <CurrencyProvider api={api}>

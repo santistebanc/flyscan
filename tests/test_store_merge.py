@@ -11,7 +11,7 @@ reason.
 import json
 import unittest
 
-from flight_scraper.store import _merge_segments
+from flyscan.store import _merge_segments
 
 
 def blob(*segments):

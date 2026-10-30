@@ -10,7 +10,7 @@ a label is for reading, and two different parties can render the same string.
 
 import unittest
 
-from flight_scraper.api import _belongs_to
+from flyscan.api import _belongs_to
 
 SEARCH = {
     "origin": "BER",

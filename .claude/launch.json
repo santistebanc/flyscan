@@ -2,7 +2,7 @@
   "version": "0.0.1",
   "configurations": [
     {
-      "name": "flight-scraper",
+      "name": "flyscan",
       "runtimeExecutable": "bash",
       "runtimeArgs": ["dev.sh"],
       "port": 1420

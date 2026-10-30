@@ -18,7 +18,7 @@ class UpdateManifest(unittest.TestCase):
         self.directory = tempfile.TemporaryDirectory()
         self.addCleanup(self.directory.cleanup)
         self.root = Path(self.directory.name)
-        self.installer = self.root / "Flight-Scraper-0.3.2-windows-x64-setup.exe"
+        self.installer = self.root / "Flyscan-0.3.2-windows-x64-setup.exe"
         self.installer.write_bytes(b"test installer")
         self.signature = base64.b64encode(
             b"untrusted comment: test\nsignature\ntrusted comment: test\nglobal\n"
@@ -40,7 +40,7 @@ class UpdateManifest(unittest.TestCase):
         result = self.create()
         self.assertEqual(
             result["platforms"]["windows-x86_64"]["url"],
-            "https://github.com/owner/downloads/releases/download/v0.3.2/Flight-Scraper-0.3.2-windows-x64-setup.exe",
+            "https://github.com/owner/downloads/releases/download/v0.3.2/Flyscan-0.3.2-windows-x64-setup.exe",
         )
         self.assertEqual(result["platforms"]["windows-x86_64"]["signature"], self.signature)
         self.assertEqual(result["notes"], "What changed")

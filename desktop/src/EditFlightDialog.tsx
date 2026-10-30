@@ -9,7 +9,7 @@
  */
 
 import { useEffect, useId, useMemo, useRef, useState, type KeyboardEvent, type ReactNode } from "react";
-import type { FlightRow, FlightScraperApi, Leg, ManualOfferRequest, Segment } from "./api";
+import type { FlightRow, FlyscanApi, Leg, ManualOfferRequest, Segment } from "./api";
 import { useCurrency } from "./currency";
 import { Icon } from "./Icon";
 import {
@@ -100,7 +100,7 @@ const stored = (options: FieldOption[], describe?: (option: FieldOption) => stri
 
 function LegForm({ draft, onChange, rows, building, api, editing, onAdd, onCancel, problem }: {
   draft: FlightDraft; onChange: (next: FlightDraft) => void; rows: readonly FlightRow[]; building: Building;
-  api: FlightScraperApi | null; editing: boolean; onAdd: () => void; onCancel: () => void; problem: string;
+  api: FlyscanApi | null; editing: boolean; onAdd: () => void; onCancel: () => void; problem: string;
 }) {
   const [place, setPlace] = useState<"from" | "to" | null>(null);
   const options = (field: DraftField) => fieldOptions(rows, building, field);
@@ -250,7 +250,7 @@ export function EditFlightDialog({ onClose, rows, search, party, carriers, api, 
   onClose: () => void;
   /** Every stored flight for the search on screen, from every source. */
   rows: readonly FlightRow[];
-  search: ManualSearch; party: ManualParty; carriers: ReadonlyMap<string, string>; api: FlightScraperApi | null;
+  search: ManualSearch; party: ManualParty; carriers: ReadonlyMap<string, string>; api: FlyscanApi | null;
   /** The flight only you sell being changed; the dialog is open while there is one. */
   editing: FlightRow | null;
   onReplace: (row: FlightRow, flight: ManualFlight) => Promise<void>;

@@ -19,7 +19,7 @@ function connection() {
       init.signal?.addEventListener("abort", () => { request.aborted = true; reject(new Error("Aborted")); });
     }),
   });
-  return { api: new module.exports.FlightScraperApi("http://local"), requests,
+  return { api: new module.exports.FlyscanApi("http://local"), requests,
     expire() { for (const [id, t] of [...timers]) { if (t.ms <= 10000) { timers.delete(id); t.fn(); } } } };
 }
 

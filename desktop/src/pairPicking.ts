@@ -14,7 +14,7 @@ import { effectiveSort, sortFlightRows, type SortKey } from "./flightSort";
 export type PairView = "pairs" | "outbound-first" | "return-first";
 export type Direction = "outbound" | "inbound";
 
-export const PAIR_VIEW_KEY = "flight-scraper:pair-view";
+export const PAIR_VIEW_KEY = "flyscan:pair-view";
 export const PAIR_VIEW_LABELS: Record<PairView, string> = {
   pairs: "All pairs", "outbound-first": "Outbound first", "return-first": "Return first",
 };

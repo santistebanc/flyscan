@@ -12,8 +12,8 @@ from datetime import date
 from typing import List
 from unittest import mock
 
-from flight_scraper.models import SearchQuery
-from flight_scraper.sources.flightsfinder import FlightsFinderSky
+from flyscan.models import SearchQuery
+from flyscan.sources.flightsfinder import FlightsFinderSky
 from tests import quiet_errorlog
 
 QUERY = SearchQuery(origin="BER", destination="CDG", depart=date(2026, 9, 21))
@@ -79,7 +79,7 @@ def poll_body(done: str, count: str, markup: str) -> str:
 class PollTimeout(unittest.TestCase):
     def setUp(self):
         quiet_errorlog(self)
-        patch = mock.patch("flight_scraper.sources.flightsfinder.time.sleep")
+        patch = mock.patch("flyscan.sources.flightsfinder.time.sleep")
         patch.start()
         self.addCleanup(patch.stop)
 
@@ -139,7 +139,7 @@ class PollSettles(unittest.TestCase):
     """
 
     def setUp(self):
-        patch = mock.patch("flight_scraper.sources.flightsfinder.time.sleep")
+        patch = mock.patch("flyscan.sources.flightsfinder.time.sleep")
         patch.start()
         self.addCleanup(patch.stop)
 

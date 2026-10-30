@@ -10,9 +10,9 @@ from datetime import date
 from pathlib import Path
 from unittest import mock
 
-from flight_scraper.scheduler import Scheduler
-from flight_scraper.task_queue import RateLimited
-from flight_scraper.web import create_app
+from flyscan.scheduler import Scheduler
+from flyscan.task_queue import RateLimited
+from flyscan.web import create_app
 from tests import quiet_errorlog
 from tests.test_scheduler_queue import QUERY, FakeSource
 from tests.test_task_queue import FAST_RETRY, eventually
@@ -23,7 +23,7 @@ class QueryJobTests(unittest.TestCase):
         quiet_errorlog(self)
         self.scheduler = Scheduler(db_path=None, max_workers=1, retry_policy=FAST_RETRY)
         self.addCleanup(lambda: self.scheduler.shutdown(wait=True))
-        patch = mock.patch("flight_scraper.api.default_scheduler", return_value=self.scheduler)
+        patch = mock.patch("flyscan.api.default_scheduler", return_value=self.scheduler)
         patch.start()
         self.addCleanup(patch.stop)
         self.client = create_app().test_client()

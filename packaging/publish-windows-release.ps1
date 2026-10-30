@@ -12,7 +12,7 @@ try {
     if ($version -notmatch '^\d+\.\d+\.\d+$' -or $version -ne $info.version) { throw "Release version mismatch." }
     $tag = "v$version"
     if ($env:RELEASE_TAG -and $env:RELEASE_TAG -ne $tag) { throw "The release tag does not match the built app version." }
-    $name = "Flight-Scraper-$version-windows-x64-setup.exe"
+    $name = "Flyscan-$version-windows-x64-setup.exe"
     $expectedUrl = "https://github.com/$Repository/releases/download/$tag/$name"
     $platform = $manifest.platforms.'windows-x86_64'
     if ($platform.url -ne $expectedUrl -or $platform.signature -ne (Get-Content "release/$name.sig" -Raw).Trim()) { throw "Update manifest does not match these release assets." }
@@ -23,7 +23,7 @@ try {
     if ($existing.Count) {
         if (-not $existing[0].isDraft) { throw "This version is already published. Publish a new version instead of overwriting it." }
     } else {
-        & gh release create $tag --repo $Repository --draft --title "Flight Scraper $version" --notes-file packaging/release-notes.md
+        & gh release create $tag --repo $Repository --draft --title "Flyscan $version" --notes-file packaging/release-notes.md
         if ($LASTEXITCODE -ne 0) { throw "Could not create the draft release. Check RELEASES_TOKEN has Contents write access to $Repository." }
     }
     & gh release upload $tag --repo $Repository --clobber "release/$name" "release/$name.sig" release/latest.json release/SHA256SUMS.txt

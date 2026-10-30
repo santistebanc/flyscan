@@ -14,7 +14,7 @@ def manifest(directory: Path, version: str, repository: str, notes: str) -> dict
         raise ValueError("Use a stable major.minor.patch version")
     if not re.fullmatch(r"[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+", repository):
         raise ValueError("Expected a GitHub owner/repository")
-    name = f"Flight-Scraper-{version}-windows-x64-setup.exe"
+    name = f"Flyscan-{version}-windows-x64-setup.exe"
     installer = directory / name
     if not installer.is_file():
         raise ValueError("Installer is missing")

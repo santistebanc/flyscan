@@ -8,8 +8,8 @@ import tempfile
 import unittest
 from unittest import mock
 
-from flight_scraper import challenge
-from flight_scraper.challenge import ChallengeCoordinator, ChallengeStore
+from flyscan import challenge
+from flyscan.challenge import ChallengeCoordinator, ChallengeStore
 
 JAR = {"consent": "c", "mst_token": "t", "p1.med.sid": "session", "captcha": "x"}
 DURABLE = {"consent", "mst_token"}
@@ -75,9 +75,9 @@ class RecoveryKeepsCookiesTheSourceAccepts(unittest.TestCase):
 
         with (
             ChallengeCoordinator(cookies=store) as control,
-            mock.patch("flight_scraper.challenge.solve", side_effect=solved),
+            mock.patch("flyscan.challenge.solve", side_effect=solved),
             mock.patch(
-                "flight_scraper.challenge.probe_challenge",
+                "flyscan.challenge.probe_challenge",
                 side_effect=[(None, o) for o in outcomes],
             ) as probe,
         ):

@@ -1,4 +1,4 @@
-//! Desktop shell for the flight scraper.
+//! Desktop shell for the flyscan.
 //!
 //! It does two things the browser could not. It owns the Python sidecar — the
 //! scrapers stay in Python because `curl_cffi`'s TLS impersonation is what
@@ -68,13 +68,13 @@ fn free_port() -> u16 {
 
 /// Where the packaged sidecar lives, in dev and in a bundle.
 fn sidecar_path(app: &AppHandle) -> Option<std::path::PathBuf> {
-    if let Ok(explicit) = std::env::var("FLIGHT_SCRAPER_SIDECAR") {
+    if let Ok(explicit) = std::env::var("FLYSCAN_SIDECAR") {
         return Some(explicit.into());
     }
     let name = if cfg!(windows) {
-        "flight-scraper-sidecar.exe"
+        "flyscan-sidecar.exe"
     } else {
-        "flight-scraper-sidecar"
+        "flyscan-sidecar"
     };
     // Bundled next to the executable...
     if let Ok(resources) = app.path().resource_dir() {
@@ -136,7 +136,7 @@ fn startup_error(message: &str) {
             fn MessageBoxW(hwnd: isize, text: *const u16, caption: *const u16, flags: u32) -> i32;
         }
         let text: Vec<u16> = message.encode_utf16().chain(Some(0)).collect();
-        let caption: Vec<u16> = "Flight Scraper could not start"
+        let caption: Vec<u16> = "Flyscan could not start"
             .encode_utf16()
             .chain(Some(0))
             .collect();
@@ -320,7 +320,7 @@ fn main() {
         ])
         .setup(move |app| {
             let handle = app.handle().clone();
-            let data_dir = std::env::var_os("FLIGHT_SCRAPER_DATA_DIR")
+            let data_dir = std::env::var_os("FLYSCAN_DATA_DIR")
                 .map(std::path::PathBuf::from)
                 .unwrap_or(handle.path().app_local_data_dir()?);
             fs::create_dir_all(&data_dir)?;
@@ -334,7 +334,7 @@ fn main() {
                 .append(true)
                 .open(&log_path)?;
             let path = sidecar_path(&handle)
-                .ok_or("The bundled flight service is missing. Please reinstall Flight Scraper.")?;
+                .ok_or("The bundled flight service is missing. Please reinstall Flyscan.")?;
             // The window-destroyed handler below is the tidy exit. This
             // is the other half: Ctrl+C in a `tauri dev` terminal, a
             // crash, or a rebuild kills us with no window event at all,
@@ -345,7 +345,7 @@ fn main() {
             let mut command = Command::new(&path);
             command
                 .current_dir(&data_dir)
-                .env("FLIGHT_SCRAPER_API_KEY", &app.state::<Sidecar>().api_key)
+                .env("FLYSCAN_API_KEY", &app.state::<Sidecar>().api_key)
                 .env("PYTHONUNBUFFERED", "1")
                 .stdin(Stdio::null())
                 .stdout(Stdio::from(log.try_clone()?))

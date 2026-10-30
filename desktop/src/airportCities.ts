@@ -1,7 +1,7 @@
 import type { PlaceSuggestion } from "./api";
 
-export const AIRPORT_CITIES_KEY = "flight-scraper.airport-cities-v2";
-const LEGACY_KEY = "flight-scraper.airport-cities";
+export const AIRPORT_CITIES_KEY = "flyscan.airport-cities-v2";
+const LEGACY_KEY = "flyscan.airport-cities";
 const DAY = 86_400_000, NAME_TTL = 180 * DAY, MISS_TTL = 10 * 60_000, MAX_ENTRIES = 2048;
 type Entry = { city: string | null; checkedAt: number; country?: string; countryCheckedAt?: number };
 const codeOf = (code: string) => code.trim().toUpperCase();

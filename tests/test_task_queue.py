@@ -5,7 +5,7 @@ import time
 import unittest
 from concurrent.futures import CancelledError
 
-from flight_scraper.task_queue import (
+from flyscan.task_queue import (
     ActionRequired,
     JobTimeout,
     PermanentError,

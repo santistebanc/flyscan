@@ -1,6 +1,6 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
-  "productName": "Flight Scraper",
+  "productName": "Flyscan",
   "version": "0.3.7",
   "identifier": "com.flightscraper.desktop",
   "build": {
@@ -12,7 +12,7 @@
   "app": {
     "windows": [
       {
-        "title": "Flight Scraper",
+        "title": "Flyscan",
         "visible": false,
         "minWidth": 760,
         "minHeight": 560,
@@ -38,7 +38,7 @@
       "icons/icon.png"
     ],
     "externalBin": [
-      "binaries/flight-scraper-sidecar"
+      "binaries/flyscan-sidecar"
     ],
     "windows": {
       "webviewInstallMode": {
@@ -47,7 +47,7 @@
       "allowDowngrades": false,
       "nsis": {
         "installMode": "currentUser",
-        "startMenuFolder": "Flight Scraper",
+        "startMenuFolder": "Flyscan",
         "languages": [
           "English"
         ]

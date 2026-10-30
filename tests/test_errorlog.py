@@ -12,7 +12,7 @@ from datetime import date
 from pathlib import Path
 from unittest import mock
 
-from flight_scraper import errorlog
+from flyscan import errorlog
 
 
 class ErrorLog(unittest.TestCase):

@@ -9,8 +9,8 @@ import unittest
 from datetime import date
 from unittest import mock
 
-from flight_scraper.models import SearchQuery
-from flight_scraper.sources.base import Source
+from flyscan.models import SearchQuery
+from flyscan.sources.base import Source
 from tests import quiet_errorlog
 
 QUERY = SearchQuery(origin="BER", destination="CDG", depart=date(2026, 9, 21))
@@ -30,7 +30,7 @@ class Backoff(unittest.TestCase):
     def waits(self, retries: int = 4):
         """Every sleep one run takes while exhausting its retries."""
         source = AlwaysFails(retries=retries)
-        with mock.patch("flight_scraper.sources.base.time.sleep") as slept:
+        with mock.patch("flyscan.sources.base.time.sleep") as slept:
             source.run(QUERY)
         return [call.args[0] for call in slept.call_args_list]
 
@@ -54,7 +54,7 @@ class Backoff(unittest.TestCase):
             def search(self, query):
                 return []
 
-        with mock.patch("flight_scraper.sources.base.time.sleep") as slept:
+        with mock.patch("flyscan.sources.base.time.sleep") as slept:
             Fine(retries=3).run(QUERY)
         slept.assert_not_called()
 

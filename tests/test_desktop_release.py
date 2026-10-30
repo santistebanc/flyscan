@@ -7,17 +7,15 @@ import unittest
 from pathlib import Path
 from unittest import mock
 
-from flight_scraper.web import create_app, run_server
+from flyscan.web import create_app, run_server
 
 
 class DesktopSession(unittest.TestCase):
     def setUp(self):
-        self.environment = mock.patch.dict(
-            os.environ, {"FLIGHT_SCRAPER_API_KEY": "desktop-test-session"}
-        )
+        self.environment = mock.patch.dict(os.environ, {"FLYSCAN_API_KEY": "desktop-test-session"})
         self.environment.start()
         self.addCleanup(self.environment.stop)
-        self.scheduler = mock.patch("flight_scraper.api.default_scheduler")
+        self.scheduler = mock.patch("flyscan.api.default_scheduler")
         self.scheduler.start().return_value.snapshot.return_value = {}
         self.addCleanup(self.scheduler.stop)
         self.client = create_app().test_client()
@@ -65,8 +63,8 @@ class DesktopSession(unittest.TestCase):
         with (
             tempfile.TemporaryDirectory() as directory,
             mock.patch.object(sys, "frozen", True, create=True),
-            mock.patch("flight_scraper.web.default_scheduler"),
-            mock.patch("flight_scraper.web.OUT_DIR", Path(directory)),
+            mock.patch("flyscan.web.default_scheduler"),
+            mock.patch("flyscan.web.OUT_DIR", Path(directory)),
             mock.patch("waitress.serve") as serve,
         ):
             run_server(host="0.0.0.0", port=51234)

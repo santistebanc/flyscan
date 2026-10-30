@@ -11,7 +11,7 @@ out/
 packaging/build/
 packaging/dist/
 packaging/*.spec
-!packaging/flight-scraper-sidecar.spec
+!packaging/flyscan-sidecar.spec
 packaging/.venv-*/
 release/
 desktop/node_modules/

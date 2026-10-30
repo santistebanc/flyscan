@@ -5,7 +5,7 @@
  * the saved label, same idea as flyscan's recentAirports.
  */
 
-const STORAGE_KEY = "flight-scraper:recent-places";
+const STORAGE_KEY = "flyscan:recent-places";
 const MAX_RECENTS = 12;
 
 export interface RecentPlace {

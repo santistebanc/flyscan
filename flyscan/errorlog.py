@@ -28,7 +28,7 @@ from typing import Any, Dict, Iterator, List, Optional
 
 #: Where the log lives. Beside the database rather than in a temp directory,
 #: because the point is that it survives to be read.
-LOG_DIR = Path(os.environ.get("FLIGHT_SCRAPER_ERROR_DIR", ".errors"))
+LOG_DIR = Path(os.environ.get("FLYSCAN_ERROR_DIR", ".errors"))
 LOG_FILE = LOG_DIR / "errors.jsonl"
 
 #: Entries kept. Old ones are dropped when the file is trimmed, so the file

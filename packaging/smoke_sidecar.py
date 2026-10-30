@@ -18,11 +18,11 @@ def smoke(binary: Path) -> None:
         listener.bind(("127.0.0.1", 0))
         port = listener.getsockname()[1]
     key = secrets.token_urlsafe(32)
-    environment = {**os.environ, "FLIGHT_SCRAPER_API_KEY": key, "PYTHONUNBUFFERED": "1"}
+    environment = {**os.environ, "FLYSCAN_API_KEY": key, "PYTHONUNBUFFERED": "1"}
     # A frozen binary must not depend on the developer's Python import path.
     environment.pop("PYTHONPATH", None)
     environment.pop("PYTHONHOME", None)
-    with tempfile.TemporaryDirectory(prefix="flight-scraper-smoke-") as directory:
+    with tempfile.TemporaryDirectory(prefix="flyscan-smoke-") as directory:
         log_path = Path(directory) / "sidecar.log"
         with log_path.open("wb") as log:
             child = subprocess.Popen(

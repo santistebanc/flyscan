@@ -5,13 +5,13 @@
  * desktop shell, where there is no console to open. So anything unhandled is
  * sent to the sidecar's error log, where it sits beside the failures from the
  * scrapers with the same shape and can be read back with
- * `flight-scraper errors`.
+ * `flyscan errors`.
  */
 
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import App from "./App";
-import { FlightScraperApi } from "./api";
+import { FlyscanApi } from "./api";
 import { apiConnection } from "./platform";
 import "./styles.css";
 import "./flyscan.css";
@@ -25,7 +25,7 @@ const surroundings = () => ({
 
 apiConnection()
   .then(({ base, apiKey }) => {
-    const api = new FlightScraperApi(base, apiKey);
+    const api = new FlyscanApi(base, apiKey);
 
     window.addEventListener("error", (event) => {
       void api.report("window", event.message || String(event.error), {

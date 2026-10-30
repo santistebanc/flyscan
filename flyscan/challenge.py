@@ -37,12 +37,12 @@ DEFAULT_TTL = timedelta(hours=12)
 #: Where a person can watch and clear the check this server opens on its own
 #: display: a noVNC page, on the preview. Unset means there is nothing to offer,
 #: and a check opens wherever the server's display is, when someone asks.
-CHALLENGE_VIEWER_URL_ENV = "FLIGHT_SCRAPER_CHALLENGE_VIEWER_URL"
+CHALLENGE_VIEWER_URL_ENV = "FLYSCAN_CHALLENGE_VIEWER_URL"
 
 #: The screen a tidied check window fills, as WIDTHxHEIGHT. The preview sets it to
 #: the size of its virtual screen, which is phone-shaped so a check streamed to a
 #: phone shows the captcha and nothing else.
-CHECK_SCREEN_ENV = "FLIGHT_SCRAPER_CHECK_SCREEN"
+CHECK_SCREEN_ENV = "FLYSCAN_CHECK_SCREEN"
 DEFAULT_SCREEN = (1280, 900)
 
 

@@ -1,5 +1,5 @@
 [package]
-name = "flight-scraper-desktop"
+name = "flyscan-desktop"
 version = "0.3.7"
 edition = "2021"
 rust-version = "1.90"

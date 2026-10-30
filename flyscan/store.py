@@ -283,7 +283,7 @@ class FlightStore:
             # Written by a newer version: its tables mean things this one cannot know.
             self.conn.close()
             raise RuntimeError(
-                f"{self.path} was written by a newer version of flight-scraper "
+                f"{self.path} was written by a newer version of flyscan "
                 f"(schema {taken}, this version knows {len(MIGRATIONS)})"
             )
         for number, step in enumerate(MIGRATIONS[taken:], start=taken + 1):

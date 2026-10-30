@@ -65,7 +65,7 @@ export interface JourneyTiming {
 /** `arrivalShift`: minutes the destination clock runs ahead of the departure clock. */
 export interface TimelineScale { min: number; max: number; airports: string[]; arrivalShift?: number }
 export type TimelineMode = "days" | "shared";
-export const TIMELINE_MODE_KEY = "flight-scraper.timeline-mode";
+export const TIMELINE_MODE_KEY = "flyscan.timeline-mode";
 export function normalizeTimelineMode(value: unknown): TimelineMode {
   return value === "shared" ? "shared" : "days";
 }

@@ -1,6 +1,6 @@
 /** One queue subscription shared by the global sidebar and selected-range header. */
 import { useCallback, useEffect, useRef, useState } from "react";
-import type { FlightScraperApi, QueueActionResult, QueueState, SearchRequest } from "./api";
+import type { FlyscanApi, QueueActionResult, QueueState, SearchRequest } from "./api";
 import { matchesSelection } from "./queueModel";
 
 export interface QueueMutation {
@@ -10,7 +10,7 @@ export interface QueueMutation {
   source?: string;
 }
 
-export function useQueue(api: FlightScraperApi | null, mine: SearchRequest | null,
+export function useQueue(api: FlyscanApi | null, mine: SearchRequest | null,
   active: boolean, onChanged: () => void) {
   const [state, setState] = useState<QueueState | null>(null);
   const [busy, setBusy] = useState<QueueMutation | null>(null);

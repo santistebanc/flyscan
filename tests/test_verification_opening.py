@@ -4,7 +4,7 @@ import threading
 import unittest
 from unittest import mock
 
-from flight_scraper.challenge import ChallengeCoordinator
+from flyscan.challenge import ChallengeCoordinator
 
 
 class VerificationOpening(unittest.TestCase):
@@ -23,10 +23,8 @@ class VerificationOpening(unittest.TestCase):
 
         try:
             with (
-                mock.patch(
-                    "flight_scraper.challenge.probe_challenge", side_effect=slow_probe
-                ) as probe,
-                mock.patch("flight_scraper.challenge.solve", side_effect=browser),
+                mock.patch("flyscan.challenge.probe_challenge", side_effect=slow_probe) as probe,
+                mock.patch("flyscan.challenge.solve", side_effect=browser),
             ):
                 self.assertTrue(control.start_recovery("momondo"))
                 opened_promptly = opened.wait(0.1)
@@ -53,10 +51,10 @@ class VerificationOpening(unittest.TestCase):
         try:
             with (
                 mock.patch(
-                    "flight_scraper.challenge.probe_challenge",
+                    "flyscan.challenge.probe_challenge",
                     return_value=("https://example.test/security/check", "challenged"),
                 ),
-                mock.patch("flight_scraper.challenge.solve", side_effect=fail_browser),
+                mock.patch("flyscan.challenge.solve", side_effect=fail_browser),
                 mock.patch("logging.Logger.exception"),
             ):
                 control.start_recovery("momondo")
@@ -85,7 +83,7 @@ class OpeningWhenRecorded(unittest.TestCase):
             return {"solved": False, "cookies": 0}
 
         try:
-            with mock.patch("flight_scraper.challenge.solve", side_effect=browser) as solve:
+            with mock.patch("flyscan.challenge.solve", side_effect=browser) as solve:
                 control.record("momondo", "https://example.test/security/check")
                 self.assertTrue(opened.wait(2))
                 control.close()
@@ -98,7 +96,7 @@ class OpeningWhenRecorded(unittest.TestCase):
     def test_otherwise_a_recorded_challenge_waits_for_verify(self):
         control = ChallengeCoordinator()
         try:
-            with mock.patch("flight_scraper.challenge.solve") as solve:
+            with mock.patch("flyscan.challenge.solve") as solve:
                 control.record("momondo", "https://example.test/security/check")
                 self.assertFalse(control.solving())
             solve.assert_not_called()
@@ -106,13 +104,13 @@ class OpeningWhenRecorded(unittest.TestCase):
             control.close()
 
     def test_the_scheduler_opens_challenges_only_where_a_viewer_streams_them(self):
-        from flight_scraper.scheduler import Scheduler
+        from flyscan.scheduler import Scheduler
 
         with mock.patch.dict(
-            "os.environ", {"FLIGHT_SCRAPER_CHALLENGE_VIEWER_URL": "http://x.test/vnc.html"}
+            "os.environ", {"FLYSCAN_CHALLENGE_VIEWER_URL": "http://x.test/vnc.html"}
         ):
             streamed = Scheduler(db_path=None)
-        with mock.patch.dict("os.environ", {"FLIGHT_SCRAPER_CHALLENGE_VIEWER_URL": ""}):
+        with mock.patch.dict("os.environ", {"FLYSCAN_CHALLENGE_VIEWER_URL": ""}):
             plain = Scheduler(db_path=None)
         try:
             self.assertTrue(streamed.challenge_control.open_when_recorded)

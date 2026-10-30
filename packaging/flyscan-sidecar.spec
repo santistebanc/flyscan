@@ -10,7 +10,7 @@ if not (frontend / 'index.html').is_file():
 datas = [(str(frontend), 'frontend')]
 binaries = []
 hiddenimports = []
-hiddenimports += collect_submodules('flight_scraper')
+hiddenimports += collect_submodules('flyscan')
 tmp_ret = collect_all('curl_cffi')
 datas += tmp_ret[0]; binaries += tmp_ret[1]; hiddenimports += tmp_ret[2]
 
@@ -36,7 +36,7 @@ exe = EXE(
     a.binaries,
     a.datas,
     [],
-    name='flight-scraper-sidecar',
+    name='flyscan-sidecar',
     debug=False,
     bootloader_ignore_signals=False,
     strip=False,

@@ -176,7 +176,7 @@ class Source:
                 attempts=self.retries,
                 url=result.url,
                 replay=(
-                    f"flight-scraper capture {self.name} {query.origin} "
+                    f"flyscan capture {self.name} {query.origin} "
                     f"{query.destination} {query.depart}"
                     + (f" --ret {query.ret}" if query.ret else "")
                     + " --out tests/recordings/<name>"

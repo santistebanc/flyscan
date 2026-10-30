@@ -15,7 +15,7 @@ import {
   useState,
   type ReactNode,
 } from "react";
-import type { FlightScraperApi } from "./api";
+import type { FlyscanApi } from "./api";
 import { currencyOptions, displayCurrency, formatCurrencyAmount, validRates, type CurrencyOption } from "./currencyOptions";
 
 const SYMBOLS: Record<string, string> = {
@@ -48,7 +48,7 @@ interface CurrencyValue {
 const Ctx = createContext<CurrencyValue | null>(null);
 
 export function CurrencyProvider(
-  { api, children }: { api: FlightScraperApi | null; children: ReactNode },
+  { api, children }: { api: FlyscanApi | null; children: ReactNode },
 ) {
   const [currency, setStored] = useState(
     () => { try { return localStorage.getItem("displayCurrency") ?? "EUR"; } catch { return "EUR"; } },

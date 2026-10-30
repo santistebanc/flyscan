@@ -1,6 +1,6 @@
 """The source registry.
 
-Adding a source means writing a :class:`~flight_scraper.sources.base.Source`
+Adding a source means writing a :class:`~flyscan.sources.base.Source`
 subclass and listing it here; the CLI, the web UI and the aggregator all read
 this registry rather than naming sources themselves.
 """

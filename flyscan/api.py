@@ -45,23 +45,23 @@ from .task_queue import QueueClosed, QueueFull
 
 api = Blueprint("api_v1", __name__, url_prefix="/v1")
 
-#: Set FLIGHT_SCRAPER_API_KEY to require ``Authorization: Bearer <key>`` or
+#: Set FLYSCAN_API_KEY to require ``Authorization: Bearer <key>`` or
 #: ``X-API-Key``. Unset means open, which is fine on localhost and not
 #: elsewhere: an unauthenticated caller here spends *your* IP's goodwill with
 #: the sources.
-API_KEY_ENV = "FLIGHT_SCRAPER_API_KEY"
+API_KEY_ENV = "FLYSCAN_API_KEY"
 
 
 def _registry():
-    return current_app.extensions["flight_scraper"]["jobs"]
+    return current_app.extensions["flyscan"]["jobs"]
 
 
 def _start(params: Dict[str, Any]):
-    return current_app.extensions["flight_scraper"]["start_job"](params)
+    return current_app.extensions["flyscan"]["start_job"](params)
 
 
 def _parse(payload: Dict[str, Any]):
-    return current_app.extensions["flight_scraper"]["parse_params"](payload)
+    return current_app.extensions["flyscan"]["parse_params"](payload)
 
 
 # -- plumbing --------------------------------------------------------------
@@ -792,7 +792,7 @@ def challenges():
             for s, u in pending.items()
         ],
         "can_solve_here": _can_solve_here(),
-        "how_to_clear": "flight-scraper unblock <source>",
+        "how_to_clear": "flyscan unblock <source>",
     }
     viewer_url = os.environ.get(CHALLENGE_VIEWER_URL_ENV)
     if viewer_url:

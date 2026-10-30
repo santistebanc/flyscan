@@ -1,8 +1,8 @@
 import type { FlightRow, Offer } from "./api";
 
-export const PRICE_OVERRIDES_KEY = "flight-scraper.offer-prices-v2";
+export const PRICE_OVERRIDES_KEY = "flyscan.offer-prices-v2";
 /** Version 1 stored a bare price with no record of the quote it corrected. */
-export const LEGACY_PRICE_OVERRIDES_KEY = "flight-scraper.offer-prices-v1";
+export const LEGACY_PRICE_OVERRIDES_KEY = "flyscan.offer-prices-v1";
 /** A correction, when it was made, and when the quote it corrected was seen. */
 export interface PriceCorrection { price: number; at: string; quoteSeenAt: string | null }
 export type PriceOverrides = Record<string, PriceCorrection>;

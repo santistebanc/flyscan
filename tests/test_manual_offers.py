@@ -6,10 +6,10 @@ from datetime import date
 from pathlib import Path
 from unittest import mock
 
-from flight_scraper.models import Itinerary, Leg, Offer, SearchQuery, Segment
-from flight_scraper.sources import DEFAULT_SOURCES
-from flight_scraper.store import MANUAL_SOURCE, FlightStore
-from flight_scraper.web import create_app
+from flyscan.models import Itinerary, Leg, Offer, SearchQuery, Segment
+from flyscan.sources import DEFAULT_SOURCES
+from flyscan.store import MANUAL_SOURCE, FlightStore
+from flyscan.web import create_app
 
 QUERY = SearchQuery("BER", "LON", date(2026, 12, 21))
 SEGMENT = Segment(
@@ -53,7 +53,7 @@ class ManualOffers(unittest.TestCase):
         offer = Offer(
             Itinerary(QUERY, LEG), "momondo", 80, "EUR", agent="Kiwi", price_eur=80, seen_at=SCRAPED
         )
-        with mock.patch("flight_scraper.store.fx.get_rates"):
+        with mock.patch("flyscan.store.fx.get_rates"):
             store.complete_fetch(store.begin_fetch(QUERY, "momondo"), [offer])
         self.trip_key = offer.trip_key
         store.close()
@@ -239,7 +239,7 @@ class ManualOffers(unittest.TestCase):
         leg = Leg("BER", "DUB", segment.departure, segment.arrival, 150, 0, segments=[segment])
         store = FlightStore(self.db)
         try:
-            with mock.patch("flight_scraper.store.fx.get_rates"):
+            with mock.patch("flyscan.store.fx.get_rates"):
                 store.complete_fetch(
                     store.begin_fetch(other, "momondo"),
                     [Offer(Itinerary(other, leg), "momondo", 90, "EUR", price_eur=90)],

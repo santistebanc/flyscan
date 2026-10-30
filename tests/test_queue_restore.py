@@ -5,7 +5,7 @@ import unittest
 from datetime import timedelta
 from unittest import mock
 
-from flight_scraper.scheduler import Scheduler
+from flyscan.scheduler import Scheduler
 from tests import quiet_errorlog
 from tests.test_scheduler_queue import QUERY, FakeSource
 from tests.test_task_queue import eventually
@@ -28,7 +28,7 @@ class QueueRestore(unittest.TestCase):
             old.shutdown()
         restored, resumed = Scheduler(db_path=None), FakeSource()
         try:
-            with mock.patch.dict("flight_scraper.scheduler.REGISTRY", {"test": lambda: resumed}):
+            with mock.patch.dict("flyscan.scheduler.REGISTRY", {"test": lambda: resumed}):
                 restored.restore_query_jobs(groups)
             states = {g["depart"]: g["sources"][0]["queue_state"] for g in restored.query_jobs()}
             self.assertEqual(states[QUERY.depart.isoformat()], "done")
@@ -53,7 +53,7 @@ class QueueRestore(unittest.TestCase):
         restored, source = Scheduler(db_path=None), FakeSource()
         try:
             groups[0]["sources"][0]["ready_in"] = 0.15
-            with mock.patch.dict("flight_scraper.scheduler.REGISTRY", {"test": lambda: source}):
+            with mock.patch.dict("flyscan.scheduler.REGISTRY", {"test": lambda: source}):
                 restored.restore_query_jobs(groups)
             self.assertEqual(
                 restored.query_jobs()[0]["sources"][0]["queue_state"], "waiting_action"

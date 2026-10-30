@@ -8,7 +8,7 @@ This used to be a response cache as well, storing every offer as JSON against
 the search that produced it. That was a second copy of what the database already
 held — tens of megabytes, nearly half of it booking URLs — so the record of
 *what has been asked* moved into the `fetches` table, where the answer already
-lived. See :mod:`flight_scraper.store`.
+lived. See :mod:`flyscan.store`.
 """
 
 from __future__ import annotations

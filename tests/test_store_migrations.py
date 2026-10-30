@@ -8,8 +8,8 @@ from contextlib import closing
 from pathlib import Path
 from unittest import mock
 
-from flight_scraper import cli
-from flight_scraper.store import MIGRATIONS, FlightStore
+from flyscan import cli
+from flyscan.store import MIGRATIONS, FlightStore
 
 #: The released migrations, which every test database takes first.
 RELEASED = len(MIGRATIONS)
@@ -34,7 +34,7 @@ class Migrations(unittest.TestCase):
             "ALTER TABLE trips ADD COLUMN note TEXT;",
             "CREATE TABLE extra (id INTEGER);",
         ]
-        with mock.patch("flight_scraper.store.MIGRATIONS", steps):
+        with mock.patch("flyscan.store.MIGRATIONS", steps):
             FlightStore(self.db).close()
         self.assertEqual(schema_version(self.db), RELEASED + 2)
 
@@ -43,7 +43,7 @@ class Migrations(unittest.TestCase):
         self.assertEqual(schema_version(self.db), RELEASED)
         # ADD COLUMN fails if repeated, so running it twice would show.
         steps = [*MIGRATIONS, "ALTER TABLE trips ADD COLUMN note TEXT;"]
-        with mock.patch("flight_scraper.store.MIGRATIONS", steps):
+        with mock.patch("flyscan.store.MIGRATIONS", steps):
             FlightStore(self.db).close()
             FlightStore(self.db).close()
         self.assertEqual(schema_version(self.db), RELEASED + 1)
@@ -54,7 +54,7 @@ class Migrations(unittest.TestCase):
             *MIGRATIONS,
             "ALTER TABLE trips ADD COLUMN note TEXT; ALTER TABLE nowhere ADD COLUMN x TEXT;",
         ]
-        with mock.patch("flight_scraper.store.MIGRATIONS", steps):
+        with mock.patch("flyscan.store.MIGRATIONS", steps):
             with self.assertRaises(sqlite3.OperationalError):
                 FlightStore(self.db)
         self.assertEqual(schema_version(self.db), RELEASED)
@@ -64,7 +64,7 @@ class Migrations(unittest.TestCase):
 
     def test_a_database_from_a_newer_version_is_refused(self):
         steps = [*MIGRATIONS, "CREATE TABLE extra (id INTEGER);"]
-        with mock.patch("flight_scraper.store.MIGRATIONS", steps):
+        with mock.patch("flyscan.store.MIGRATIONS", steps):
             FlightStore(self.db).close()
         with self.assertRaisesRegex(RuntimeError, "newer version"):
             FlightStore(self.db)
@@ -79,7 +79,7 @@ class PriceDates(unittest.TestCase):
         self.directory.cleanup()
 
     def test_prices_stored_before_dates_take_their_fetch_time(self):
-        with mock.patch("flight_scraper.store.MIGRATIONS", []):
+        with mock.patch("flyscan.store.MIGRATIONS", []):
             FlightStore(self.db).close()
         with closing(sqlite3.connect(self.db)) as conn, conn:
             conn.execute(

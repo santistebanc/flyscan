@@ -6,11 +6,11 @@ from pathlib import Path
 from types import SimpleNamespace
 from unittest import mock
 
-from flight_scraper.models import SearchQuery
-from flight_scraper.scheduler import Scheduler
-from flight_scraper.sources.base import ChallengeRequired, Source, SourceError
-from flight_scraper.task_queue import RateLimited, RetryableError
-from flight_scraper.web import create_app
+from flyscan.models import SearchQuery
+from flyscan.scheduler import Scheduler
+from flyscan.sources.base import ChallengeRequired, Source, SourceError
+from flyscan.task_queue import RateLimited, RetryableError
+from flyscan.web import create_app
 from tests import quiet_errorlog
 from tests.test_task_queue import FAST_RETRY, eventually
 
@@ -138,7 +138,7 @@ class SchedulerTests(unittest.TestCase):
                 return []
 
             source.work = work
-            with mock.patch("flight_scraper.store.fx.get_rates"):
+            with mock.patch("flyscan.store.fx.get_rates"):
                 self.assertTrue(scheduler.submit(source, QUERY).result(2).ok)
                 self.assertTrue(scheduler.submit(source, QUERY).result(2).ok)
             self.assertEqual(source.calls, 2)
@@ -153,7 +153,7 @@ class SchedulerTests(unittest.TestCase):
             self.addCleanup(release.set)
             source = FakeSource(lambda q: (entered.set(), release.wait(2), [])[2])
             try:
-                with mock.patch("flight_scraper.store.fx.get_rates"):
+                with mock.patch("flyscan.store.fx.get_rates"):
                     first = scheduler.submit(source, QUERY)
                     self.assertTrue(entered.wait(2))
                     second = scheduler.submit(source, QUERY)
@@ -282,7 +282,7 @@ class QueueAPITests(unittest.TestCase):
         quiet_errorlog(self)
         self.scheduler = Scheduler(db_path=None)
         self.addCleanup(lambda: self.scheduler.shutdown(wait=True))
-        patch = mock.patch("flight_scraper.api.default_scheduler", return_value=self.scheduler)
+        patch = mock.patch("flyscan.api.default_scheduler", return_value=self.scheduler)
         patch.start()
         self.addCleanup(patch.stop)
         self.client = create_app().test_client()
@@ -296,7 +296,7 @@ class QueueAPITests(unittest.TestCase):
             return []
 
         source = FakeSource(work)
-        with mock.patch.dict("flight_scraper.api.REGISTRY", {"test": lambda: source}):
+        with mock.patch.dict("flyscan.api.REGISTRY", {"test": lambda: source}):
             response = self.client.post(
                 "/v1/jobs",
                 json={
@@ -317,10 +317,10 @@ class QueueAPITests(unittest.TestCase):
 
     def test_challenges_report_viewer_url_only_when_configured(self):
         viewer = "http://beelink.test:6080/vnc.html"
-        with mock.patch.dict("os.environ", {"FLIGHT_SCRAPER_CHALLENGE_VIEWER_URL": viewer}):
+        with mock.patch.dict("os.environ", {"FLYSCAN_CHALLENGE_VIEWER_URL": viewer}):
             configured = self.client.get("/v1/challenges").json
         self.assertEqual(configured["viewer_url"], viewer)
-        with mock.patch.dict("os.environ", {"FLIGHT_SCRAPER_CHALLENGE_VIEWER_URL": ""}):
+        with mock.patch.dict("os.environ", {"FLYSCAN_CHALLENGE_VIEWER_URL": ""}):
             empty = self.client.get("/v1/challenges").json
         self.assertNotIn("viewer_url", empty)
         self.assertEqual({k: v for k, v in configured.items() if k != "viewer_url"}, empty)
@@ -340,12 +340,12 @@ class QueueAPITests(unittest.TestCase):
         self.scheduler.queue.max_pending = 1
         self.scheduler.block_source("test", "https://example.test/check")
         payload = {"source": "test", "origin": "BER", "destination": "CDG", "depart": "2026-12-21"}
-        with mock.patch.dict("flight_scraper.api.REGISTRY", {"test": lambda: source}):
+        with mock.patch.dict("flyscan.api.REGISTRY", {"test": lambda: source}):
             self.assertEqual(self.client.post("/v1/jobs", json=payload).status_code, 202)
             response = self.client.post("/v1/jobs", json={**payload, "depart": "2026-12-22"})
             self.assertEqual(response.status_code, 429)
             self.assertEqual(response.headers["Retry-After"], "5")
-            with mock.patch.dict("os.environ", {"FLIGHT_SCRAPER_API_KEY": "test-key"}):
+            with mock.patch.dict("os.environ", {"FLYSCAN_API_KEY": "test-key"}):
                 self.assertEqual(self.client.post("/v1/jobs", json=payload).status_code, 401)
                 self.assertEqual(
                     self.client.post(

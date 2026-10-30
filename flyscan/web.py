@@ -161,7 +161,7 @@ def create_app() -> Flask:
     def index():
         if bundle is None:
             return (
-                "<h1>Flight Scraper</h1>"
+                "<h1>Flyscan</h1>"
                 "<p>The API is running. The frontend has not been built:"
                 " <code>npm install --prefix desktop &amp;&amp;"
                 " npm run build --prefix desktop</code>,"
@@ -182,7 +182,7 @@ def create_app() -> Flask:
         return send_from_directory(bundle, asset)
 
     app.register_blueprint(api)
-    app.extensions["flight_scraper"] = {
+    app.extensions["flyscan"] = {
         "jobs": JOBS,
         "start_job": start_job,
         "parse_params": parse_params,
@@ -223,7 +223,7 @@ def run_server(
         logging.getLogger(noisy).setLevel(logging.DEBUG if debug else logging.WARNING)
     OUT_DIR.mkdir(parents=True, exist_ok=True)
     app = create_app()
-    print(f"\n  Flight scraper UI -> http://{host}:{port}\n")
+    print(f"\n  Flyscan UI -> http://{host}:{port}\n")
     # threaded=True so an in-flight SSE stream does not block new requests.
     if getattr(sys, "frozen", False):
         from waitress import serve

@@ -1,7 +1,7 @@
 import unittest
 from unittest.mock import Mock, patch
 
-from flight_scraper.places import search_places
+from flyscan.places import search_places
 
 
 class AirportCities(unittest.TestCase):
@@ -17,7 +17,7 @@ class AirportCities(unittest.TestCase):
             {"code": "BER", "type": "city", "name": "Berlin"},
             {"code": "XXX", "type": "airport", "name": "Unknown Airport"},
         ]
-        with patch("flight_scraper.places.requests.get", return_value=response):
+        with patch("flyscan.places.requests.get", return_value=response):
             places = search_places("LCY")
         self.assertEqual(places[0].city, "London")
         self.assertEqual(places[0].name, "London City Airport")

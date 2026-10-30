@@ -40,11 +40,11 @@ OUT_DIR = Path("out")
 #: Every file the app keeps (ledger, caches, clearance cookies, error log, exports) is
 #: relative to the working directory. Pointing this at a folder gives an environment
 #: (dev, the preview, an installed app) data of its own.
-DATA_DIR_ENV = "FLIGHT_SCRAPER_DATA_DIR"
+DATA_DIR_ENV = "FLYSCAN_DATA_DIR"
 
 
 def parse_date(value: str) -> date:
-    """argparse adapter around :func:`flight_scraper.models.parse_date`."""
+    """argparse adapter around :func:`flyscan.models.parse_date`."""
     try:
         return _parse_date(value)
     except ValueError as exc:
@@ -111,7 +111,7 @@ def _make_reporter(quiet: bool, base_currency: str):
             print(f"  {data['source']} wants a human to confirm you are one:", flush=True)
             print(f"    {data['url']}", flush=True)
             print(
-                f"    open it, or run:  flight-scraper unblock {data['source']}\n",
+                f"    open it, or run:  flyscan unblock {data['source']}\n",
                 flush=True,
             )
         elif event == "day_done":
@@ -546,7 +546,7 @@ def cmd_errors(args: argparse.Namespace) -> int:
 
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
-        prog="flight-scraper",
+        prog="flyscan",
         description="Scrape flight prices from six sources in parallel.",
     )
     sub = parser.add_subparsers(dest="command", required=True)
