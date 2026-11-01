@@ -297,6 +297,37 @@ export function localHourMarks(timing: JourneyTiming, scale: Pick<TimelineScale,
     return found;
   }).filter(({ at }) => at > scale.min && (scale.max - at) * pxPerMinute >= HOUR_LABEL_ROOM);
 }
+/**
+ * The details timeline's range: the journey alone, from the whole hour at
+ * least half an hour before departure to the one at least half an hour after
+ * arrival, so a short flight fills the panel instead of a sliver of a day.
+ */
+export function journeyScale(timing: JourneyTiming): TimelineScale {
+  const end = Math.max(timing.end, timing.parts[timing.parts.length - 1]?.end ?? timing.end);
+  return { min: Math.floor((timing.start - 30) / 60) * 60, max: Math.ceil((end + 30) / 60) * 60, airports: [] };
+}
+/** Hours a details tick may step by; the first that leaves `minPx` between ticks wins. */
+const TICK_STEPS = [1, 2, 3, 6, 12];
+/**
+ * Whole local hours every one, two, three, six or twelve hours, as roomy as
+ * `minPx` between ticks allows, on the same local clocks as `localMidnights`.
+ * Midnight is left to the date line drawn there.
+ */
+export function journeyHourMarks(timing: JourneyTiming, scale: Pick<TimelineScale, "min" | "max">,
+  pxPerMinute: number, minPx = 44): HourMark[] {
+  const step = TICK_STEPS.find((hours) => hours * 60 * pxPerMinute >= minPx);
+  if (!step) return [];
+  return localClockSpans(timing, scale).flatMap(({ from, to, start, end }) => {
+    const found: HourMark[] = [];
+    if (to <= from) return found;
+    for (let clock = Math.floor(from / 60) * 60 + 60; clock <= to; clock += 60) {
+      const hour = (((clock % DAY) + DAY) % DAY) / 60;
+      if (hour === 0 || hour % step) continue;
+      found.push({ at: start + (clock - from) / (to - from) * (end - start), hour });
+    }
+    return found;
+  }).filter(({ at }) => at > scale.min && at < scale.max);
+}
 /** A wait whose local clock passes 00:00, by the rule `localMidnights` draws. */
 export function isOvernight(part: TimelinePart): boolean {
   if (part.kind !== "layover") return false;

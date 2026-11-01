@@ -41,6 +41,9 @@ import { SortOptions } from "./SortOptions";
 import { useFavorites } from "./useFavorites";
 import { FavoriteButton } from "./FavoriteButton";
 import { FlightTimeline } from "./TimelineFlight";
+import { TripView } from "./TripView";
+import { LAYOUT_KEY, LayoutToggle, normalizeLayout, type Layout } from "./LayoutToggle";
+import { statRanges } from "./tripStats";
 import { elapsed, flightTimelines, type FlightTimelines } from "./flightTimeline";
 import { FILTERS_KEY, FlightFiltersBar } from "./FilterBar";
 import { DEFAULT_FILTERS, FILTERS_VERSION, matchesFlight, sanitizeFilters, withoutLimit, type ListFilters } from "./flightFilters";
@@ -541,13 +544,36 @@ function Shell() {
     setSheetOpen((open) => !(open && tab === name));
     setTab(name);
   };
-  // A security check waits on a person, so a folded sheet unfolds onto it.
-  const needsPerson = pending.length > 0;
+  /** List: the flights in rows beside the panel. Trip: one trip across the window, no panel. */
+  const [layout, setLayout] = useState<Layout>(() => {
+    try { return normalizeLayout(localStorage.getItem(LAYOUT_KEY)); }
+    catch { return "list"; }
+  });
+  const tripMode = layout === "trip";
   useEffect(() => {
-    if (!needsPerson || !window.matchMedia(SHEET).matches) return;
+    // The stylesheet gives the panel's room back to the page in the Trip view.
+    document.documentElement.dataset.layout = layout;
+    try { localStorage.setItem(LAYOUT_KEY, layout); }
+    catch { /* The view still works when preference storage is unavailable. */ }
+  }, [layout]);
+  /** The Trip view has no panel; the queue opens over the page when asked for. */
+  const [queueOverlay, setQueueOverlay] = useState(false);
+  const openQueue = useCallback(() => {
+    setQueueOverlay(true);
     setTab("queue");
     setSheetOpen(true);
-  }, [needsPerson]);
+  }, []);
+  useEffect(() => { if (!tripMode) setQueueOverlay(false); }, [tripMode]);
+  // A security check waits on a person, so a folded sheet unfolds onto it,
+  // and in the Trip view the queue opens over the trip.
+  const needsPerson = pending.length > 0;
+  useEffect(() => {
+    if (!needsPerson) return;
+    if (tripMode) { openQueue(); return; }
+    if (!window.matchMedia(SHEET).matches) return;
+    setTab("queue");
+    setSheetOpen(true);
+  }, [needsPerson, tripMode, openQueue]);
   const [toast, setToast] = useState("");
   // Marked as leaving first, so it can slide out before it is removed.
   const [toastLeaving, setToastLeaving] = useState(false);
@@ -647,7 +673,8 @@ function Shell() {
   )), [priceRows, limits, roundedIn]);
   const shown = useMemo(() => sortFlightRows(filtered, effectiveSort(sort, Boolean(ret))), [filtered, sort, ret]);
   // A stepped view lists flights one way, then the pairs of the one pinned.
-  const stepDirection = ret ? firstDirection(pairView) : null;
+  // The Trip view steps through every pair, whichever view the list is in.
+  const stepDirection = ret && !tripMode ? firstDirection(pairView) : null;
   const pinned = useMemo(() => stepDirection && picked ? pickedGroup(filtered, priceRows, picked, stepDirection) : null,
     [stepDirection, picked, filtered, priceRows]);
   const groups = useMemo(() => stepDirection && !picked ? pickGroups(filtered, stepDirection, sort) : [],
@@ -930,6 +957,20 @@ function Shell() {
   }, [measure]);
 
   /**
+   * The Trip view's place in the list: the open flight's, or, when a filter
+   * or a new search drops it, about where it was, so you carry on from there.
+   */
+  const lastTripAt = useRef(0);
+  const foundAt = useMemo(() => listRows.findIndex((row) => row.trip_key === openKey), [listRows, openKey]);
+  const tripAt = foundAt >= 0 ? foundAt : Math.min(lastTripAt.current, Math.max(0, listRows.length - 1));
+  useEffect(() => {
+    if (!tripMode || !listRows.length) return;
+    if (foundAt >= 0) lastTripAt.current = foundAt;
+    else setOpenKey(listRows[tripAt]!.trip_key);
+  }, [tripMode, listRows, foundAt, tripAt]);
+  const tripRanges = useMemo(() => tripMode ? statRanges(listRows) : null, [tripMode, listRows]);
+
+  /**
    * ↑/↓ walk the list and Escape steps out of it, wherever you are on the page.
    *
    * Bound to the window rather than to the list so it works without clicking
@@ -939,7 +980,9 @@ function Shell() {
    */
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
-      if (!["ArrowDown", "ArrowUp", "Home", "End", "Escape"].includes(event.key)) return;
+      // The Trip view turns with ← and →, and leaves ↑ and ↓ to scroll the page.
+      const keys = tripMode ? ["ArrowLeft", "ArrowRight", "Home", "End", "Escape"] : ["ArrowDown", "ArrowUp", "Home", "End", "Escape"];
+      if (!keys.includes(event.key)) return;
       if (event.altKey || event.metaKey || event.ctrlKey) return;
 
       const focused = document.activeElement?.tagName;
@@ -947,6 +990,15 @@ function Shell() {
       // An open dialog owns the keyboard, Escape included.
       if (document.querySelector("dialog[open]")) return;
 
+      if (tripMode) {
+        if (event.key === "Escape") { setQueueOverlay(false); return; }
+        if (!listRows.length) return;
+        event.preventDefault();
+        const to = event.key === "Home" ? 0 : event.key === "End" ? listRows.length - 1
+          : Math.min(listRows.length - 1, Math.max(0, tripAt + (event.key === "ArrowRight" ? 1 : -1)));
+        setOpenKey(listRows[to]!.trip_key);
+        return;
+      }
       if (event.key === "Escape") {
         event.preventDefault();
         pickFlight(null);      // back to the queue
@@ -967,7 +1019,7 @@ function Shell() {
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [listRows, step, openKey, pickFlight]);
+  }, [listRows, step, openKey, pickFlight, tripMode, tripAt]);
 
   const openRow = filtered.find((row) => row.trip_key === openKey) ?? null;
   const listView = useMemo(() => JSON.stringify({ sort, filters, stepDirection, picked }), [sort, filters, stepDirection, picked]);
@@ -986,7 +1038,8 @@ function Shell() {
    * does something of its own.
    */
   useEffect(() => {
-    if (!openKey) return;
+    // The Trip view always shows a trip; there is nothing to put down.
+    if (!openKey || tripMode) return;
     const away = (event: MouseEvent) => {
       const target = event.target as HTMLElement | null;
       if (!target) return;
@@ -996,7 +1049,7 @@ function Shell() {
     };
     document.addEventListener("mousedown", away);
     return () => document.removeEventListener("mousedown", away);
-  }, [openKey, pickFlight]);
+  }, [openKey, pickFlight, tripMode]);
 
   const party = describeParty(adults, children, infants, cabin);
   const stats = rangeStats(queue.selected);
@@ -1118,13 +1171,41 @@ function Shell() {
             <FlightFiltersBar filters={filters} onChange={setFilters} shown={filtered.length} total={priceRows.length}
               roundTrip={Boolean(ret)} suggestions={suggestions} connectionOptions={connectionOptions} />
             <div className="results-view-controls">
-              {ret && <PairViewPicker view={pairView} onChange={setPairView} />}
+              <LayoutToggle layout={layout} onChange={setLayout} />
+              {ret && !tripMode && <PairViewPicker view={pairView} onChange={setPairView} />}
               <CurrencyInput />
             </div>
           </div>
         </div>
 
-        <Results
+        {tripMode && tripRanges && listRows[tripAt] ? <TripView
+          rows={listRows}
+          at={tripAt}
+          onStep={(to) => setOpenKey(listRows[to]!.trip_key)}
+          ratings={ratings}
+          ranges={tripRanges}
+          timelines={timelines}
+          layoverRatings={layoverRatings}
+          favorite={favorites.has(listRows[tripAt]!.trip_key)}
+          onToggleFavorite={toggleFavorite}
+          onOpenBooking={(seller) => setToast(`Opening ${seller} in your browser…`)}
+          queue={<button type="button" className="trip-queue" onClick={openQueue} title="Show the search queue">
+            Queue<span className="side-tab-count">{activeSearches}</span>
+            {pending.length > 0 && <span className="side-tab-alert" role="img" aria-label="Verification needed" />}</button>}
+          details={<Details
+            key={listRows[tripAt]!.trip_key}
+            summary={false}
+            row={listRows[tripAt]!}
+            rating={ratings.get(listRows[tripAt]!.trip_key)}
+            layoverRatings={layoverRatings}
+            onCorrectPrice={correctPrice}
+            manual={manualActions}
+            favorite={favorites.has(listRows[tripAt]!.trip_key)}
+            onToggleFavorite={toggleFavorite}
+            partyLabel={party}
+            onOpenBooking={(seller) => setToast(`Opening ${seller} in your browser…`)}
+          />}
+        /> : <Results
           rows={listRows}
           dataset={stepDirection ? listRows : priceRows}
           view={listView}
@@ -1142,17 +1223,21 @@ function Shell() {
           layoverRatings={layoverRatings}
           filters={filters}
           step={step}
-        />
+        />}
       </main>
 
-      <aside className="side" ref={side} aria-label="Flight and search queue" data-open={sheetOpen || undefined}>
+      <aside className="side" ref={side} aria-label="Flight and search queue" data-open={sheetOpen || undefined}
+        data-overlay={tripMode && queueOverlay || undefined}>
         <div className="side-tabs" role="tablist" aria-label="Side panel">
+          {/* The Trip view shows the flight itself; over it the panel is only the queue. */}
           <button type="button" role="tab" id="tab-flight" aria-selected={tab === "flight"} aria-controls="panel-flight"
-            onClick={() => showTab("flight")}>Flight</button>
+            hidden={tripMode} onClick={() => showTab("flight")}>Flight</button>
           <button type="button" role="tab" id="tab-queue" aria-selected={tab === "queue"} aria-controls="panel-queue"
             onClick={() => showTab("queue")}>Queue<span className="side-tab-count">{activeSearches}</span>
             {pending.length > 0 && <span className="side-tab-alert" role="img" aria-label="Verification needed" />}</button>
-          <span className="side-hint" aria-hidden="true">↑ ↓ to browse · Esc</span>
+          {tripMode ? <button type="button" className="side-close queue-icon-button" aria-label="Close the queue" title="Close (Esc)"
+            onClick={() => setQueueOverlay(false)}><Icon name="cancel" /></button>
+            : <span className="side-hint" aria-hidden="true">↑ ↓ to browse · Esc</span>}
           <button type="button" className="side-toggle queue-icon-button" aria-expanded={sheetOpen} aria-controls="side-body"
             aria-label={sheetOpen ? "Fold the panel down" : "Open the panel"} onClick={() => setSheetOpen((open) => !open)}>
             <Icon name="chevron-down" /></button>

@@ -193,18 +193,21 @@ function AddPrice({ row, manual }: { row: FlightRow; manual: ManualActions }) {
   </div>;
 }
 
-export function Details({ row, partyLabel, favorite, onToggleFavorite, rating, layoverRatings, onCorrectPrice, onOpenBooking, manual }: {
+export function Details({ row, partyLabel, favorite, onToggleFavorite, rating, layoverRatings, onCorrectPrice, onOpenBooking, manual, summary = true }: {
   row: FlightRow | null; partyLabel: string; favorite: boolean;
   onToggleFavorite: (key: string) => void; rating?: JourneyRating;
   layoverRatings?: ConnectionRatings; onCorrectPrice?: CorrectOfferPrice;
   manual?: ManualActions;
   /** Told after a booking page was handed to the browser. */
   onOpenBooking?: (seller: string) => void;
+  /** The route, price and Book button on top; the Trip view shows its own. */
+  summary?: boolean;
 }) {
   const { money } = useCurrency();
   const [bookError, setBookError] = useState("");
-  // Collapsed when a flight is first opened; kept as left while browsing others.
-  const [bookingsOpen, setBookingsOpen] = useState(false);
+  // Collapsed when a flight is first opened in the panel, kept as left while
+  // browsing others; open in the Trip view, where they were asked for.
+  const [bookingsOpen, setBookingsOpen] = useState(!summary);
   const bookingsId = useId();
   if (!row) return null;
   const [from, to] = row.route.split("-");
@@ -220,7 +223,7 @@ export function Details({ row, partyLabel, favorite, onToggleFavorite, rating, l
     onOpenBooking?.(sellerName(offer));
   };
   return <section className="detail" aria-label="Selected journey">
-    <div className="detail-summary">
+    {summary && <div className="detail-summary">
       <div className="detail-summary-line">
         <div className="detail-summary-trip">
           {/* A round trip goes both ways, and its arrow says so. */}
@@ -243,7 +246,7 @@ export function Details({ row, partyLabel, favorite, onToggleFavorite, rating, l
         </button>}
       </div>
       {bookError && <p className="detail-booking-error" role="alert">{bookError}</p>}
-    </div>
+    </div>}
     <div className="detail-bookings">
       <h3 className="detail-bookings-title">
         <button type="button" aria-expanded={bookingsOpen} aria-controls={bookingsId} onClick={() => setBookingsOpen((was) => !was)}>
