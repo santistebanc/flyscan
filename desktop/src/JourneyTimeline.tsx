@@ -52,9 +52,10 @@ function barText(part: JourneyTiming["parts"][number]["part"]): string[] {
 /**
  * `scale`: one axis for every trip in this direction, so the bars keep their
  * places from one trip to the next. Without it the journey alone fills the plot.
+ * `bare`: the days and hours alone, no flight on them.
  */
-export function JourneyTimeline({ leg, title, layoverRatings, scale: shared }: {
-  leg: Leg; title: string; layoverRatings?: ReadonlyMap<number, Rating>; scale?: TimelineScale | null;
+export function JourneyTimeline({ leg, title, layoverRatings, scale: shared, bare }: {
+  leg: Leg; title: string; layoverRatings?: ReadonlyMap<number, Rating>; scale?: TimelineScale | null; bare?: boolean;
 }) {
   const [plot, width] = useWidth<HTMLDivElement>();
   const timing = journeyTiming(leg);
@@ -69,7 +70,8 @@ export function JourneyTimeline({ leg, title, layoverRatings, scale: shared }: {
   const fitting = fittingLabels([...hours, ...midnights], width, SCALE_CHAR);
   const shownHours = hours.filter((hour) => fitting.has(hour) && !midnights.some((date) =>
     shownDates.has(date) && hour.x >= date.x && hour.x < date.x + room(date.text, SCALE_CHAR) + 6));
-  const flights = timing.parts.filter(({ part }) => part.kind === "flight");
+  const parts = bare ? [] : timing.parts;
+  const flights = parts.filter(({ part }) => part.kind === "flight");
   // Departures above the bars and arrivals below, so a stop's two never compete.
   const ends = (["start", "end"] as const).flatMap((anchor) => placeEndLabels(flights.flatMap(({ part, start, end }) => {
     if (part.kind !== "flight") return [];
@@ -80,7 +82,8 @@ export function JourneyTimeline({ leg, title, layoverRatings, scale: shared }: {
   const position = (start: number, end: number): CSSProperties =>
     ({ left: `${percent(start, scale)}%`, width: `${(end - start) / span * 100}%` });
   return <div className="journey-timeline" role="img" ref={plot}
-    aria-label={`${title} timeline: ${leg.origin_airport} ${clock(leg.departure)} to ${leg.destination_airport} ${clock(leg.arrival)}, ${leg.duration}`}>
+    aria-label={bare ? `${title} timeline, no flight`
+      : `${title} timeline: ${leg.origin_airport} ${clock(leg.departure)} to ${leg.destination_airport} ${clock(leg.arrival)}, ${leg.duration}`}>
     {midnights.map((mark, i) => <span key={`d${i}`}>
       <span className="jt-midnight" title={mark.label} style={{ left: `${percent(mark.at, scale)}%` }} />
       {shownDates.has(mark) && <span className="jt-date" aria-hidden="true" style={{ left: `${percent(mark.at, scale)}%` }}>{mark.label}</span>}
@@ -89,7 +92,7 @@ export function JourneyTimeline({ leg, title, layoverRatings, scale: shared }: {
       <span className="jt-hour" style={{ left: `${percent(mark.at, scale)}%` }} />
       <span className="jt-hour-label" aria-hidden="true" style={{ left: `${percent(mark.at, scale)}%` }}>{mark.text}</span>
     </span>)}
-    {timing.parts.filter((p) => p.end > p.start).map(({ part, start, end }, i) => {
+    {parts.filter((p) => p.end > p.start).map(({ part, start, end }, i) => {
       const size = (end - start) / span * width;
       const text = barText(part).find((option) => !width || room(option, BAR_CHAR) <= size);
       const wait = part.kind === "layover" && part.minutes !== null ? layoverRatings?.get(part.minutes) : undefined;

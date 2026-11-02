@@ -145,8 +145,7 @@ test("only a stored trip layout opens the Trip view", () => {
 });
 
 const renderTrip = (rows, at, { stage = { kind: "pairs" }, figures = rows.map((row) => tripStats(row)), times = OPEN_FILTERS,
-  empty } = {}) => {
-  const timelines = flightTimelines(rows);
+  empty, timelines = flightTimelines(rows) } = {}) => {
   return renderToStaticMarkup(React.createElement(CurrencyProvider, { api: null }, React.createElement(TripView, {
     rows, at, onStep: () => {}, stage, figures, ratings: new Map(), distributions: tripDistributions(figures), timelines,
     layoverRatings: { outbound: new Map(), inbound: new Map() }, times: { outbound: times.outbound, inbound: times.inbound },
@@ -164,7 +163,15 @@ test("with nothing matching, the last trip stays dimmed under the notice, its ti
   assert.doesNotMatch(html, /Book<span|Booking options and leg details/, "nothing to book or open");
   assert.match(html, /class="trip-stat-value trip-anim-in"[^>]*>–</, "the figures read as dashes");
   assert.equal((html.match(/role="slider"/g) || []).length, 4, "the handles stay to relax a time limit");
-  assert.match(html, /Outbound timeline/);
+  assert.match(html, /Outbound timeline, no flight/);
+  assert.doesNotMatch(html, /jt-part|jt-end|trip-direction-facts/, "no flight drawn or described");
+});
+
+test("a trip kept on from rows since reloaded still has its handles", () => {
+  const kept = trip("a", 240, oneStop, back);
+  const reloaded = trip("a", 240, { ...oneStop }, { ...back });
+  const html = renderTrip([kept], 0, { empty: { title: "Nothing matches these limits." }, timelines: flightTimelines([reloaded]) });
+  assert.equal((html.match(/role="slider"/g) || []).length, 4);
 });
 
 test("the Trip view counts the trips and stops Prev and Next at either end", () => {

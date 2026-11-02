@@ -10,7 +10,7 @@ import type { FlightRow, Leg, Offer } from "./api";
 import type { Rating } from "./flightRatings";
 import type { ConnectionRatings } from "./connectionRatings";
 import type { DirectionTimes } from "./flightFilters";
-import { clock, elapsed, percent, timelineScaleFor, wallDay, type FlightTimelines, type JourneyTiming,
+import { clock, elapsed, journeyTiming, percent, timelineScaleFor, wallDay, type FlightTimelines, type JourneyTiming,
   type TimelineScale } from "./flightTimeline";
 import { otherDirection, type Direction, type PickGroup } from "./pairPicking";
 import { JourneyTimeline } from "./JourneyTimeline";
@@ -94,11 +94,15 @@ function Stat({ stat, label, value, format, dist, noun, rating, hero = false }: 
   </div>;
 }
 
-/** One direction: its summary line, then its timeline with the time handles, which zooms into a sideways scroll. */
-function DirectionView({ direction, leg, scale, timing, layoverRatings, rating, layover, times, onTimes }: {
+/**
+ * One direction: its summary line, then its timeline with the time handles,
+ * which zooms into a sideways scroll. `bare`: nothing matches, so the
+ * timeline keeps its hours and handles but shows no flight.
+ */
+function DirectionView({ direction, leg, scale, timing, layoverRatings, rating, layover, times, onTimes, bare }: {
   direction: Direction; leg: Leg; scale: TimelineScale | null; timing: JourneyTiming | null | undefined;
   layoverRatings?: ReadonlyMap<number, Rating>; rating?: Rating; layover: number | null;
-  times: DirectionTimes; onTimes: (direction: Direction, patch: TimesPatch) => void;
+  times: DirectionTimes; onTimes: (direction: Direction, patch: TimesPatch) => void; bare?: boolean;
 }) {
   const title = TITLES[direction];
   const [zoom, setZoom] = useState(0);
@@ -133,13 +137,13 @@ function DirectionView({ direction, leg, scale, timing, layoverRatings, rating, 
   return <section className="trip-direction" aria-label={title}>
     <div className="trip-direction-head">
       <h3>{title}</h3>
-      <span key={leg.departure} className="trip-direction-day trip-anim-in">{wallDay(leg.departure)}</span>
+      {!bare && <><span key={leg.departure} className="trip-direction-day trip-anim-in">{wallDay(leg.departure)}</span>
       <span className="trip-direction-facts">
         <span>Duration <b key={leg.duration} className="trip-anim-in" data-rating={rating?.level} title={rating?.description}>
           {leg.duration || "–"}</b></span>
         <span>Layover <b key={String(layover)} className="trip-anim-in">{layover === null ? "–" : layover ? elapsed(layover) : "none"}</b></span>
         {leg.stops !== null && <span key={leg.stops} className="trip-anim-in">{stopsText(leg.stops)}</span>}
-      </span>
+      </span></>}
       <span className="trip-zoom" role="group" aria-label={`Zoom the ${title.toLowerCase()} timeline`}>
         <button type="button" aria-label="Zoom out" title="Zoom out" disabled={zoom === 0} onClick={() => setZoom((z) => z - 1)}>−</button>
         <button type="button" aria-label="Zoom in" title="Zoom in" disabled={zoom === ZOOMS.length - 1} onClick={() => setZoom((z) => z + 1)}>+</button>
@@ -147,7 +151,7 @@ function DirectionView({ direction, leg, scale, timing, layoverRatings, rating, 
     </div>
     <div className="trip-timeline-scroll" ref={scroller} data-zoomed={zoom > 0 || undefined} onScroll={measure}>
       <div className="trip-timeline" style={{ width: `${ZOOMS[zoom]! * 100}%` }}>
-        <JourneyTimeline leg={leg} title={title} scale={scale} layoverRatings={layoverRatings} />
+        <JourneyTimeline leg={leg} title={title} scale={scale} layoverRatings={layoverRatings} bare={bare} />
         {timing && resolved && <TimeHandles timing={timing} scale={resolved} times={times} title={title} view={view}
           onChange={(patch) => onTimes(direction, patch)} />}
       </div>
@@ -233,9 +237,11 @@ export function TripView({ rows, at, onStep, stage, figures, ratings, distributi
     if (!leg) return which === "inbound" && row.return_date
       ? <p key={which} className="detail-missing-return">Return flight details unavailable. The seller priced the round trip without saying which flight comes back.</p>
       : null;
-    return <DirectionView key={which} direction={which} leg={leg} scale={timelines[which]} timing={timelines.journeys.get(leg)}
+    // Timings are kept per leg object; a trip kept on from rows since reloaded has its own, worked out afresh.
+    const timing = timelines.journeys.has(leg) ? timelines.journeys.get(leg) : journeyTiming(leg);
+    return <DirectionView key={which} direction={which} leg={leg} scale={timelines[which]} timing={timing}
       layoverRatings={layoverRatings[which]} rating={rating?.[which]} layover={tripStats(row, which).layover}
-      times={times[which]} onTimes={onTimes} />;
+      times={times[which]} onTimes={onTimes} bare={Boolean(empty)} />;
   };
   const other = picking ? TITLES[otherDirection(picking.direction)].toLowerCase() : "";
   return <section className="trip-view" aria-label="Trip" data-empty={empty ? true : undefined}

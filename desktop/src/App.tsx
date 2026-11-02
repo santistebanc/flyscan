@@ -967,6 +967,15 @@ function Shell() {
     if (foundAt >= 0) lastTripAt.current = foundAt;
     else setOpenKey(listRows[tripAt]!.trip_key);
   }, [tripMode, listRows, foundAt, tripAt]);
+  // A changed filter or sort starts the Trip view again from its first trip, before the old place is painted.
+  const tripOrder = useRef({ filters, sort });
+  useLayoutEffect(() => {
+    if (tripOrder.current.filters === filters && tripOrder.current.sort === sort) return;
+    tripOrder.current = { filters, sort };
+    if (!tripMode) return;
+    lastTripAt.current = 0;
+    setOpenKey(listRows[0]?.trip_key ?? null);
+  }, [tripMode, filters, sort, listRows]);
   /**
    * Each entry's figures and how they spread over the entries the Trip view
    * steps through: pairs, or, while picking, one direction's flights, each
