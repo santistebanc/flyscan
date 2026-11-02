@@ -94,15 +94,11 @@ function Stat({ stat, label, value, format, dist, noun, rating, hero = false }: 
   </div>;
 }
 
-/**
- * One direction: its summary line, then its timeline with the time handles,
- * which zooms into a sideways scroll. `bare`: nothing matches, so the
- * timeline keeps its hours and handles but shows no flight.
- */
-function DirectionView({ direction, leg, scale, timing, layoverRatings, rating, layover, times, onTimes, bare }: {
+/** One direction: its summary line, then its timeline with the time handles, which zooms into a sideways scroll. */
+function DirectionView({ direction, leg, scale, timing, layoverRatings, rating, layover, times, onTimes }: {
   direction: Direction; leg: Leg; scale: TimelineScale | null; timing: JourneyTiming | null | undefined;
   layoverRatings?: ReadonlyMap<number, Rating>; rating?: Rating; layover: number | null;
-  times: DirectionTimes; onTimes: (direction: Direction, patch: TimesPatch) => void; bare?: boolean;
+  times: DirectionTimes; onTimes: (direction: Direction, patch: TimesPatch) => void;
 }) {
   const title = TITLES[direction];
   const [zoom, setZoom] = useState(0);
@@ -137,13 +133,13 @@ function DirectionView({ direction, leg, scale, timing, layoverRatings, rating, 
   return <section className="trip-direction" aria-label={title}>
     <div className="trip-direction-head">
       <h3>{title}</h3>
-      {!bare && <><span key={leg.departure} className="trip-direction-day trip-anim-in">{wallDay(leg.departure)}</span>
+      <span key={leg.departure} className="trip-direction-day trip-anim-in">{wallDay(leg.departure)}</span>
       <span className="trip-direction-facts">
         <span>Duration <b key={leg.duration} className="trip-anim-in" data-rating={rating?.level} title={rating?.description}>
           {leg.duration || "–"}</b></span>
         <span>Layover <b key={String(layover)} className="trip-anim-in">{layover === null ? "–" : layover ? elapsed(layover) : "none"}</b></span>
         {leg.stops !== null && <span key={leg.stops} className="trip-anim-in">{stopsText(leg.stops)}</span>}
-      </span></>}
+      </span>
       <span className="trip-zoom" role="group" aria-label={`Zoom the ${title.toLowerCase()} timeline`}>
         <button type="button" aria-label="Zoom out" title="Zoom out" disabled={zoom === 0} onClick={() => setZoom((z) => z - 1)}>−</button>
         <button type="button" aria-label="Zoom in" title="Zoom in" disabled={zoom === ZOOMS.length - 1} onClick={() => setZoom((z) => z + 1)}>+</button>
@@ -151,7 +147,7 @@ function DirectionView({ direction, leg, scale, timing, layoverRatings, rating, 
     </div>
     <div className="trip-timeline-scroll" ref={scroller} data-zoomed={zoom > 0 || undefined} onScroll={measure}>
       <div className="trip-timeline" style={{ width: `${ZOOMS[zoom]! * 100}%` }}>
-        <JourneyTimeline leg={leg} title={title} scale={scale} layoverRatings={layoverRatings} bare={bare} />
+        <JourneyTimeline leg={leg} title={title} scale={scale} layoverRatings={layoverRatings} />
         {timing && resolved && <TimeHandles timing={timing} scale={resolved} times={times} title={title} view={view}
           onChange={(patch) => onTimes(direction, patch)} />}
       </div>
@@ -241,7 +237,7 @@ export function TripView({ rows, at, onStep, stage, figures, ratings, distributi
     const timing = timelines.journeys.has(leg) ? timelines.journeys.get(leg) : journeyTiming(leg);
     return <DirectionView key={which} direction={which} leg={leg} scale={timelines[which]} timing={timing}
       layoverRatings={layoverRatings[which]} rating={rating?.[which]} layover={tripStats(row, which).layover}
-      times={times[which]} onTimes={onTimes} bare={Boolean(empty)} />;
+      times={times[which]} onTimes={onTimes} />;
   };
   const other = picking ? TITLES[otherDirection(picking.direction)].toLowerCase() : "";
   return <section className="trip-view" aria-label="Trip" data-empty={empty ? true : undefined}
@@ -272,7 +268,7 @@ export function TripView({ rows, at, onStep, stage, figures, ratings, distributi
     {bookError && <p className="detail-booking-error" role="alert">{bookError}</p>}
     {empty && <div className="trip-empty" role="status">
       <span className="trip-empty-text"><b>{empty.title}</b>{empty.body && <span>{empty.body}</span>}
-        <span>Or drag a time handle back on a timeline below.</span></span>
+        <span>Faded below, the trip nearest your time limits: drag a handle back to reach it.</span></span>
       {empty.action && <button type="button" onClick={empty.action.onClick}>{empty.action.label}</button>}
     </div>}
 

@@ -15,7 +15,7 @@ const code = buildSync({ stdin: { contents: `
   export { journeyTiming, journeyScale, journeyHourMarks, flightTimelines, timeFilterAxis } from './src/flightTimeline';
   export { handleAt, limitAt, limitClock } from './src/TimeHandles';
   export { pickGroups, legKey } from './src/pairPicking';
-  export { OPEN_FILTERS, ANY_ARRIVAL } from './src/flightFilters';
+  export { OPEN_FILTERS, ANY_ARRIVAL, nearestTrip } from './src/flightFilters';
 `, resolveDir: path.join(__dirname, "..") }, bundle: true, external: ["react", "react-dom"],
   write: false, format: "cjs", platform: "node", jsx: "automatic", define: { "import.meta.env": "{}" } }).outputFiles[0].text;
 const mod = { exports: {} };
@@ -23,7 +23,7 @@ vm.runInNewContext(code, { module: mod, exports: mod.exports, require, window: {
   localStorage: { getItem: () => null } });
 const { JourneyTimeline, placeEndLabels, TripView, tripStats, distribution, placeIn, tripDistributions, normalizeLayout, CurrencyProvider,
   journeyTiming, journeyScale, journeyHourMarks, flightTimelines, timeFilterAxis, handleAt, limitAt, limitClock, pickGroups, legKey,
-  OPEN_FILTERS, ANY_ARRIVAL } = mod.exports;
+  OPEN_FILTERS, ANY_ARRIVAL, nearestTrip } = mod.exports;
 
 const segment = (origin, destination, departure, arrival, duration, flight) => ({
   origin, destination, departure, arrival, duration, carrier: flight.slice(0, 2), carrier_name: "", flight_number: flight });
@@ -153,7 +153,7 @@ const renderTrip = (rows, at, { stage = { kind: "pairs" }, figures = rows.map((r
   })));
 };
 
-test("with nothing matching, the last trip stays dimmed under the notice, its time handles still there", () => {
+test("with nothing matching, the nearest trip stays faded under the notice, its time handles still there", () => {
   const empty = { title: "Nothing matches these limits.", body: "Relax a filter.", action: { label: "Reset filters", onClick: () => {} } };
   const html = renderTrip([trip("a", 240, oneStop, back)], 0, { empty });
   assert.match(html, /data-empty="true"/);
@@ -163,8 +163,18 @@ test("with nothing matching, the last trip stays dimmed under the notice, its ti
   assert.doesNotMatch(html, /Book<span|Booking options and leg details/, "nothing to book or open");
   assert.match(html, /class="trip-stat-value trip-anim-in"[^>]*>–</, "the figures read as dashes");
   assert.equal((html.match(/role="slider"/g) || []).length, 4, "the handles stay to relax a time limit");
-  assert.match(html, /Outbound timeline, no flight/);
-  assert.doesNotMatch(html, /jt-part|jt-end|trip-direction-facts/, "no flight drawn or described");
+  assert.match(html, /Outbound timeline: BER 06:10/, "its flight drawn, faded by the stylesheet");
+  assert.match(html, /Faded below, the trip nearest your time limits/);
+});
+
+test("with nothing matching, the trip shown is the one nearest the time limits", () => {
+  const early = trip("early", 100, oneStop, back), late = trip("late", 300, nonstop, back);
+  const limits = { maxPrice: null, excludeRepeatedAirports: false, inbound: OPEN_FILTERS.inbound,
+    outbound: { ...OPEN_FILTERS.outbound, depart: { from: 10 * 60, to: 1440 } } };
+  // Departing 06:10 misses 10:00 by 230 minutes, 09:00 by 60.
+  assert.equal(nearestTrip([early, late], limits, (row) => row.best?.price_base ?? null).trip_key, "late");
+  const open = { ...limits, outbound: OPEN_FILTERS.outbound, maxPrice: 50 };
+  assert.equal(nearestTrip([late, early], open, (row) => row.best?.price_base ?? null).trip_key, "early", "then the cheapest");
 });
 
 test("a trip kept on from rows since reloaded still has its handles", () => {

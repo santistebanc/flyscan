@@ -44,10 +44,10 @@ import { FlightTimeline } from "./TimelineFlight";
 import { TripView, type TripStage } from "./TripView";
 import type { TimesPatch } from "./TimeHandles";
 import { LAYOUT_KEY, LayoutToggle, normalizeLayout, type Layout } from "./LayoutToggle";
-import { tripDistributions, tripStats, type TripDistributions, type TripStats } from "./tripStats";
+import { tripDistributions, tripStats } from "./tripStats";
 import { elapsed, flightTimelines, type FlightTimelines } from "./flightTimeline";
 import { FILTERS_KEY, FlightFiltersBar } from "./FilterBar";
-import { DEFAULT_FILTERS, FILTERS_VERSION, matchesFlight, sanitizeFilters, setDirectionLimits, withoutLimit, type ListFilters } from "./flightFilters";
+import { DEFAULT_FILTERS, FILTERS_VERSION, matchesFlight, nearestTrip, sanitizeFilters, setDirectionLimits, withoutLimit, type ListFilters } from "./flightFilters";
 import { connectionFilterOptions, filterRanges } from "./filterSuggestions";
 import { PlaceInput } from "./PlaceInput";
 import { TravellersPicker, CABIN_LABELS } from "./TravellersPicker";
@@ -989,23 +989,23 @@ function Shell() {
     : listRows.map((row) => tripStats(row)), [tripMode, listRows, step]);
   const tripDists = useMemo(() => tripFigures ? tripDistributions(tripFigures) : null, [tripFigures]);
   /**
-   * What the Trip view shows. When the filters leave nothing, the last trip
-   * stays on screen, dimmed under the empty notice, so its timelines and
-   * their time handles are still there to relax a limit with.
+   * What the Trip view shows. When the filters leave nothing, the trip
+   * nearest them stays on screen, faded under the empty notice, its time
+   * handles there to relax a limit with: among the picked flight's pairs, if
+   * one is picked.
    */
-  const lastTrip = useRef<{ row: FlightRow; figures: TripStats; dists: TripDistributions } | null>(null);
   const tripShown = useMemo(() => {
     const row = listRows[tripAt];
     if (tripMode && row && tripFigures && tripDists) {
-      lastTrip.current = { row, figures: tripFigures[tripAt]!, dists: tripDists };
       return { rows: listRows, at: tripAt, row, figures: tripFigures, dists: tripDists, empty: false };
     }
     if (!tripMode || listRows.length || !priceRows.length) return null;
-    // Opened with nothing matching already (a reload, or List switched to Trip), there is no last trip: stand in the first one found.
-    const last = lastTrip.current ?? { row: priceRows[0]!, figures: tripStats(priceRows[0]!),
-      dists: tripDistributions(priceRows.map((row) => tripStats(row))) };
-    return { rows: [last.row], at: 0, row: last.row, figures: [last.figures], dists: last.dists, empty: true };
-  }, [tripMode, listRows, tripAt, tripFigures, tripDists, priceRows]);
+    const pool = pinned && stepDirection ? pairsOf(priceRows, pinned.key, stepDirection, sort) : [];
+    const near = nearestTrip(pool.length ? pool : priceRows, limits,
+      (one) => one.best?.price_base == null ? null : roundedIn(one.best.price_base))!;
+    return { rows: [near], at: 0, row: near, figures: [tripStats(near)],
+      dists: tripDistributions(priceRows.map((one) => tripStats(one))), empty: true };
+  }, [tripMode, listRows, tripAt, tripFigures, tripDists, priceRows, pinned, stepDirection, sort, limits, roundedIn]);
   /** Picking a flight one way starts its pairs at the first; changing it goes back to it among the others. */
   const pickInTrip = useCallback((key: string) => {
     setPicked(key);
