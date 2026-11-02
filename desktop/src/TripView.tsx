@@ -14,7 +14,7 @@ import { Icon } from "./Icon";
 import { useCurrency } from "./currency";
 import { openExternal } from "./platform";
 import { MANUAL_LABEL, isManual } from "./manualEntry";
-import { tripStats, type StatKey } from "./tripStats";
+import { placeIn, tripStats, type Bin, type Distribution, type StatKey, type TripDistributions } from "./tripStats";
 
 type JourneyRating = { price?: Rating; outbound?: Rating; inbound?: Rating };
 const ZOOMS = [1, 1.5, 2, 3, 4];
@@ -23,14 +23,58 @@ const SWIPE = 60;
 const sellerName = (offer: Offer) => offer.agent || (isManual(offer) ? MANUAL_LABEL : offer.source);
 const stopsText = (stops: number) => stops === 0 ? "Nonstop" : `${stops} stop${stops === 1 ? "" : "s"}`;
 
-/** A figure under its name; the filters above the trip are where the list is narrowed. */
-function Stat({ label, value, format, rating, hero = false }: {
-  label: string; value: number | null; format: (value: number) => string; rating?: Rating; hero?: boolean;
+/** What a trip beats, said per figure: lower is better for all four. */
+const STANDING: Record<StatKey, { best: string; better: string; worst: string }> = {
+  price: { best: "The cheapest", better: "Cheaper than", worst: "None cost more" },
+  duration: { best: "The shortest", better: "Shorter than", worst: "None take longer" },
+  layover: { best: "The least waiting", better: "Less waiting than", worst: "None wait longer" },
+  stops: { best: "The fewest stops", better: "Fewer stops than", worst: "None have more stops" },
+};
+
+/** How many trips have each value, with this trip's bar lit and its value marked. */
+function DistributionChart({ stat, label, dist, value, format }: {
+  stat: StatKey; label: string; dist: Distribution; value: number | null; format: (value: number) => string;
+}) {
+  const place = value === null ? null : placeIn(dist, value);
+  const peak = Math.max(1, ...dist.bins.map((bin) => bin.count));
+  const last = dist.bins.length - 1;
+  const range = (bin: Bin, i: number) => dist.discrete || bin.from === bin.to ? format(bin.from)
+    : i === last && dist.overflow ? `${format(bin.from)} and over` : `${format(bin.from)}–${format(bin.to)}`;
+  const words = STANDING[stat];
+  const standing = !place ? "" : place.best ? words.best
+    : place.worse === 0 ? words.worst : `${words.better} ${Math.round(place.worse * 100)}% of trips`;
+  const count = dist.sorted.length;
+  return <div className="trip-dist">
+    <span className="trip-dist-plot">
+      <svg viewBox={`0 0 ${dist.bins.length * 10} 40`} preserveAspectRatio="none" role="img"
+        aria-label={`${label} across ${count.toLocaleString()} trips, from ${format(dist.sorted[0]!)} to ${format(dist.sorted[count - 1]!)}`}>
+        {dist.bins.map((bin, i) => {
+          const height = bin.count ? Math.max(1.5, bin.count / peak * 38) : 0;
+          return <rect key={i} x={i * 10 + 1} width={8} y={40 - height} height={height}
+            className={i === place?.bin ? "current" : undefined}>
+            <title>{`${range(bin, i)}: ${bin.count.toLocaleString()} trip${bin.count === 1 ? "" : "s"}`}</title>
+          </rect>;
+        })}
+      </svg>
+      {place && <span className="trip-dist-mark" style={{ left: `${place.position * 100}%` }} aria-hidden="true" />}
+    </span>
+    <span className="trip-dist-ends" aria-hidden="true">
+      <span>{format(dist.min)}</span><span>{format(dist.max)}{dist.overflow ? "+" : ""}</span>
+    </span>
+    {standing && <span className="trip-dist-standing">{standing}</span>}
+  </div>;
+}
+
+/** A figure under its name, over how it spreads across the trips listed. */
+function Stat({ stat, label, value, format, dist, rating, hero = false }: {
+  stat: StatKey; label: string; value: number | null; format: (value: number) => string;
+  dist: Distribution | null; rating?: Rating; hero?: boolean;
 }) {
   return <div className={`trip-stat${hero ? " hero" : ""}`}>
     <span className="trip-stat-label">{label}</span>
     <span className="trip-stat-value" data-rating={rating?.level} title={rating?.description}>
       {value === null ? "–" : format(value)}</span>
+    {dist && <DistributionChart stat={stat} label={label} dist={dist} value={value} format={format} />}
   </div>;
 }
 
@@ -71,10 +115,12 @@ function Direction({ title, leg, scale, timing, layoverRatings, rating, layover 
   </section>;
 }
 
-export function TripView({ rows, at, onStep, ratings, timelines, layoverRatings, favorite, onToggleFavorite,
+export function TripView({ rows, at, onStep, ratings, distributions, timelines, layoverRatings, favorite, onToggleFavorite,
   onOpenBooking, queue, details }: {
   rows: FlightRow[]; at: number; onStep: (index: number) => void;
   ratings: ReadonlyMap<string, JourneyRating>; timelines: FlightTimelines;
+  /** Each figure over every trip in `rows`, from `tripDistributions`. */
+  distributions: TripDistributions;
   layoverRatings: ConnectionRatings; favorite: boolean; onToggleFavorite: (key: string) => void;
   /** Told after a booking page was handed to the browser. */
   onOpenBooking?: (seller: string) => void;
@@ -136,10 +182,10 @@ export function TripView({ rows, at, onStep, ratings, timelines, layoverRatings,
     {bookError && <p className="detail-booking-error" role="alert">{bookError}</p>}
 
     <div className="trip-stats">
-      <Stat hero label="Price" value={stats.price} format={format.price} rating={rating?.price} />
-      <Stat label="Duration" value={stats.duration} format={format.duration} />
-      <Stat label="Layover" value={stats.layover} format={format.layover} />
-      <Stat label="Stops" value={stats.stops} format={format.stops} />
+      <Stat hero stat="price" label="Price" value={stats.price} format={format.price} dist={distributions.price} rating={rating?.price} />
+      <Stat stat="duration" label="Duration" value={stats.duration} format={format.duration} dist={distributions.duration} />
+      <Stat stat="layover" label="Layover" value={stats.layover} format={format.layover} dist={distributions.layover} />
+      <Stat stat="stops" label="Stops" value={stats.stops} format={format.stops} dist={distributions.stops} />
     </div>
 
     <Direction title="Outbound" leg={row.outbound} scale={timelines.outbound} timing={timelines.journeys.get(row.outbound)}

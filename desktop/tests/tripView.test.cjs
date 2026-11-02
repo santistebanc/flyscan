@@ -9,7 +9,7 @@ const inbound = require("./fixtures/jetradar-airport-transfer.json");
 const code = buildSync({ stdin: { contents: `
   export { JourneyTimeline, placeEndLabels } from './src/JourneyTimeline';
   export { TripView } from './src/TripView';
-  export { tripStats } from './src/tripStats';
+  export { tripStats, distribution, placeIn, tripDistributions } from './src/tripStats';
   export { normalizeLayout } from './src/LayoutToggle';
   export { CurrencyProvider } from './src/currency';
   export { journeyTiming, journeyScale, journeyHourMarks, flightTimelines } from './src/flightTimeline';
@@ -18,7 +18,7 @@ const code = buildSync({ stdin: { contents: `
 const mod = { exports: {} };
 vm.runInNewContext(code, { module: mod, exports: mod.exports, require, window: {},
   localStorage: { getItem: () => null } });
-const { JourneyTimeline, placeEndLabels, TripView, tripStats, normalizeLayout, CurrencyProvider,
+const { JourneyTimeline, placeEndLabels, TripView, tripStats, distribution, placeIn, tripDistributions, normalizeLayout, CurrencyProvider,
   journeyTiming, journeyScale, journeyHourMarks, flightTimelines } = mod.exports;
 
 const segment = (origin, destination, departure, arrival, duration, flight) => ({
@@ -101,6 +101,40 @@ test("a trip's figures add both directions, and an undescribed connection leaves
   assert.equal(tripStats(trip("c", 200, vague, back)).duration, 580, "the reported duration still counts");
 });
 
+test("a distribution counts values in equal bins up to the 95th percentile, the tail in the last", () => {
+  // 100 fares from 100 to 199, and one of 9000 far out in the tail.
+  const fares = [...Array.from({ length: 100 }, (_, i) => 100 + i), 9000];
+  const dist = distribution([...fares, null]);
+  assert.equal(dist.bins.length, 24);
+  assert.equal(dist.min, 100);
+  assert.equal(dist.max, 195, "the 95th percentile, not the outlier");
+  assert.ok(dist.overflow);
+  assert.equal(dist.bins.reduce((sum, bin) => sum + bin.count, 0), 101, "every known value is counted once");
+  assert.ok(dist.bins[23].count >= 6, "the last bin holds the tail");
+});
+
+test("a trip's placement names its bin, its place on the axis and the share of trips worse than it", () => {
+  const dist = distribution([100, 200, 200, 300, 400]);
+  const cheapest = placeIn(dist, 100);
+  assert.equal(cheapest.best, true);
+  assert.equal(cheapest.bin, 0);
+  assert.equal(cheapest.position, 0);
+  assert.equal(cheapest.worse, 0.8);
+  const middle = placeIn(dist, 200);
+  assert.equal(middle.best, false);
+  assert.equal(middle.worse, 0.4, "ties are not counted as worse");
+  assert.equal(placeIn(dist, 400).worse, 0);
+});
+
+test("stops are counted per whole number, each trip marked in the middle of its bar", () => {
+  const dist = distribution([1, 1, 2, 4], true);
+  assert.deepEqual([...dist.bins].map((bin) => bin.count), [2, 1, 0, 1]);
+  const place = placeIn(dist, 2);
+  assert.equal(place.bin, 1);
+  assert.equal(place.position, 1.5 / 4);
+  assert.equal(distribution([null, null]), null, "nothing known draws nothing");
+});
+
 test("only a stored trip layout opens the Trip view", () => {
   assert.equal(normalizeLayout("trip"), "trip");
   for (const value of ["list", null, "grid", 1]) assert.equal(normalizeLayout(value), "list");
@@ -109,7 +143,7 @@ test("only a stored trip layout opens the Trip view", () => {
 const renderTrip = (rows, at) => {
   const timelines = flightTimelines(rows);
   return renderToStaticMarkup(React.createElement(CurrencyProvider, { api: null }, React.createElement(TripView, {
-    rows, at, onStep: () => {}, ratings: new Map(), timelines,
+    rows, at, onStep: () => {}, ratings: new Map(), distributions: tripDistributions(rows), timelines,
     layoverRatings: { outbound: new Map(), inbound: new Map() }, favorite: false, onToggleFavorite: () => {}, details: null,
   })));
 };
@@ -131,6 +165,16 @@ test("the Trip view draws both directions and books with the cheapest seller", (
   assert.match(html, /aria-label="Return timeline: MAD 18:00 to BER 21:10, 3h 10m"/);
   assert.match(html, /class="trip-book-seller">Iberia</);
   assert.equal((html.match(/class="trip-stat( hero)?"/g) || []).length, 4);
+});
+
+test("each figure's chart lights the trip's bar and says what it beats", () => {
+  const rows = [trip("a", 240, oneStop, back), trip("b", 120, back, back), trip("c", 300, oneStop, back)];
+  const html = renderTrip(rows, 0);
+  assert.equal((html.match(/class="trip-dist"/g) || []).length, 4);
+  assert.match(html, /Cheaper than 33% of trips/);
+  assert.match(html, /aria-label="Price across 3 trips, from/);
+  assert.equal((html.match(/class="trip-dist-mark"/g) || []).length, 4);
+  assert.match(renderTrip(rows, 1), /The cheapest/);
 });
 
 test("a one-way trip has no return section", () => {

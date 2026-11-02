@@ -1081,8 +1081,18 @@ button.primary:hover:not(:disabled) { background: var(--accent-strong); }
 .trip-book:hover { filter: brightness(1.08); }
 .trip-book-seller { margin-left: 4px; font-weight: 400; opacity: .8; }
 
-.trip-stats { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 12px 48px; padding: 4px 0 18px; border-bottom: 1px solid var(--line-soft); }
-.trip-stat { display: flex; flex-direction: column; gap: 4px; }
+/* Four figures side by side, each over how it spreads across the trips; two by two on a phone. */
+.trip-stats { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 16px 36px; padding: 4px 0 20px; border-bottom: 1px solid var(--line-soft); }
+.trip-stat { display: flex; flex-direction: column; justify-content: flex-end; gap: 4px; min-width: 0; }
+.trip-dist { display: flex; flex-direction: column; gap: 3px; margin-top: 6px; }
+.trip-dist-plot { position: relative; display: block; height: 44px; border-bottom: 1px solid var(--line); }
+.trip-dist-plot svg { display: block; width: 100%; height: 100%; }
+.trip-dist-plot rect { fill: var(--line); }
+.trip-dist-plot rect:hover { fill: var(--muted); }
+.trip-dist-plot rect.current { fill: var(--accent); }
+.trip-dist-mark { position: absolute; top: -4px; bottom: -4px; width: 2px; margin-left: -1px; border-radius: 1px; background: var(--ink); pointer-events: none; }
+.trip-dist-ends { display: flex; justify-content: space-between; gap: 8px; font: 11px var(--mono); color: var(--faint); white-space: nowrap; }
+.trip-dist-standing { font-size: 12px; color: var(--ink-soft); }
 .trip-stat-label { font-size: 11px; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; color: var(--muted); }
 .trip-stat-value { font: 600 26px/1.1 var(--mono); }
 .trip-stat.hero .trip-stat-value { font-size: 40px; }
@@ -1120,7 +1130,7 @@ button.primary:hover:not(:disabled) { background: var(--accent-strong); }
 @media (max-width: 640px) {
   .trip-view { padding: 8px 12px 40px; }
   .trip-nav-text, .trip-book-seller { display: none; }
-  .trip-stats { gap: 10px 28px; }
+  .trip-stats { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px 20px; }
   .trip-stat-value { font-size: 22px; }
   .trip-stat.hero .trip-stat-value { font-size: 32px; }
 }
