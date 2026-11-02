@@ -9,6 +9,8 @@ import { ANY_ARRIVAL, type DirectionTimes } from "./flightFilters";
 import { filteredOutSpans, percent, timeFilterAxis, type JourneyTiming, type TimelineScale } from "./flightTimeline";
 
 export type TimesPatch = { depart?: number; arrive?: number };
+/** The part of the timeline in sight, as percentages of its width. */
+export type View = { from: number; to: number };
 type Which = "depart" | "arrive";
 const STEP = 15;
 
@@ -34,8 +36,20 @@ export function limitAt(which: Which, minute: number, base: number, scale: Pick<
   return Math.min(ANY_ARRIVAL - STEP, Math.max(0, Math.round((minute - base) / STEP) * STEP));
 }
 
-export function TimeHandles({ timing, scale, times, title, onChange }: {
-  timing: JourneyTiming; scale: TimelineScale; times: DirectionTimes; title: string;
+/**
+ * Where a handle stands: at its limit, or, with the limit scrolled out of a
+ * zoomed timeline, waiting at the edge in sight so it can still be grabbed.
+ * `edge`: it stands at an edge in sight and is drawn inside it, not across
+ * it. `beyond`: its limit lies past that edge.
+ */
+export function handleAt(place: number, view: View): { left: number; edge?: "start" | "end"; beyond: boolean } {
+  if (place <= view.from) return { left: view.from, edge: "start", beyond: place < view.from };
+  if (place >= view.to) return { left: view.to, edge: "end", beyond: place > view.to };
+  return { left: place, beyond: false };
+}
+
+export function TimeHandles({ timing, scale, times, title, view = { from: 0, to: 100 }, onChange }: {
+  timing: JourneyTiming; scale: TimelineScale; times: DirectionTimes; title: string; view?: View;
   onChange: (patch: TimesPatch) => void;
 }) {
   const layer = useRef<HTMLDivElement>(null);
@@ -94,8 +108,9 @@ export function TimeHandles({ timing, scale, times, title, onChange }: {
       style={{ left: `${percent(start, scale)}%`, width: `${(end - start) / span * 100}%` }} />)}
     {(["depart", "arrive"] as const).map((which) => {
       const active = which === "depart" ? depart > 0 : arrive < ANY_ARRIVAL;
+      const at = handleAt(place(which), view);
       return <span key={which} className={`time-handle ${which}`} data-active={active || undefined}
-        data-dragging={drag?.which === which || undefined} style={{ left: `${place(which)}%` }}
+        data-edge={at.edge} data-beyond={at.beyond || undefined} data-dragging={drag?.which === which || undefined} style={{ left: `${at.left}%` }}
         role="slider" tabIndex={0} aria-label={`${title}: ${which === "depart" ? "earliest departure" : "latest arrival"}`}
         aria-valuetext={label(which)} aria-valuemin={0} aria-valuemax={which === "depart" ? 1440 : ANY_ARRIVAL}
         aria-valuenow={which === "depart" ? depart : arrive} title={`${label(which)}\nDrag, or use ← and →`}

@@ -1144,6 +1144,19 @@ button.primary:hover:not(:disabled) { background: var(--accent-strong); }
 .time-handle.depart .time-handle-label { left: 0; }
 .time-handle.arrive .time-handle-label { right: 0; }
 @media (pointer: coarse) { .time-handle { width: 32px; margin-left: -16px; } .time-handle-grip { width: 14px; height: 32px; margin-top: -16px; } }
+/* At an edge in sight a handle is drawn inside it, so nothing spills over and
+   it stays in reach while a zoomed timeline scrolls. Its stem fades when its
+   limit lies further on, out of sight. */
+.time-handle[data-edge="start"] { margin-left: 0; justify-content: flex-start; }
+.time-handle[data-edge="end"] { margin-left: -20px; justify-content: flex-end; }
+@media (pointer: coarse) { .time-handle[data-edge="end"] { margin-left: -32px; } }
+.time-handle[data-edge] .time-handle-grip { left: 0; }
+.time-handle[data-edge="end"] .time-handle-grip { left: auto; right: 0; }
+.time-handle[data-edge="start"] .time-handle-label { left: 0; right: auto; }
+.time-handle[data-edge="end"] .time-handle-label { left: auto; right: 0; }
+.time-handle[data-beyond]::before { opacity: .45; }
+.time-handle[data-beyond] { transition: none; }
+.trip-timeline-scroll:not([data-zoomed]) { overflow-x: hidden; }
 
 /* The flight picked first, above the pairs it is sold in. */
 .trip-pinned {

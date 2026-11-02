@@ -13,7 +13,7 @@ const code = buildSync({ stdin: { contents: `
   export { normalizeLayout } from './src/LayoutToggle';
   export { CurrencyProvider } from './src/currency';
   export { journeyTiming, journeyScale, journeyHourMarks, flightTimelines, timeFilterAxis } from './src/flightTimeline';
-  export { limitAt, limitClock } from './src/TimeHandles';
+  export { handleAt, limitAt, limitClock } from './src/TimeHandles';
   export { pickGroups, legKey } from './src/pairPicking';
   export { OPEN_FILTERS, ANY_ARRIVAL } from './src/flightFilters';
 `, resolveDir: path.join(__dirname, "..") }, bundle: true, external: ["react", "react-dom"],
@@ -22,7 +22,7 @@ const mod = { exports: {} };
 vm.runInNewContext(code, { module: mod, exports: mod.exports, require, window: {},
   localStorage: { getItem: () => null } });
 const { JourneyTimeline, placeEndLabels, TripView, tripStats, distribution, placeIn, tripDistributions, normalizeLayout, CurrencyProvider,
-  journeyTiming, journeyScale, journeyHourMarks, flightTimelines, timeFilterAxis, limitAt, limitClock, pickGroups, legKey,
+  journeyTiming, journeyScale, journeyHourMarks, flightTimelines, timeFilterAxis, handleAt, limitAt, limitClock, pickGroups, legKey,
   OPEN_FILTERS, ANY_ARRIVAL } = mod.exports;
 
 const segment = (origin, destination, departure, arrival, duration, flight) => ({
@@ -253,6 +253,14 @@ test("a dragged handle snaps to a quarter hour, and dragged out to its end lifts
   assert.equal(limitAt("arrive", 1500, 0, scale), 1500);
   assert.equal(limitClock(1500), "01:00 +1");
   assert.equal(limitClock(7 * 60 + 30), "07:30");
+});
+
+test("a handle whose limit is scrolled out of sight waits at the edge in sight", () => {
+  const view = { from: 25, to: 50 };
+  assert.deepEqual({ ...handleAt(0, view) }, { left: 25, edge: "start", beyond: true });
+  assert.deepEqual({ ...handleAt(80, view) }, { left: 50, edge: "end", beyond: true });
+  assert.deepEqual({ ...handleAt(30, view) }, { left: 30, beyond: false });
+  assert.deepEqual({ ...handleAt(100, { from: 0, to: 100 }) }, { left: 100, edge: "end", beyond: false }, "at the end, drawn inside it");
 });
 
 test("set time limits show on the handles and shade the hours they rule out", () => {

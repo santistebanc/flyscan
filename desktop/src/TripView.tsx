@@ -14,7 +14,7 @@ import { clock, elapsed, percent, timelineScaleFor, wallDay, type FlightTimeline
   type TimelineScale } from "./flightTimeline";
 import { otherDirection, type Direction, type PickGroup } from "./pairPicking";
 import { JourneyTimeline } from "./JourneyTimeline";
-import { TimeHandles, type TimesPatch } from "./TimeHandles";
+import { TimeHandles, type TimesPatch, type View } from "./TimeHandles";
 import { FavoriteButton } from "./FavoriteButton";
 import { Icon } from "./Icon";
 import { useCurrency } from "./currency";
@@ -111,6 +111,25 @@ function DirectionView({ direction, leg, scale, timing, layoverRatings, rating, 
     if (!node) return;
     node.scrollLeft = Math.max(0, startShare * node.scrollWidth - 48);
   }, [startShare, zoom]);
+  // The share of the timeline in sight, so the handles can wait at its edges.
+  const [view, setView] = useState<View>({ from: 0, to: 100 });
+  const measure = () => {
+    const node = scroller.current;
+    if (!node || !node.scrollWidth) return;
+    // Within a pixel or so of an end counts as the end, so rounding never leaves a handle "beyond" it.
+    const share = (x: number) => x / node.scrollWidth * 100;
+    const from = node.scrollLeft < 2 ? 0 : share(node.scrollLeft);
+    const to = node.scrollWidth - node.scrollLeft - node.clientWidth < 2 ? 100 : share(node.scrollLeft + node.clientWidth);
+    setView((was) => was.from === from && was.to === to ? was : { from, to });
+  };
+  useLayoutEffect(() => {
+    measure();
+    const node = scroller.current;
+    if (!node || typeof ResizeObserver === "undefined") return;
+    const watch = new ResizeObserver(measure);
+    watch.observe(node);
+    return () => watch.disconnect();
+  }, [startShare, zoom]);
   return <section className="trip-direction" aria-label={title}>
     <div className="trip-direction-head">
       <h3>{title}</h3>
@@ -126,10 +145,10 @@ function DirectionView({ direction, leg, scale, timing, layoverRatings, rating, 
         <button type="button" aria-label="Zoom in" title="Zoom in" disabled={zoom === ZOOMS.length - 1} onClick={() => setZoom((z) => z + 1)}>+</button>
       </span>
     </div>
-    <div className="trip-timeline-scroll" ref={scroller} data-zoomed={zoom > 0 || undefined}>
+    <div className="trip-timeline-scroll" ref={scroller} data-zoomed={zoom > 0 || undefined} onScroll={measure}>
       <div className="trip-timeline" style={{ width: `${ZOOMS[zoom]! * 100}%` }}>
         <JourneyTimeline leg={leg} title={title} scale={scale} layoverRatings={layoverRatings} />
-        {timing && resolved && <TimeHandles timing={timing} scale={resolved} times={times} title={title}
+        {timing && resolved && <TimeHandles timing={timing} scale={resolved} times={times} title={title} view={view}
           onChange={(patch) => onTimes(direction, patch)} />}
       </div>
     </div>
