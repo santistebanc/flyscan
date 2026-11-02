@@ -9,7 +9,7 @@ const inbound = require("./fixtures/jetradar-airport-transfer.json");
 const code = buildSync({ stdin: { contents: `
   export { JourneyTimeline, placeEndLabels } from './src/JourneyTimeline';
   export { TripView } from './src/TripView';
-  export { tripStats, statRanges, rangeShare } from './src/tripStats';
+  export { tripStats } from './src/tripStats';
   export { normalizeLayout } from './src/LayoutToggle';
   export { CurrencyProvider } from './src/currency';
   export { journeyTiming, journeyScale, journeyHourMarks, flightTimelines } from './src/flightTimeline';
@@ -18,7 +18,7 @@ const code = buildSync({ stdin: { contents: `
 const mod = { exports: {} };
 vm.runInNewContext(code, { module: mod, exports: mod.exports, require, window: {},
   localStorage: { getItem: () => null } });
-const { JourneyTimeline, placeEndLabels, TripView, tripStats, statRanges, rangeShare, normalizeLayout, CurrencyProvider,
+const { JourneyTimeline, placeEndLabels, TripView, tripStats, normalizeLayout, CurrencyProvider,
   journeyTiming, journeyScale, journeyHourMarks, flightTimelines } = mod.exports;
 
 const segment = (origin, destination, departure, arrival, duration, flight) => ({
@@ -101,14 +101,6 @@ test("a trip's figures add both directions, and an undescribed connection leaves
   assert.equal(tripStats(trip("c", 200, vague, back)).duration, 580, "the reported duration still counts");
 });
 
-test("each figure's range spans the list, and a trip's place runs from the best to the worst", () => {
-  const ranges = statRanges([trip("a", 240, oneStop, back), trip("b", 120, back, back), trip("c", 300, { ...oneStop, segments: [] }, back)]);
-  assert.deepEqual({ ...ranges.price }, { min: 120, max: 300 });
-  assert.deepEqual({ ...ranges.layover }, { min: 0, max: 100 }, "the unknown layover is left out");
-  assert.equal(rangeShare(240, ranges.price), 2 / 3);
-  assert.equal(rangeShare(5, { min: 5, max: 5 }), 0, "a range of one value puts every trip at the best");
-});
-
 test("only a stored trip layout opens the Trip view", () => {
   assert.equal(normalizeLayout("trip"), "trip");
   for (const value of ["list", null, "grid", 1]) assert.equal(normalizeLayout(value), "list");
@@ -117,7 +109,7 @@ test("only a stored trip layout opens the Trip view", () => {
 const renderTrip = (rows, at) => {
   const timelines = flightTimelines(rows);
   return renderToStaticMarkup(React.createElement(CurrencyProvider, { api: null }, React.createElement(TripView, {
-    rows, at, onStep: () => {}, ratings: new Map(), ranges: statRanges(rows), timelines,
+    rows, at, onStep: () => {}, ratings: new Map(), timelines,
     layoverRatings: { outbound: new Map(), inbound: new Map() }, favorite: false, onToggleFavorite: () => {}, details: null,
   })));
 };

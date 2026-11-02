@@ -1,7 +1,7 @@
 /**
- * One trip across the whole window: where its price, time and stops sit among
- * the flights listed, then each direction drawn to scale on one axis for every
- * trip, stepped through with Prev and Next, the arrow keys or a swipe.
+ * One trip across the whole window: its price, time and stops, then each
+ * direction drawn to scale on one axis for every trip, stepped through with
+ * Prev and Next, the arrow keys or a swipe.
  */
 import { useLayoutEffect, useRef, useState, type ReactNode, type TouchEvent } from "react";
 import type { FlightRow, Leg, Offer } from "./api";
@@ -14,7 +14,7 @@ import { Icon } from "./Icon";
 import { useCurrency } from "./currency";
 import { openExternal } from "./platform";
 import { MANUAL_LABEL, isManual } from "./manualEntry";
-import { rangeShare, tripStats, type StatKey, type StatRange, type StatRanges } from "./tripStats";
+import { tripStats, type StatKey } from "./tripStats";
 
 type JourneyRating = { price?: Rating; outbound?: Rating; inbound?: Rating };
 const ZOOMS = [1, 1.5, 2, 3, 4];
@@ -23,24 +23,14 @@ const SWIPE = 60;
 const sellerName = (offer: Offer) => offer.agent || (isManual(offer) ? MANUAL_LABEL : offer.source);
 const stopsText = (stops: number) => stops === 0 ? "Nonstop" : `${stops} stop${stops === 1 ? "" : "s"}`;
 
-/** A figure, and a bar from the best of the list to the worst with this trip marked on it. */
-function Stat({ label, value, range, format, rating, hero = false }: {
-  label: string; value: number | null; range: StatRange | null; format: (value: number) => string;
-  rating?: Rating; hero?: boolean;
+/** A figure under its name; the filters above the trip are where the list is narrowed. */
+function Stat({ label, value, format, rating, hero = false }: {
+  label: string; value: number | null; format: (value: number) => string; rating?: Rating; hero?: boolean;
 }) {
-  const share = value !== null && range ? rangeShare(value, range) : null;
   return <div className={`trip-stat${hero ? " hero" : ""}`}>
     <span className="trip-stat-label">{label}</span>
     <span className="trip-stat-value" data-rating={rating?.level} title={rating?.description}>
       {value === null ? "–" : format(value)}</span>
-    {range && <span className="trip-stat-bar" role="img"
-      aria-label={`${label}: ${value === null ? "unknown" : format(value)}, from ${format(range.min)} to ${format(range.max)} in this list`}>
-      <span className="trip-stat-track">
-        {share !== null && <span className="trip-stat-fill" style={{ width: `${share * 100}%` }} />}
-        {share !== null && <span className="trip-stat-mark" style={{ left: `${share * 100}%` }} />}
-      </span>
-      <span className="trip-stat-ends" aria-hidden="true"><span>{format(range.min)}</span><span>{format(range.max)}</span></span>
-    </span>}
   </div>;
 }
 
@@ -81,10 +71,10 @@ function Direction({ title, leg, scale, timing, layoverRatings, rating, layover 
   </section>;
 }
 
-export function TripView({ rows, at, onStep, ratings, ranges, timelines, layoverRatings, favorite, onToggleFavorite,
+export function TripView({ rows, at, onStep, ratings, timelines, layoverRatings, favorite, onToggleFavorite,
   onOpenBooking, queue, details }: {
   rows: FlightRow[]; at: number; onStep: (index: number) => void;
-  ratings: ReadonlyMap<string, JourneyRating>; ranges: StatRanges; timelines: FlightTimelines;
+  ratings: ReadonlyMap<string, JourneyRating>; timelines: FlightTimelines;
   layoverRatings: ConnectionRatings; favorite: boolean; onToggleFavorite: (key: string) => void;
   /** Told after a booking page was handed to the browser. */
   onOpenBooking?: (seller: string) => void;
@@ -146,14 +136,10 @@ export function TripView({ rows, at, onStep, ratings, ranges, timelines, layover
     {bookError && <p className="detail-booking-error" role="alert">{bookError}</p>}
 
     <div className="trip-stats">
-      <div className="trip-stats-time">
-        <Stat label="Duration" value={stats.duration} range={ranges.duration} format={format.duration} />
-        <Stat label="Layover" value={stats.layover} range={ranges.layover} format={format.layover} />
-      </div>
-      <div className="trip-stats-price">
-        <Stat hero label="Price" value={stats.price} range={ranges.price} format={format.price} rating={rating?.price} />
-        <Stat label="Stops" value={stats.stops} range={ranges.stops} format={format.stops} />
-      </div>
+      <Stat hero label="Price" value={stats.price} format={format.price} rating={rating?.price} />
+      <Stat label="Duration" value={stats.duration} format={format.duration} />
+      <Stat label="Layover" value={stats.layover} format={format.layover} />
+      <Stat label="Stops" value={stats.stops} format={format.stops} />
     </div>
 
     <Direction title="Outbound" leg={row.outbound} scale={timelines.outbound} timing={timelines.journeys.get(row.outbound)}

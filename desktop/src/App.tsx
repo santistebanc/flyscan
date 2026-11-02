@@ -43,7 +43,6 @@ import { FavoriteButton } from "./FavoriteButton";
 import { FlightTimeline } from "./TimelineFlight";
 import { TripView } from "./TripView";
 import { LAYOUT_KEY, LayoutToggle, normalizeLayout, type Layout } from "./LayoutToggle";
-import { statRanges } from "./tripStats";
 import { elapsed, flightTimelines, type FlightTimelines } from "./flightTimeline";
 import { FILTERS_KEY, FlightFiltersBar } from "./FilterBar";
 import { DEFAULT_FILTERS, FILTERS_VERSION, matchesFlight, sanitizeFilters, withoutLimit, type ListFilters } from "./flightFilters";
@@ -968,7 +967,6 @@ function Shell() {
     if (foundAt >= 0) lastTripAt.current = foundAt;
     else setOpenKey(listRows[tripAt]!.trip_key);
   }, [tripMode, listRows, foundAt, tripAt]);
-  const tripRanges = useMemo(() => tripMode ? statRanges(listRows) : null, [tripMode, listRows]);
 
   /**
    * ↑/↓ walk the list and Escape steps out of it, wherever you are on the page.
@@ -1178,12 +1176,11 @@ function Shell() {
           </div>
         </div>
 
-        {tripMode && tripRanges && listRows[tripAt] ? <TripView
+        {tripMode && listRows[tripAt] ? <TripView
           rows={listRows}
           at={tripAt}
           onStep={(to) => setOpenKey(listRows[to]!.trip_key)}
           ratings={ratings}
-          ranges={tripRanges}
           timelines={timelines}
           layoverRatings={layoverRatings}
           favorite={favorites.has(listRows[tripAt]!.trip_key)}
