@@ -41,9 +41,13 @@ import { SortOptions } from "./SortOptions";
 import { useFavorites } from "./useFavorites";
 import { FavoriteButton } from "./FavoriteButton";
 import { FlightTimeline } from "./TimelineFlight";
+import { TripView, type TripStage } from "./TripView";
+import type { TimesPatch } from "./TimeHandles";
+import { LAYOUT_KEY, LayoutToggle, normalizeLayout, type Layout } from "./LayoutToggle";
+import { tripDistributions, tripStats } from "./tripStats";
 import { elapsed, flightTimelines, type FlightTimelines } from "./flightTimeline";
 import { FILTERS_KEY, FlightFiltersBar } from "./FilterBar";
-import { DEFAULT_FILTERS, FILTERS_VERSION, matchesFlight, sanitizeFilters, withoutLimit, type ListFilters } from "./flightFilters";
+import { DEFAULT_FILTERS, FILTERS_VERSION, matchesFlight, nearestTrip, OPEN_FILTERS, sanitizeFilters, setDirectionLimits, withoutLimit, type DirectionLimits, type ListFilters } from "./flightFilters";
 import { connectionFilterOptions, filterRanges } from "./filterSuggestions";
 import { PlaceInput } from "./PlaceInput";
 import { TravellersPicker, CABIN_LABELS } from "./TravellersPicker";
@@ -541,13 +545,35 @@ function Shell() {
     setSheetOpen((open) => !(open && tab === name));
     setTab(name);
   };
-  // A security check waits on a person, so a folded sheet unfolds onto it.
-  const needsPerson = pending.length > 0;
+  /** List: the flights in rows beside the panel. Trip: one trip across the window, no panel. */
+  const [layout, setLayout] = useState<Layout>(() => {
+    try { return normalizeLayout(localStorage.getItem(LAYOUT_KEY)); }
+    catch { return "list"; }
+  });
+  const tripMode = layout === "trip";
   useEffect(() => {
-    if (!needsPerson || !window.matchMedia(SHEET).matches) return;
+    // The stylesheet gives the panel's room back to the page in the Trip view.
+    document.documentElement.dataset.layout = layout;
+    try { localStorage.setItem(LAYOUT_KEY, layout); }
+    catch { /* The view still works when preference storage is unavailable. */ }
+  }, [layout]);
+  /** The Trip view has no panel; the queue opens over the page when asked for. */
+  const [queueOverlay, setQueueOverlay] = useState(false);
+  const openQueue = useCallback(() => {
+    setQueueOverlay(true);
     setTab("queue");
     setSheetOpen(true);
-  }, [needsPerson]);
+  }, []);
+  // Entering or leaving the Trip view starts it without the panel.
+  useEffect(() => { setQueueOverlay(false); }, [tripMode]);
+  // A security check waits on a person, so a folded sheet unfolds onto it. The
+  // Trip view stays clear: its Queue button lights up instead.
+  const needsPerson = pending.length > 0;
+  useEffect(() => {
+    if (!needsPerson || tripMode || !window.matchMedia(SHEET).matches) return;
+    setTab("queue");
+    setSheetOpen(true);
+  }, [needsPerson, tripMode]);
   const [toast, setToast] = useState("");
   // Marked as leaving first, so it can slide out before it is removed.
   const [toastLeaving, setToastLeaving] = useState(false);
@@ -667,6 +693,14 @@ function Shell() {
   const ratings = useMemo(() => flightRatings(filtered), [filtered]);
   const allTimelines = useMemo(() => flightTimelines(priceRows), [priceRows]);
   const timelines = useMemo(() => flightTimelines(filtered, allTimelines.journeys), [filtered, allTimelines]);
+  // The Trip view's handles set the time limits, so its timelines span the trips matching everything else:
+  // a limit let go never rescales the timeline under it, even one that leaves no trips.
+  const tripTimelines = useMemo(() => {
+    const anyTime = (direction: DirectionLimits) => ({ ...direction, depart: OPEN_FILTERS.outbound.depart, arrive: OPEN_FILTERS.outbound.arrive });
+    const untimed = { ...limits, outbound: anyTime(limits.outbound), inbound: anyTime(limits.inbound) };
+    const rows = priceRows.filter((row) => matchesFlight(row, untimed, row.best?.price_base == null ? null : roundedIn(row.best.price_base)));
+    return rows.length ? flightTimelines(rows, allTimelines.journeys) : allTimelines;
+  }, [priceRows, limits, roundedIn, allTimelines]);
   const layoverRatings = useMemo(() => connectionRatings(filtered, timelines), [filtered, timelines]);
   const suggestions = useMemo(() => filterRanges(priceRows, allTimelines.journeys), [priceRows, allTimelines]);
   const connectionOptions = useMemo(() => connectionFilterOptions(priceRows, limits,
@@ -930,6 +964,80 @@ function Shell() {
   }, [measure]);
 
   /**
+   * The Trip view's place in the list: the open flight's, or, when a filter
+   * or a new search drops it, about where it was, so you carry on from there.
+   */
+  const lastTripAt = useRef(0);
+  const foundAt = useMemo(() => listRows.findIndex((row) => row.trip_key === openKey), [listRows, openKey]);
+  const tripAt = foundAt >= 0 ? foundAt : Math.min(lastTripAt.current, Math.max(0, listRows.length - 1));
+  useEffect(() => {
+    if (!tripMode || !listRows.length) return;
+    if (foundAt >= 0) lastTripAt.current = foundAt;
+    else setOpenKey(listRows[tripAt]!.trip_key);
+  }, [tripMode, listRows, foundAt, tripAt]);
+  // A changed filter or sort starts the Trip view again from its first trip, before the old place is painted.
+  const tripOrder = useRef({ filters, sort });
+  useLayoutEffect(() => {
+    if (tripOrder.current.filters === filters && tripOrder.current.sort === sort) return;
+    tripOrder.current = { filters, sort };
+    if (!tripMode) return;
+    lastTripAt.current = 0;
+    setOpenKey(listRows[0]?.trip_key ?? null);
+  }, [tripMode, filters, sort, listRows]);
+  /**
+   * Each entry's figures and how they spread over the entries the Trip view
+   * steps through: pairs, or, while picking, one direction's flights, each
+   * priced from the cheapest pair it is sold in.
+   */
+  const tripFigures = useMemo(() => !tripMode ? null : step?.kind === "pick"
+    ? listRows.map((row) => {
+      const group = step.groups.get(row.trip_key);
+      return tripStats(row, group?.direction, group?.low ?? null);
+    })
+    : listRows.map((row) => tripStats(row)), [tripMode, listRows, step]);
+  const tripDists = useMemo(() => tripFigures ? tripDistributions(tripFigures) : null, [tripFigures]);
+  /**
+   * What the Trip view shows. When the filters leave nothing, the trip
+   * nearest them stays on screen, faded under the empty notice, its time
+   * handles there to relax a limit with: among the picked flight's pairs, if
+   * one is picked.
+   */
+  const tripShown = useMemo(() => {
+    const row = listRows[tripAt];
+    if (tripMode && row && tripFigures && tripDists) {
+      return { rows: listRows, at: tripAt, row, figures: tripFigures, dists: tripDists, empty: false };
+    }
+    if (!tripMode || listRows.length || !priceRows.length) return null;
+    const pool = pinned && stepDirection ? pairsOf(priceRows, pinned.key, stepDirection, sort) : [];
+    const near = nearestTrip(pool.length ? pool : priceRows, limits,
+      (one) => one.best?.price_base == null ? null : roundedIn(one.best.price_base))!;
+    return { rows: [near], at: 0, row: near, figures: [tripStats(near)],
+      dists: tripDistributions(priceRows.map((one) => tripStats(one))), empty: true };
+  }, [tripMode, listRows, tripAt, tripFigures, tripDists, priceRows, pinned, stepDirection, sort, limits, roundedIn]);
+  /** Picking a flight one way starts its pairs at the first; changing it goes back to it among the others. */
+  const pickInTrip = useCallback((key: string) => {
+    setPicked(key);
+    setLastPicked(key);
+    lastTripAt.current = 0;
+    setOpenKey(null);
+  }, []);
+  const unpinInTrip = useCallback(() => {
+    setOpenKey(picked);
+    setPicked(null);
+  }, [picked]);
+  const tripStage = useMemo<TripStage>(() => step?.kind === "pick" && stepDirection
+    ? { kind: "pick", direction: stepDirection, groups: step.groups, onPick: pickInTrip }
+    : step?.kind === "pair" ? { kind: "pair", pinned: step.pinned, onChange: unpinInTrip } : { kind: "pairs" },
+  [step, stepDirection, pickInTrip, unpinInTrip]);
+  /** A handle on a Trip view timeline sets the same time limits as the Times filter. */
+  const setTripTimes = useCallback((direction: "outbound" | "inbound", patch: TimesPatch) => setFilters((old) => {
+    let next = old;
+    if (patch.depart !== undefined) next = setDirectionLimits(next, "times", direction, { depart: { from: patch.depart, to: 1440 } });
+    if (patch.arrive !== undefined) next = setDirectionLimits(next, "times", direction, { arrive: { from: 0, to: patch.arrive } });
+    return next;
+  }), []);
+
+  /**
    * ↑/↓ walk the list and Escape steps out of it, wherever you are on the page.
    *
    * Bound to the window rather than to the list so it works without clicking
@@ -939,14 +1047,38 @@ function Shell() {
    */
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
-      if (!["ArrowDown", "ArrowUp", "Home", "End", "Escape"].includes(event.key)) return;
+      // The Trip view turns with ← and →, leaves ↑ and ↓ to scroll the page,
+      // and picks the flight shown with Enter.
+      const keys = tripMode ? ["ArrowLeft", "ArrowRight", "Home", "End", "Escape", "Enter"] : ["ArrowDown", "ArrowUp", "Home", "End", "Escape"];
+      if (!keys.includes(event.key)) return;
       if (event.altKey || event.metaKey || event.ctrlKey) return;
 
       const focused = document.activeElement?.tagName;
       if (focused === "INPUT" || focused === "SELECT" || focused === "TEXTAREA") return;
+      // A focused slider or button takes its own keys: a time handle its arrows, a button Enter.
+      if (document.activeElement?.getAttribute("role") === "slider") return;
+      if (event.key === "Enter" && focused === "BUTTON") return;
       // An open dialog owns the keyboard, Escape included.
       if (document.querySelector("dialog[open]")) return;
 
+      if (tripMode) {
+        // Escape closes the queue first, then lets go of a picked flight.
+        if (event.key === "Escape") {
+          if (queueOverlay) setQueueOverlay(false);
+          else if (tripStage.kind === "pair") tripStage.onChange();
+          return;
+        }
+        if (event.key === "Enter") {
+          if (tripStage.kind === "pick" && listRows[tripAt]) { event.preventDefault(); tripStage.onPick(listRows[tripAt]!.trip_key); }
+          return;
+        }
+        if (!listRows.length) return;
+        event.preventDefault();
+        const to = event.key === "Home" ? 0 : event.key === "End" ? listRows.length - 1
+          : Math.min(listRows.length - 1, Math.max(0, tripAt + (event.key === "ArrowRight" ? 1 : -1)));
+        setOpenKey(listRows[to]!.trip_key);
+        return;
+      }
       if (event.key === "Escape") {
         event.preventDefault();
         pickFlight(null);      // back to the queue
@@ -967,7 +1099,7 @@ function Shell() {
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [listRows, step, openKey, pickFlight]);
+  }, [listRows, step, openKey, pickFlight, tripMode, tripAt, tripStage, queueOverlay]);
 
   const openRow = filtered.find((row) => row.trip_key === openKey) ?? null;
   const listView = useMemo(() => JSON.stringify({ sort, filters, stepDirection, picked }), [sort, filters, stepDirection, picked]);
@@ -986,7 +1118,8 @@ function Shell() {
    * does something of its own.
    */
   useEffect(() => {
-    if (!openKey) return;
+    // The Trip view always shows a trip; there is nothing to put down.
+    if (!openKey || tripMode) return;
     const away = (event: MouseEvent) => {
       const target = event.target as HTMLElement | null;
       if (!target) return;
@@ -996,7 +1129,7 @@ function Shell() {
     };
     document.addEventListener("mousedown", away);
     return () => document.removeEventListener("mousedown", away);
-  }, [openKey, pickFlight]);
+  }, [openKey, pickFlight, tripMode]);
 
   const party = describeParty(adults, children, infants, cabin);
   const stats = rangeStats(queue.selected);
@@ -1112,19 +1245,53 @@ function Shell() {
               ? `${listRows.length.toLocaleString()} ${listNoun}${listRows.length === 1 ? "" : "s"}` : "No flights"}</h1>
             <span>{listRows.length && cheapest !== null ? `from ${money(cheapest)} · ` : ""}prices for {party}
               {engine.running && listRows.length ? " · more arriving" : ""}</span>
-            <SortOptions sort={sort} onChange={setSort} roundTrip={Boolean(ret) && !stepDirection} />
-          </div>
-          <div className="results-controls">
-            <FlightFiltersBar filters={filters} onChange={setFilters} shown={filtered.length} total={priceRows.length}
-              roundTrip={Boolean(ret)} suggestions={suggestions} connectionOptions={connectionOptions} />
             <div className="results-view-controls">
+              <LayoutToggle layout={layout} onChange={setLayout} />
               {ret && <PairViewPicker view={pairView} onChange={setPairView} />}
               <CurrencyInput />
             </div>
           </div>
+          <div className="results-controls">
+            <FlightFiltersBar filters={filters} onChange={setFilters} shown={filtered.length} total={priceRows.length}
+              roundTrip={Boolean(ret)} suggestions={suggestions} connectionOptions={connectionOptions} />
+            <SortOptions sort={sort} onChange={setSort} roundTrip={Boolean(ret) && !stepDirection} />
+          </div>
         </div>
 
-        <Results
+        {tripMode && tripShown ? <TripView
+          rows={tripShown.rows}
+          at={tripShown.at}
+          onStep={(to) => setOpenKey(listRows[to]!.trip_key)}
+          stage={tripStage}
+          figures={tripShown.figures}
+          times={{ outbound: filters.outbound, inbound: filters.inbound }}
+          onTimes={setTripTimes}
+          ratings={ratings}
+          distributions={tripShown.dists}
+          timelines={tripTimelines}
+          layoverRatings={layoverRatings}
+          empty={tripShown.empty ? empty : undefined}
+          favorite={favorites.has(tripShown.row.trip_key)}
+          onToggleFavorite={toggleFavorite}
+          onOpenBooking={(seller) => setToast(`Opening ${seller} in your browser…`)}
+          queue={<button type="button" className="trip-queue" onClick={openQueue} data-alert={needsPerson || undefined}
+            title={needsPerson ? "A security check needs you: open the queue" : "Show the search queue"}>
+            Queue<span className="side-tab-count">{activeSearches}</span>
+            {pending.length > 0 && <span className="side-tab-alert" role="img" aria-label="Verification needed" />}</button>}
+          details={<Details
+            key={tripShown.row.trip_key}
+            summary={false}
+            row={tripShown.row}
+            rating={ratings.get(tripShown.row.trip_key)}
+            layoverRatings={layoverRatings}
+            onCorrectPrice={correctPrice}
+            manual={manualActions}
+            favorite={favorites.has(tripShown.row.trip_key)}
+            onToggleFavorite={toggleFavorite}
+            partyLabel={party}
+            onOpenBooking={(seller) => setToast(`Opening ${seller} in your browser…`)}
+          />}
+        /> : <Results
           rows={listRows}
           dataset={stepDirection ? listRows : priceRows}
           view={listView}
@@ -1142,23 +1309,27 @@ function Shell() {
           layoverRatings={layoverRatings}
           filters={filters}
           step={step}
-        />
+        />}
       </main>
 
-      <aside className="side" ref={side} aria-label="Flight and search queue" data-open={sheetOpen || undefined}>
+      <aside className="side" ref={side} aria-label="Flight and search queue" data-open={sheetOpen || undefined}
+        data-overlay={tripMode && queueOverlay || undefined}>
         <div className="side-tabs" role="tablist" aria-label="Side panel">
-          <button type="button" role="tab" id="tab-flight" aria-selected={tab === "flight"} aria-controls="panel-flight"
-            onClick={() => showTab("flight")}>Flight</button>
-          <button type="button" role="tab" id="tab-queue" aria-selected={tab === "queue"} aria-controls="panel-queue"
+          {/* The Trip view shows the flight itself; over it the panel is only the queue. */}
+          {!tripMode && <button type="button" role="tab" id="tab-flight" aria-selected={tab === "flight"} aria-controls="panel-flight"
+            onClick={() => showTab("flight")}>Flight</button>}
+          <button type="button" role="tab" id="tab-queue" aria-selected={tripMode || tab === "queue"} aria-controls="panel-queue"
             onClick={() => showTab("queue")}>Queue<span className="side-tab-count">{activeSearches}</span>
             {pending.length > 0 && <span className="side-tab-alert" role="img" aria-label="Verification needed" />}</button>
-          <span className="side-hint" aria-hidden="true">↑ ↓ to browse · Esc</span>
+          {tripMode ? <button type="button" className="side-close queue-icon-button" aria-label="Close the queue" title="Close (Esc)"
+            onClick={() => setQueueOverlay(false)}><Icon name="cancel" /></button>
+            : <span className="side-hint" aria-hidden="true">↑ ↓ to browse · Esc</span>}
           <button type="button" className="side-toggle queue-icon-button" aria-expanded={sheetOpen} aria-controls="side-body"
             aria-label={sheetOpen ? "Fold the panel down" : "Open the panel"} onClick={() => setSheetOpen((open) => !open)}>
             <Icon name="chevron-down" /></button>
         </div>
         <div className="side-body" id="side-body">
-          <div role="tabpanel" id="panel-queue" aria-labelledby="tab-queue" hidden={tab !== "queue"}>
+          <div role="tabpanel" id="panel-queue" aria-labelledby="tab-queue" hidden={!tripMode && tab !== "queue"}>
             <ChallengeBanner
               api={api}
               pending={pending}
@@ -1168,7 +1339,7 @@ function Shell() {
             />
             <Queue queue={queue} readOnly={hosted} />
           </div>
-          <div role="tabpanel" id="panel-flight" aria-labelledby="tab-flight" hidden={tab !== "flight"}>
+          <div role="tabpanel" id="panel-flight" aria-labelledby="tab-flight" hidden={tripMode || tab !== "flight"}>
             {openRow ? <Details
               row={openRow}
               rating={ratings.get(openRow.trip_key)}

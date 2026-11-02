@@ -196,6 +196,54 @@ function directionFits(facts: DirectionFacts, limits: DirectionLimits): boolean 
 }
 
 /**
+ * How far a row falls outside its time limits: the minutes it departs too
+ * early plus those it arrives too late, over both directions. 0 when it is
+ * within them; Infinity when a limit is set and its clock is unknown.
+ */
+export function timesMiss(row: FlightRow, limits: Pick<FlightLimits, "outbound" | "inbound">): number {
+  let miss = 0;
+  for (const direction of ["outbound", "inbound"] as const) {
+    const facts = directionFacts(row, direction), { depart, arrive } = limits[direction];
+    if (!facts) continue;
+    if (depart.from > 0) {
+      const minute = clockMinutes(facts.departure);
+      if (minute === null) return Infinity;
+      miss += Math.max(0, depart.from - minute);
+    }
+    if (arrive.to < ANY_ARRIVAL) {
+      const minute = clockMinutes(facts.arrival);
+      if (minute === null) return Infinity;
+      miss += Math.max(0, dayOffset(facts.departure, facts.arrival) * 1440 + minute - arrive.to);
+    }
+  }
+  return miss;
+}
+
+/**
+ * The row nearest to `limits` when none meets them: the one outside its time
+ * limits by the fewest minutes, then one that meets every other limit, then
+ * the cheapest.
+ */
+export function nearestTrip(rows: readonly FlightRow[], limits: FlightLimits,
+  price: (row: FlightRow) => number | null): FlightRow | null {
+  const others = withoutTimes(limits);
+  let best: FlightRow | null = null, bestRank: number[] = [];
+  for (const row of rows) {
+    const cost = price(row);
+    const rank = [timesMiss(row, limits), matchesFlight(row, others, cost) ? 0 : 1, cost ?? Infinity];
+    const differs = rank.findIndex((value, i) => value !== bestRank[i]);
+    if (!best || (differs >= 0 && rank[differs]! < bestRank[differs]!)) { best = row; bestRank = rank; }
+  }
+  return best;
+}
+
+/** `limits` with no time limit in either direction. */
+export function withoutTimes<T extends Pick<FlightLimits, "outbound" | "inbound">>(limits: T): T {
+  const open = { depart: { from: 0, to: 1440 }, arrive: { from: 0, to: ANY_ARRIVAL } };
+  return { ...limits, outbound: { ...limits.outbound, ...open }, inbound: { ...limits.inbound, ...open } };
+}
+
+/**
  * A row stays when every set limit holds. Each direction is held to its own
  * limits, so either an outbound or a return that runs long, stops too often,
  * or waits too long at one connection is enough to hide the trip.

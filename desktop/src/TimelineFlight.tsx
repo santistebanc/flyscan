@@ -7,7 +7,7 @@ import { airlineColor, clock, dayOffset, elapsed, filteredOutSpans, isOvernight,
   timelineScaleFor, timelineScaleLabel, type JourneyTiming, type TimelineMode, type TimelineScale } from "./flightTimeline";
 
 /** An element's rendered width, kept current as the layout changes. */
-function useWidth<T extends HTMLElement>() {
+export function useWidth<T extends HTMLElement>() {
   const ref = useRef<T | null>(null);
   const [width, setWidth] = useState(0);
   useLayoutEffect(() => {
@@ -25,14 +25,14 @@ function useWidth<T extends HTMLElement>() {
  * line, its text — short, fixed strings like "Dec 17" and "06:00", so a width
  * per character is close enough — and clear space before whatever comes next.
  */
-const labelRoom = (text: string, perChar: number) => 4 + text.length * perChar + 10;
+export const labelRoom = (text: string, perChar: number) => 4 + text.length * perChar + 10;
 
 /**
  * Which labels to draw: each needs its room before the end of the plot and
  * before the next label's line. One that would run into the arrival time or
  * another label is left out; its line stays, with the date on hover.
  */
-function fittingLabels<T extends { x: number; text: string }>(marks: T[], width: number, perChar: number): Set<T> {
+export function fittingLabels<T extends { x: number; text: string }>(marks: T[], width: number, perChar: number): Set<T> {
   // Not measured yet (the first render, or no layout at all): every label, as before.
   if (width <= 0) return new Set(marks);
   const sorted = [...marks].sort((a, b) => a.x - b.x);

@@ -304,6 +304,8 @@ button.primary:hover:not(:disabled) { background: var(--accent-strong); }
 .sort-menu button[aria-checked="true"] { color: var(--accent); }
 .sort-menu .icon { width: 14px; height: 14px; }
 .results-controls { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 14px; }
+/* The sort keeps its size at the right; the filters beside it scroll when narrow. */
+.results-controls > .sort-options { flex: none; }
 
 .flight-filters { display: flex; flex: 1 1 auto; flex-wrap: wrap; align-items: center; gap: 6px; min-width: 0; }
 .flight-filter-trigger {
@@ -635,6 +637,28 @@ button.primary:hover:not(:disabled) { background: var(--accent-strong); }
 .detail-leg-duration { font: 12px var(--mono); white-space: nowrap; }
 .detail-warning { margin: 0 0 10px; padding: 6px 10px; border-radius: 4px; background: var(--warn-soft); font-size: 12px; color: var(--warn); }
 .detail-segments { margin: 0; padding: 0; list-style: none; }
+/* The journey to scale: the scale's dates and hours on top, departures above
+   the bars, arrivals below them. */
+.journey-timeline { position: relative; height: 80px; margin: 0 0 14px; }
+.journey-timeline::before { content: ""; position: absolute; left: 0; right: 0; top: 43px; border-top: 1px solid var(--line-soft); }
+.jt-midnight { position: absolute; top: 12px; bottom: 0; border-left: 1px dashed var(--muted); }
+.jt-hour { position: absolute; top: 12px; bottom: 0; border-left: 1px solid var(--line-soft); }
+.jt-date, .jt-hour-label { position: absolute; top: 0; margin-left: 4px; font: 500 10px/10px var(--mono); white-space: nowrap; pointer-events: none; }
+.jt-date { color: var(--muted); }
+.jt-hour-label { color: var(--faint); }
+.jt-part { position: absolute; top: 32px; height: 22px; display: flex; align-items: center; justify-content: center; overflow: hidden; }
+.jt-part.airborne { border-radius: 3px; background: var(--airline); color: #0b1220; }
+/* A rated wait takes its rating's color for its duration, as in the list. */
+.jt-part.layover { top: 35px; height: 16px; border: 1px dashed #6b7c96; border-radius: 3px; }
+.jt-part.layover:not([data-rating]) { color: var(--muted); }
+.jt-part.layover.transfer { border-color: var(--warn); }
+.jt-part.summary { border-top: 3px dashed var(--muted); height: 3px; top: 42px; overflow: visible; }
+.jt-part.summary .jt-part-text { position: relative; top: 10px; color: var(--muted); }
+.jt-part-text { padding: 0 4px; font: 600 11px/1 var(--mono); white-space: nowrap; }
+.jt-part.layover .jt-part-text { font-weight: 500; font-size: 10.5px; }
+.jt-end { position: absolute; font: 550 12px/14px var(--mono); white-space: nowrap; color: var(--ink); }
+.jt-end.departs { top: 16px; }
+.jt-end.arrives { top: 58px; }
 .detail-connection { margin: 2px 0 2px 58px; padding: 6px 10px; border-radius: 4px; background: var(--bg); font-size: 12px; color: var(--muted); }
 .detail-connection.transfer .detail-connection-what { color: var(--warn); }
 .detail-flight { display: grid; grid-template-columns: 48px 3px minmax(0, 1fr); column-gap: 10px; padding: 4px 0; }
@@ -1030,3 +1054,163 @@ button.primary:hover:not(:disabled) { background: var(--accent-strong); }
 /* "New flights above" slides down into place rather than appearing over the list. */
 .list-notice.top > * { transition: opacity 200ms var(--ease-out), transform 200ms var(--ease-out); }
 @starting-style { .list-notice.top > * { opacity: 0; transform: translateY(-6px); } }
+
+/* -- trip view ------------------------------------------------------------ */
+
+/* One trip across the window: the panel gives its room back, and the queue
+   opens over the page only when asked for or when a check needs someone. */
+:root[data-layout="trip"] body { padding-right: 0; }
+:root[data-layout="trip"] .side:not([data-overlay]) { display: none; }
+:root[data-layout="trip"] .side { z-index: 40; box-shadow: var(--shadow); }
+:root[data-layout="trip"] .side-toggle { display: none; }
+.side-close { margin-left: auto; }
+
+.trip-view { padding: 12px 24px 48px; }
+.trip-nav { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding: 4px 0 18px; }
+.trip-nav > button, .trip-queue, .trip-book {
+  display: flex; align-items: center; gap: 4px; height: 34px; padding: 0 12px;
+  border: 1px solid var(--line); border-radius: 6px; background: var(--panel);
+  font-size: 13px; font-weight: 500; color: var(--ink-soft); white-space: nowrap;
+}
+.trip-nav .icon { width: 16px; height: 16px; }
+.trip-nav-first .icon + .icon { margin-left: -11px; }
+.trip-queue[data-alert] { border-color: var(--warn); color: var(--warn); }
+.trip-nav > button:hover:not(:disabled), .trip-queue:hover { border-color: var(--accent); color: var(--ink); }
+.trip-nav > button:disabled { opacity: .4; cursor: default; }
+.trip-counter { margin-left: 6px; font-size: 14px; color: var(--muted); white-space: nowrap; }
+.trip-counter b { font-family: var(--mono); font-weight: 600; color: var(--ink); }
+.trip-nav-end { display: flex; align-items: center; gap: 8px; margin-left: auto; }
+.trip-book { border-color: var(--accent); background: var(--accent); color: var(--bg); font-weight: 600; }
+.trip-book:hover { filter: brightness(1.08); }
+.trip-book-seller { margin-left: 4px; font-weight: 400; opacity: .8; }
+
+/* Four figures side by side, each over how it spreads across the trips; two by two on a phone. */
+.trip-stats { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 16px 36px; padding: 4px 0 20px; border-bottom: 1px solid var(--line-soft); }
+.trip-stat { display: flex; flex-direction: column; justify-content: flex-end; gap: 4px; min-width: 0; }
+.trip-dist { display: flex; flex-direction: column; gap: 3px; margin-top: 6px; }
+.trip-dist-plot { position: relative; display: block; height: 44px; border-bottom: 1px solid var(--line); }
+.trip-dist-plot svg { display: block; width: 100%; height: 100%; }
+.trip-dist-plot rect { fill: var(--line); }
+.trip-dist-plot rect:hover { fill: var(--muted); }
+.trip-dist-plot rect.current { fill: var(--accent); }
+.trip-dist-mark { position: absolute; top: -4px; bottom: -4px; width: 2px; margin-left: -1px; border-radius: 1px; background: var(--ink); pointer-events: none; }
+.trip-dist-ends { display: flex; justify-content: space-between; gap: 8px; font: 11px var(--mono); color: var(--faint); white-space: nowrap; }
+.trip-dist-standing { font-size: 12px; color: var(--ink-soft); }
+.trip-stat-label { font-size: 11px; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; color: var(--muted); }
+.trip-stat-value { font: 600 26px/1.1 var(--mono); }
+.trip-stat.hero .trip-stat-value { font-size: 40px; }
+
+.trip-direction { padding: 18px 0 10px; border-bottom: 1px solid var(--line-soft); }
+.trip-direction-head { display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px 14px; margin-bottom: 6px; }
+.trip-direction-head h3 { margin: 0; font-size: 12px; font-weight: 700; letter-spacing: .12em; text-transform: uppercase; color: var(--accent); }
+.trip-direction-day { font-size: 13px; color: var(--ink-soft); }
+.trip-direction-facts { display: flex; flex-wrap: wrap; gap: 4px 14px; font-size: 12px; color: var(--muted); }
+.trip-direction-facts b { font-family: var(--mono); font-weight: 500; }
+.trip-direction-facts b:not([data-rating]) { color: var(--ink); }
+.trip-zoom { display: flex; gap: 4px; margin-left: auto; }
+.trip-zoom button { width: 28px; height: 28px; border: 1px solid var(--line); border-radius: 4px; font-size: 15px; color: var(--ink-soft); }
+.trip-zoom button:hover:not(:disabled) { border-color: var(--accent); color: var(--ink); }
+.trip-zoom button:disabled { opacity: .35; cursor: default; }
+.trip-timeline-scroll { overflow-x: auto; overflow-y: hidden; }
+/* The details timeline, drawn larger across the window. */
+.trip-timeline .journey-timeline { height: 100px; margin: 0; }
+.trip-timeline .journey-timeline::before { top: 55px; }
+.trip-timeline .jt-midnight, .trip-timeline .jt-hour { top: 14px; }
+.trip-timeline .jt-part { top: 40px; height: 30px; }
+.trip-timeline .jt-part.layover { top: 45px; height: 20px; }
+.trip-timeline .jt-part.summary { top: 54px; height: 3px; }
+.trip-timeline .jt-part-text { font-size: 12px; }
+.trip-timeline .jt-end { font-size: 13px; }
+.trip-timeline .jt-end.departs { top: 20px; }
+.trip-timeline .jt-end.arrives { top: 76px; }
+/* The time filter handles stand at the timeline's ends; their limits read underneath. */
+.trip-timeline { position: relative; padding-bottom: 20px; }
+.time-handles { position: absolute; left: 0; right: 0; top: 14px; bottom: 20px; pointer-events: none; }
+.time-filtered { position: absolute; top: 0; bottom: 0; background: repeating-linear-gradient(135deg, #0000004d 0 4px, #00000026 4px 8px); }
+/* Each handle follows a lead as wide as its place on the timeline, and is
+   sticky to the scrolling box: the browser itself holds it at the edge in
+   sight as a zoomed timeline scrolls, with no lag. The track clips without
+   becoming a scroll box, so a handle at an end adds nothing to scroll. */
+.time-handle-track { position: absolute; inset: 0; display: flex; overflow: clip; pointer-events: none; }
+.time-handle-lead { flex: none; }
+.time-handle {
+  --stem-at: 9px; --grip-shift: 4px; position: sticky; left: calc(-1 * var(--stem-at)); right: calc(-1 * var(--stem-at)); flex: none; height: 100%; width: 20px; margin-left: -10px; display: flex; justify-content: center;
+  cursor: ew-resize; touch-action: none; pointer-events: auto; outline: none;
+}
+.time-handle::before { content: ""; width: 2px; height: 100%; border-radius: 1px; background: var(--line); }
+.time-handle-grip {
+  position: absolute; top: 50%; width: 10px; height: 26px; margin-top: -13px; border-radius: 4px;
+  border: 1px solid var(--muted); background: var(--panel); transition: transform 120ms ease-out;
+}
+.time-handle:hover::before, .time-handle:focus-visible::before { background: var(--muted); }
+.time-handle:hover .time-handle-grip, .time-handle:focus-visible .time-handle-grip { border-color: var(--ink); }
+.time-handle[data-active]::before, .time-handle[data-dragging]::before { background: var(--accent); }
+.time-handle[data-active] .time-handle-grip, .time-handle[data-dragging] .time-handle-grip { border-color: var(--accent); background: var(--accent-soft); }
+.time-handle-label { position: absolute; top: calc(100% + 3px); font: 500 11px/14px var(--mono); color: var(--accent); white-space: nowrap; pointer-events: none; }
+.time-handle.depart .time-handle-label { left: 0; }
+.time-handle.arrive .time-handle-label { right: 0; }
+@media (pointer: coarse) { .time-handle { --stem-at: 15px; --grip-shift: 6px; width: 32px; margin-left: -16px; } .time-handle-grip { width: 14px; height: 32px; margin-top: -16px; } }
+/* Held at an edge in sight, a handle's stem lies right on the edge (its box
+   sticks out past it) and its grip and label sit inwards, whole. Its stem
+   fades when its limit lies further on, out of sight. */
+.time-handle[data-edge="start"] .time-handle-grip { transform: translateX(var(--grip-shift)); }
+.time-handle[data-edge="end"] .time-handle-grip { transform: translateX(calc(-1 * var(--grip-shift))); }
+.time-handle[data-edge="start"] .time-handle-label { left: var(--stem-at); right: auto; }
+.time-handle[data-edge="end"] .time-handle-label { left: auto; right: var(--stem-at); }
+.time-handle[data-beyond]::before { opacity: .45; }
+.trip-timeline-scroll:not([data-zoomed]) { overflow-x: hidden; }
+
+/* The flight picked first, above the pairs it is sold in. */
+.trip-pinned {
+  display: flex; flex-wrap: wrap; align-items: center; gap: 4px 12px; margin-bottom: 10px; padding: 8px 12px;
+  border: 1px solid var(--accent); border-radius: 6px; background: var(--accent-soft); font-size: 13px;
+}
+.trip-pinned-what { font-size: 11px; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; color: var(--accent); }
+.trip-pinned-flight { font-family: var(--mono); color: var(--ink); }
+.trip-pinned button { margin-left: auto; padding: 4px 12px; border: 1px solid var(--accent); border-radius: 4px; font-size: 12px; font-weight: 600; color: var(--accent); }
+.trip-pinned button:hover { background: var(--accent); color: var(--bg); }
+
+.trip-details { padding-top: 14px; }
+.trip-details-toggle { display: flex; align-items: center; gap: 6px; padding: 6px 0; font-size: 12px; font-weight: 600; color: var(--ink-soft); }
+.trip-details-toggle .caret { width: 14px; height: 14px; color: var(--faint); transition: transform .12s; }
+.trip-details-toggle[aria-expanded="true"] .caret { transform: rotate(90deg); }
+.trip-details .detail { max-width: 720px; }
+
+@media (max-width: 640px) {
+  .trip-view { padding: 8px 12px 40px; }
+  .trip-nav-text, .trip-book-seller { display: none; }
+  .trip-stats { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px 20px; }
+  .trip-stat-value { font-size: 22px; }
+  .trip-stat.hero .trip-stat-value { font-size: 32px; }
+}
+
+/* -- trip view motion ------------------------------------------------------ */
+
+/* As in the first flyscan: stepping to another trip reshapes the one on
+   screen. Bars, times, ticks and marks glide to their new places, and each
+   figure that changes rises into place. Reduced motion keeps only the fades
+   (see the prefers-reduced-motion rule above). */
+.trip-timeline :is(.jt-part, .jt-end, .jt-midnight, .jt-date, .jt-hour, .jt-hour-label),
+.time-handle-lead, .time-filtered, .trip-dist-mark {
+  transition: left 380ms cubic-bezier(.4, 0, .2, 1), width 380ms cubic-bezier(.4, 0, .2, 1);
+}
+/* Under the finger, a handle and its shading follow at once. */
+.time-handles[data-dragging] :is(.time-handle-lead, .time-filtered) { transition: none; }
+.trip-dist-plot rect { transition: fill 200ms ease-out; }
+@keyframes trip-rise { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+.trip-anim-in { display: inline-block; animation: trip-rise 380ms cubic-bezier(.22, .95, .34, 1) both; }
+@media (prefers-reduced-motion: reduce) {
+  @keyframes trip-rise { from { opacity: 0; } to { opacity: 1; } }
+}
+
+/* Nothing matches: the last trip stays, dimmed, under the notice. */
+.trip-empty {
+  display: flex; flex-wrap: wrap; align-items: center; gap: 10px 16px; margin-bottom: 14px; padding: 12px 14px;
+  border: 1px solid var(--line); border-radius: 6px; background: var(--panel);
+}
+.trip-empty-text { display: flex; flex-direction: column; gap: 2px; font-size: 12px; color: var(--muted); }
+.trip-empty-text b { font-size: 14px; color: var(--ink); }
+.trip-empty button { margin-left: auto; padding: 8px 14px; border-radius: 4px; background: var(--accent); color: var(--bg); font-size: 13px; font-weight: 600; }
+.trip-view[data-empty] :is(.trip-stats, .journey-timeline, .trip-direction-head > :not(h3, .trip-zoom)) {
+  opacity: .35; transition: opacity 200ms ease-out;
+}
