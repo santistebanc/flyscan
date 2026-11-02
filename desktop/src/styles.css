@@ -304,6 +304,8 @@ button.primary:hover:not(:disabled) { background: var(--accent-strong); }
 .sort-menu button[aria-checked="true"] { color: var(--accent); }
 .sort-menu .icon { width: 14px; height: 14px; }
 .results-controls { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 14px; }
+/* The sort keeps its size at the right; the filters beside it scroll when narrow. */
+.results-controls > .sort-options { flex: none; }
 
 .flight-filters { display: flex; flex: 1 1 auto; flex-wrap: wrap; align-items: center; gap: 6px; min-width: 0; }
 .flight-filter-trigger {

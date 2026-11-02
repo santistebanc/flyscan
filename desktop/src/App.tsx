@@ -1165,16 +1165,16 @@ function Shell() {
               ? `${listRows.length.toLocaleString()} ${listNoun}${listRows.length === 1 ? "" : "s"}` : "No flights"}</h1>
             <span>{listRows.length && cheapest !== null ? `from ${money(cheapest)} · ` : ""}prices for {party}
               {engine.running && listRows.length ? " · more arriving" : ""}</span>
-            <LayoutToggle layout={layout} onChange={setLayout} />
+            <div className="results-view-controls">
+              <LayoutToggle layout={layout} onChange={setLayout} />
+              {ret && !tripMode && <PairViewPicker view={pairView} onChange={setPairView} />}
+              <CurrencyInput />
+            </div>
           </div>
           <div className="results-controls">
             <FlightFiltersBar filters={filters} onChange={setFilters} shown={filtered.length} total={priceRows.length}
               roundTrip={Boolean(ret)} suggestions={suggestions} connectionOptions={connectionOptions} />
-            <div className="results-view-controls">
-              <SortOptions sort={sort} onChange={setSort} roundTrip={Boolean(ret) && !stepDirection} />
-              {ret && !tripMode && <PairViewPicker view={pairView} onChange={setPairView} />}
-              <CurrencyInput />
-            </div>
+            <SortOptions sort={sort} onChange={setSort} roundTrip={Boolean(ret) && !stepDirection} />
           </div>
         </div>
 
