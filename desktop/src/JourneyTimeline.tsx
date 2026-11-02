@@ -39,10 +39,9 @@ function barText(part: JourneyTiming["parts"][number]["part"]): string[] {
   if (part.kind === "flight") {
     const s = part.segment;
     if (!part.detailed) return ["Schedule not detailed"];
-    const number = s.flight_number || s.carrier || "";
     const time = part.minutes === null ? "" : elapsed(part.minutes);
-    return [[s.carrier_name, number, time && `· ${time}`].filter(Boolean).join(" "),
-      [number, time && `· ${time}`].filter(Boolean).join(" "), time, number].filter(Boolean);
+    const said = (airline?: string) => [airline, time].filter(Boolean).join(" · ");
+    return [said(s.carrier_name || s.carrier), said(s.carrier), time, s.carrier].filter(Boolean);
   }
   const where = part.transfer ? `${part.before.destination}→${part.after.origin}` : part.before.destination;
   const wait = `${elapsed(part.minutes)}${isOvernight(part) ? " ☾" : ""}`;

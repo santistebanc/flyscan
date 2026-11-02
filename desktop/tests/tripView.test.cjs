@@ -282,10 +282,10 @@ test("a dragged handle snaps to a quarter hour, and dragged out to its end lifts
 
 test("a handle whose limit is scrolled out of sight waits at the edge in sight", () => {
   const view = { from: 25, to: 50 };
-  assert.deepEqual({ ...handleAt(0, view) }, { left: 25, edge: "start", beyond: true });
-  assert.deepEqual({ ...handleAt(80, view) }, { left: 50, edge: "end", beyond: true });
-  assert.deepEqual({ ...handleAt(30, view) }, { left: 30, beyond: false });
-  assert.deepEqual({ ...handleAt(100, { from: 0, to: 100 }) }, { left: 100, edge: "end", beyond: false }, "at the end, drawn inside it");
+  assert.deepEqual({ ...handleAt(0, view) }, { edge: "start", beyond: true });
+  assert.deepEqual({ ...handleAt(80, view) }, { edge: "end", beyond: true });
+  assert.deepEqual({ ...handleAt(30, view) }, { beyond: false });
+  assert.deepEqual({ ...handleAt(100, { from: 0, to: 100 }) }, { edge: "end", beyond: false }, "at the end, not beyond it");
 });
 
 test("set time limits show on the handles and shade the hours they rule out", () => {

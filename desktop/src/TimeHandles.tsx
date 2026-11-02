@@ -37,15 +37,14 @@ export function limitAt(which: Which, minute: number, base: number, scale: Pick<
 }
 
 /**
- * Where a handle stands: at its limit, or, with the limit scrolled out of a
- * zoomed timeline, waiting at the edge in sight so it can still be grabbed.
- * `edge`: it stands at an edge in sight and is drawn inside it, not across
- * it. `beyond`: its limit lies past that edge.
+ * A handle at `place` against the part of the timeline in sight. The
+ * stylesheet holds it at the edge in sight; this says which edge, so its
+ * label reads inwards, and `beyond` when its limit lies past it, out of sight.
  */
-export function handleAt(place: number, view: View): { left: number; edge?: "start" | "end"; beyond: boolean } {
-  if (place <= view.from) return { left: view.from, edge: "start", beyond: place < view.from };
-  if (place >= view.to) return { left: view.to, edge: "end", beyond: place > view.to };
-  return { left: place, beyond: false };
+export function handleAt(place: number, view: View): { edge?: "start" | "end"; beyond: boolean } {
+  if (place <= view.from) return { edge: "start", beyond: place < view.from };
+  if (place >= view.to) return { edge: "end", beyond: place > view.to };
+  return { beyond: false };
 }
 
 export function TimeHandles({ timing, scale, times, title, view = { from: 0, to: 100 }, onChange }: {
@@ -108,9 +107,11 @@ export function TimeHandles({ timing, scale, times, title, view = { from: 0, to:
       style={{ left: `${percent(start, scale)}%`, width: `${(end - start) / span * 100}%` }} />)}
     {(["depart", "arrive"] as const).map((which) => {
       const active = which === "depart" ? depart > 0 : arrive < ANY_ARRIVAL;
+      // The stylesheet keeps the handle in sight as the timeline scrolls; `view` only says where its label reads and whether it fades.
       const at = handleAt(place(which), view);
-      return <span key={which} className={`time-handle ${which}`} data-active={active || undefined}
-        data-edge={at.edge} data-beyond={at.beyond || undefined} data-dragging={drag?.which === which || undefined} style={{ left: `${at.left}%` }}
+      return <span key={which} className="time-handle-track"><span className="time-handle-lead" style={{ width: `${place(which)}%` }} />
+        <span className={`time-handle ${which}`} data-active={active || undefined}
+        data-edge={at.edge} data-beyond={at.beyond || undefined} data-dragging={drag?.which === which || undefined}
         role="slider" tabIndex={0} aria-label={`${title}: ${which === "depart" ? "earliest departure" : "latest arrival"}`}
         aria-valuetext={label(which)} aria-valuemin={0} aria-valuemax={which === "depart" ? 1440 : ANY_ARRIVAL}
         aria-valuenow={which === "depart" ? depart : arrive} title={`${label(which)}\nDrag, or use ← and →`}
@@ -118,7 +119,7 @@ export function TimeHandles({ timing, scale, times, title, view = { from: 0, to:
         onPointerUp={onPointerUp(which)} onPointerCancel={() => setDrag(null)} onKeyDown={onKeyDown(which)}>
         <span className="time-handle-grip" />
         {(active || drag?.which === which) && <span className="time-handle-label">{label(which)}</span>}
-      </span>;
+      </span></span>;
     })}
   </div>;
 }

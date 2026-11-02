@@ -47,7 +47,7 @@ import { LAYOUT_KEY, LayoutToggle, normalizeLayout, type Layout } from "./Layout
 import { tripDistributions, tripStats } from "./tripStats";
 import { elapsed, flightTimelines, type FlightTimelines } from "./flightTimeline";
 import { FILTERS_KEY, FlightFiltersBar } from "./FilterBar";
-import { DEFAULT_FILTERS, FILTERS_VERSION, matchesFlight, nearestTrip, sanitizeFilters, setDirectionLimits, withoutLimit, type ListFilters } from "./flightFilters";
+import { DEFAULT_FILTERS, FILTERS_VERSION, matchesFlight, nearestTrip, OPEN_FILTERS, sanitizeFilters, setDirectionLimits, withoutLimit, type DirectionLimits, type ListFilters } from "./flightFilters";
 import { connectionFilterOptions, filterRanges } from "./filterSuggestions";
 import { PlaceInput } from "./PlaceInput";
 import { TravellersPicker, CABIN_LABELS } from "./TravellersPicker";
@@ -693,6 +693,14 @@ function Shell() {
   const ratings = useMemo(() => flightRatings(filtered), [filtered]);
   const allTimelines = useMemo(() => flightTimelines(priceRows), [priceRows]);
   const timelines = useMemo(() => flightTimelines(filtered, allTimelines.journeys), [filtered, allTimelines]);
+  // The Trip view's handles set the time limits, so its timelines span the trips matching everything else:
+  // a limit let go never rescales the timeline under it, even one that leaves no trips.
+  const tripTimelines = useMemo(() => {
+    const anyTime = (direction: DirectionLimits) => ({ ...direction, depart: OPEN_FILTERS.outbound.depart, arrive: OPEN_FILTERS.outbound.arrive });
+    const untimed = { ...limits, outbound: anyTime(limits.outbound), inbound: anyTime(limits.inbound) };
+    const rows = priceRows.filter((row) => matchesFlight(row, untimed, row.best?.price_base == null ? null : roundedIn(row.best.price_base)));
+    return rows.length ? flightTimelines(rows, allTimelines.journeys) : allTimelines;
+  }, [priceRows, limits, roundedIn, allTimelines]);
   const layoverRatings = useMemo(() => connectionRatings(filtered, timelines), [filtered, timelines]);
   const suggestions = useMemo(() => filterRanges(priceRows, allTimelines.journeys), [priceRows, allTimelines]);
   const connectionOptions = useMemo(() => connectionFilterOptions(priceRows, limits,
@@ -1260,7 +1268,7 @@ function Shell() {
           onTimes={setTripTimes}
           ratings={ratings}
           distributions={tripShown.dists}
-          timelines={tripShown.empty ? allTimelines : timelines}
+          timelines={tripTimelines}
           layoverRatings={layoverRatings}
           empty={tripShown.empty ? empty : undefined}
           favorite={favorites.has(tripShown.row.trip_key)}
