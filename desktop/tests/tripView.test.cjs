@@ -13,7 +13,7 @@ const code = buildSync({ stdin: { contents: `
   export { normalizeLayout } from './src/LayoutToggle';
   export { CurrencyProvider } from './src/currency';
   export { journeyTiming, journeyScale, journeyHourMarks, flightTimelines, timeFilterAxis } from './src/flightTimeline';
-  export { handleAt, limitAt, limitClock } from './src/TimeHandles';
+  export { handleAt, keptApart, limitAt, limitClock } from './src/TimeHandles';
   export { pickGroups, legKey } from './src/pairPicking';
   export { OPEN_FILTERS, ANY_ARRIVAL, nearestTrip } from './src/flightFilters';
 `, resolveDir: path.join(__dirname, "..") }, bundle: true, external: ["react", "react-dom"],
@@ -22,7 +22,7 @@ const mod = { exports: {} };
 vm.runInNewContext(code, { module: mod, exports: mod.exports, require, window: {},
   localStorage: { getItem: () => null } });
 const { JourneyTimeline, placeEndLabels, TripView, tripStats, distribution, placeIn, tripDistributions, normalizeLayout, CurrencyProvider,
-  journeyTiming, journeyScale, journeyHourMarks, flightTimelines, timeFilterAxis, handleAt, limitAt, limitClock, pickGroups, legKey,
+  journeyTiming, journeyScale, journeyHourMarks, flightTimelines, timeFilterAxis, handleAt, keptApart, limitAt, limitClock, pickGroups, legKey,
   OPEN_FILTERS, ANY_ARRIVAL, nearestTrip } = mod.exports;
 
 const segment = (origin, destination, departure, arrival, duration, flight) => ({
@@ -286,6 +286,23 @@ test("a handle whose limit is scrolled out of sight waits at the edge in sight",
   assert.deepEqual({ ...handleAt(80, view) }, { edge: "end", beyond: true });
   assert.deepEqual({ ...handleAt(30, view) }, { beyond: false });
   assert.deepEqual({ ...handleAt(100, { from: 0, to: 100 }) }, { edge: "end", beyond: false }, "at the end, not beyond it");
+});
+
+test("scrolled past as far as its limits reach, a handle goes by with the timeline", () => {
+  const reach = { from: 0, to: 40 };
+  assert.deepEqual({ ...handleAt(40, { from: 60, to: 80 }, reach) }, { beyond: false });
+  assert.deepEqual({ ...handleAt(10, { from: 20, to: 50 }, reach) }, { edge: "start", beyond: true }, "still within reach");
+  assert.deepEqual({ ...handleAt(90, { from: 10, to: 30 }, { from: 50, to: 100 }) }, { beyond: false });
+});
+
+test("the two handles are never dragged or stepped past each other", () => {
+  const axis = { depart: 0, arrive: 0 };
+  assert.equal(keptApart("depart", 20 * 60, 18 * 60, axis), 18 * 60, "no departure after the latest arrival");
+  assert.equal(keptApart("depart", 20 * 60, ANY_ARRIVAL, axis), 20 * 60, "no arrival limit holds nothing back");
+  assert.equal(keptApart("arrive", 6 * 60, 9 * 60, axis), 9 * 60, "no arrival before the earliest departure");
+  assert.equal(keptApart("arrive", 6 * 60, 0, axis), 6 * 60);
+  assert.equal(keptApart("arrive", ANY_ARRIVAL, 9 * 60, axis), ANY_ARRIVAL, "dragged out, it still lifts the limit");
+  assert.equal(keptApart("depart", 20 * 60, 18 * 60, { depart: 0, arrive: -60 }), 17 * 60, "the arrival's clock an hour behind");
 });
 
 test("set time limits show on the handles and shade the hours they rule out", () => {
