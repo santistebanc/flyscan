@@ -89,7 +89,7 @@ export function TimeHandles({ timing, scale, times, title, onChange }: {
   };
 
   const shaded = filteredOutSpans(timing, scale, depart > 0 ? depart : null, arrive < ANY_ARRIVAL ? arrive : null);
-  return <div className="time-handles" ref={layer}>
+  return <div className="time-handles" ref={layer} data-dragging={drag ? true : undefined}>
     {shaded.map(({ start, end, side }) => <span key={side} className="time-filtered"
       style={{ left: `${percent(start, scale)}%`, width: `${(end - start) / span * 100}%` }} />)}
     {(["depart", "arrive"] as const).map((which) => {

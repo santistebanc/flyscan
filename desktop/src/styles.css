@@ -1168,3 +1168,34 @@ button.primary:hover:not(:disabled) { background: var(--accent-strong); }
   .trip-stat-value { font-size: 22px; }
   .trip-stat.hero .trip-stat-value { font-size: 32px; }
 }
+
+/* -- trip view motion ------------------------------------------------------ */
+
+/* As in the first flyscan: stepping to another trip reshapes the one on
+   screen. Bars, times, ticks and marks glide to their new places, and each
+   figure that changes rises into place. Reduced motion keeps only the fades
+   (see the prefers-reduced-motion rule above). */
+.trip-timeline :is(.jt-part, .jt-end, .jt-midnight, .jt-date, .jt-hour, .jt-hour-label),
+.time-handle, .time-filtered, .trip-dist-mark {
+  transition: left 380ms cubic-bezier(.4, 0, .2, 1), width 380ms cubic-bezier(.4, 0, .2, 1);
+}
+/* Under the finger, a handle and its shading follow at once. */
+.time-handles[data-dragging] :is(.time-handle, .time-filtered) { transition: none; }
+.trip-dist-plot rect { transition: fill 200ms ease-out; }
+@keyframes trip-rise { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+.trip-anim-in { display: inline-block; animation: trip-rise 380ms cubic-bezier(.22, .95, .34, 1) both; }
+@media (prefers-reduced-motion: reduce) {
+  @keyframes trip-rise { from { opacity: 0; } to { opacity: 1; } }
+}
+
+/* Nothing matches: the last trip stays, dimmed, under the notice. */
+.trip-empty {
+  display: flex; flex-wrap: wrap; align-items: center; gap: 10px 16px; margin-bottom: 14px; padding: 12px 14px;
+  border: 1px solid var(--line); border-radius: 6px; background: var(--panel);
+}
+.trip-empty-text { display: flex; flex-direction: column; gap: 2px; font-size: 12px; color: var(--muted); }
+.trip-empty-text b { font-size: 14px; color: var(--ink); }
+.trip-empty button { margin-left: auto; padding: 8px 14px; border-radius: 4px; background: var(--accent); color: var(--bg); font-size: 13px; font-weight: 600; }
+.trip-view[data-empty] :is(.trip-stats, .journey-timeline, .trip-direction-head > :not(h3, .trip-zoom)) {
+  opacity: .35; transition: opacity 200ms ease-out;
+}

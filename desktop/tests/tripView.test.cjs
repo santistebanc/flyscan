@@ -144,20 +144,34 @@ test("only a stored trip layout opens the Trip view", () => {
   for (const value of ["list", null, "grid", 1]) assert.equal(normalizeLayout(value), "list");
 });
 
-const renderTrip = (rows, at, { stage = { kind: "pairs" }, figures = rows.map((row) => tripStats(row)), times = OPEN_FILTERS } = {}) => {
+const renderTrip = (rows, at, { stage = { kind: "pairs" }, figures = rows.map((row) => tripStats(row)), times = OPEN_FILTERS,
+  empty } = {}) => {
   const timelines = flightTimelines(rows);
   return renderToStaticMarkup(React.createElement(CurrencyProvider, { api: null }, React.createElement(TripView, {
     rows, at, onStep: () => {}, stage, figures, ratings: new Map(), distributions: tripDistributions(figures), timelines,
     layoverRatings: { outbound: new Map(), inbound: new Map() }, times: { outbound: times.outbound, inbound: times.inbound },
-    onTimes: () => {}, favorite: false, onToggleFavorite: () => {}, details: null,
+    onTimes: () => {}, favorite: false, onToggleFavorite: () => {}, details: null, empty,
   })));
 };
+
+test("with nothing matching, the last trip stays dimmed under the notice, its time handles still there", () => {
+  const empty = { title: "Nothing matches these limits.", body: "Relax a filter.", action: { label: "Reset filters", onClick: () => {} } };
+  const html = renderTrip([trip("a", 240, oneStop, back)], 0, { empty });
+  assert.match(html, /data-empty="true"/);
+  assert.match(html, /<b>Nothing matches these limits\.<\/b>/);
+  assert.match(html, />Reset filters</);
+  assert.match(html, /No trips/);
+  assert.doesNotMatch(html, /Book<span|Booking options and leg details/, "nothing to book or open");
+  assert.match(html, /class="trip-stat-value trip-anim-in"[^>]*>–</, "the figures read as dashes");
+  assert.equal((html.match(/role="slider"/g) || []).length, 4, "the handles stay to relax a time limit");
+  assert.match(html, /Outbound timeline/);
+});
 
 test("the Trip view counts the trips and stops Prev and Next at either end", () => {
   const rows = [trip("a", 240, oneStop, back), trip("b", 120, back, back)];
   const disabled = (html, label) => new RegExp(`aria-label="${label}"[^>]*disabled=""|disabled=""[^>]*aria-label="${label}"`).test(html);
   const first = renderTrip(rows, 0);
-  assert.match(first, /Trip <b>1<\/b> of 2/);
+  assert.match(first, /Trip <b[^>]*>1<\/b> of 2/);
   assert.ok(disabled(first, "First trip") && disabled(first, "Previous trip"));
   assert.ok(!disabled(first, "Next trip"));
   const last = renderTrip(rows, 1);
@@ -202,7 +216,7 @@ test("picking an outbound steps through outbounds alone, each priced from its ch
   const stage = { kind: "pick", direction: "outbound", groups: new Map(groups.map((group) => [group.key, group])), onPick: () => {} };
   const at = groups.findIndex((group) => group.leg === oneStop);
   const html = renderTrip(rows, at, { stage, figures });
-  assert.match(html, /Outbound <b>2<\/b> of 2/);
+  assert.match(html, /Outbound <b[^>]*>2<\/b> of 2/);
   assert.match(html, /Price from/);
   assert.match(html, /Choose<span class="trip-book-seller">2 returns</);
   assert.match(html, /Outbound timeline/);
@@ -219,7 +233,7 @@ test("the pairs of a picked outbound keep it pinned above them, with a way to pi
   assert.match(html, /class="trip-pinned-what">Outbound picked/);
   assert.match(html, /BER 06:10 → MAD 12:40 · /);
   assert.match(html, />Change</);
-  assert.match(html, /Return <b>1<\/b> of 2/);
+  assert.match(html, /Return <b[^>]*>1<\/b> of 2/);
   assert.match(html, /Book<span/);
 });
 

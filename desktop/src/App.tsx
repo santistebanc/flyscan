@@ -44,7 +44,7 @@ import { FlightTimeline } from "./TimelineFlight";
 import { TripView, type TripStage } from "./TripView";
 import type { TimesPatch } from "./TimeHandles";
 import { LAYOUT_KEY, LayoutToggle, normalizeLayout, type Layout } from "./LayoutToggle";
-import { tripDistributions, tripStats } from "./tripStats";
+import { tripDistributions, tripStats, type TripDistributions, type TripStats } from "./tripStats";
 import { elapsed, flightTimelines, type FlightTimelines } from "./flightTimeline";
 import { FILTERS_KEY, FlightFiltersBar } from "./FilterBar";
 import { DEFAULT_FILTERS, FILTERS_VERSION, matchesFlight, sanitizeFilters, setDirectionLimits, withoutLimit, type ListFilters } from "./flightFilters";
@@ -979,6 +979,22 @@ function Shell() {
     })
     : listRows.map((row) => tripStats(row)), [tripMode, listRows, step]);
   const tripDists = useMemo(() => tripFigures ? tripDistributions(tripFigures) : null, [tripFigures]);
+  /**
+   * What the Trip view shows. When the filters leave nothing, the last trip
+   * stays on screen, dimmed under the empty notice, so its timelines and
+   * their time handles are still there to relax a limit with.
+   */
+  const lastTrip = useRef<{ row: FlightRow; figures: TripStats; dists: TripDistributions } | null>(null);
+  const tripShown = useMemo(() => {
+    const row = listRows[tripAt];
+    if (tripMode && row && tripFigures && tripDists) {
+      lastTrip.current = { row, figures: tripFigures[tripAt]!, dists: tripDists };
+      return { rows: listRows, at: tripAt, row, figures: tripFigures, dists: tripDists, empty: false };
+    }
+    const last = lastTrip.current;
+    if (!tripMode || !last || listRows.length || !priceRows.length) return null;
+    return { rows: [last.row], at: 0, row: last.row, figures: [last.figures], dists: last.dists, empty: true };
+  }, [tripMode, listRows, tripAt, tripFigures, tripDists, priceRows.length]);
   /** Picking a flight one way starts its pairs at the first; changing it goes back to it among the others. */
   const pickInTrip = useCallback((key: string) => {
     setPicked(key);
@@ -1223,19 +1239,20 @@ function Shell() {
           </div>
         </div>
 
-        {tripMode && tripDists && tripFigures && listRows[tripAt] ? <TripView
-          rows={listRows}
-          at={tripAt}
+        {tripMode && tripShown ? <TripView
+          rows={tripShown.rows}
+          at={tripShown.at}
           onStep={(to) => setOpenKey(listRows[to]!.trip_key)}
           stage={tripStage}
-          figures={tripFigures}
+          figures={tripShown.figures}
           times={{ outbound: filters.outbound, inbound: filters.inbound }}
           onTimes={setTripTimes}
           ratings={ratings}
-          distributions={tripDists}
-          timelines={timelines}
+          distributions={tripShown.dists}
+          timelines={tripShown.empty ? allTimelines : timelines}
           layoverRatings={layoverRatings}
-          favorite={favorites.has(listRows[tripAt]!.trip_key)}
+          empty={tripShown.empty ? empty : undefined}
+          favorite={favorites.has(tripShown.row.trip_key)}
           onToggleFavorite={toggleFavorite}
           onOpenBooking={(seller) => setToast(`Opening ${seller} in your browser…`)}
           queue={<button type="button" className="trip-queue" onClick={openQueue} data-alert={needsPerson || undefined}
@@ -1243,14 +1260,14 @@ function Shell() {
             Queue<span className="side-tab-count">{activeSearches}</span>
             {pending.length > 0 && <span className="side-tab-alert" role="img" aria-label="Verification needed" />}</button>}
           details={<Details
-            key={listRows[tripAt]!.trip_key}
+            key={tripShown.row.trip_key}
             summary={false}
-            row={listRows[tripAt]!}
-            rating={ratings.get(listRows[tripAt]!.trip_key)}
+            row={tripShown.row}
+            rating={ratings.get(tripShown.row.trip_key)}
             layoverRatings={layoverRatings}
             onCorrectPrice={correctPrice}
             manual={manualActions}
-            favorite={favorites.has(listRows[tripAt]!.trip_key)}
+            favorite={favorites.has(tripShown.row.trip_key)}
             onToggleFavorite={toggleFavorite}
             partyLabel={party}
             onOpenBooking={(seller) => setToast(`Opening ${seller} in your browser…`)}

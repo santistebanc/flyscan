@@ -76,7 +76,7 @@ function DistributionChart({ stat, label, dist, value, format, noun }: {
     <span className="trip-dist-ends" aria-hidden="true">
       <span>{format(dist.min)}</span><span>{format(dist.max)}{dist.overflow ? "+" : ""}</span>
     </span>
-    {standing && <span className="trip-dist-standing">{standing}</span>}
+    {standing && <span key={standing} className="trip-dist-standing trip-anim-in">{standing}</span>}
   </div>;
 }
 
@@ -85,10 +85,11 @@ function Stat({ stat, label, value, format, dist, noun, rating, hero = false }: 
   stat: StatKey; label: string; value: number | null; format: (value: number) => string;
   dist: Distribution | null; noun: string; rating?: Rating; hero?: boolean;
 }) {
+  const shown = value === null ? "–" : format(value);
   return <div className={`trip-stat${hero ? " hero" : ""}`}>
     <span className="trip-stat-label">{label}</span>
-    <span className="trip-stat-value" data-rating={rating?.level} title={rating?.description}>
-      {value === null ? "–" : format(value)}</span>
+    {/* Keyed by what it says, so a new value slides in rather than just changing. */}
+    <span key={shown} className="trip-stat-value trip-anim-in" data-rating={rating?.level} title={rating?.description}>{shown}</span>
     {dist && <DistributionChart stat={stat} label={label} dist={dist} value={value} format={format} noun={noun} />}
   </div>;
 }
@@ -113,11 +114,12 @@ function DirectionView({ direction, leg, scale, timing, layoverRatings, rating, 
   return <section className="trip-direction" aria-label={title}>
     <div className="trip-direction-head">
       <h3>{title}</h3>
-      <span className="trip-direction-day">{wallDay(leg.departure)}</span>
+      <span key={leg.departure} className="trip-direction-day trip-anim-in">{wallDay(leg.departure)}</span>
       <span className="trip-direction-facts">
-        <span>Duration <b data-rating={rating?.level} title={rating?.description}>{leg.duration || "–"}</b></span>
-        <span>Layover <b>{layover === null ? "–" : layover ? elapsed(layover) : "none"}</b></span>
-        {leg.stops !== null && <span>{stopsText(leg.stops)}</span>}
+        <span>Duration <b key={leg.duration} className="trip-anim-in" data-rating={rating?.level} title={rating?.description}>
+          {leg.duration || "–"}</b></span>
+        <span>Layover <b key={String(layover)} className="trip-anim-in">{layover === null ? "–" : layover ? elapsed(layover) : "none"}</b></span>
+        {leg.stops !== null && <span key={leg.stops} className="trip-anim-in">{stopsText(leg.stops)}</span>}
       </span>
       <span className="trip-zoom" role="group" aria-label={`Zoom the ${title.toLowerCase()} timeline`}>
         <button type="button" aria-label="Zoom out" title="Zoom out" disabled={zoom === 0} onClick={() => setZoom((z) => z - 1)}>−</button>
@@ -147,7 +149,7 @@ function Pinned({ pinned, onChange }: { pinned: PickGroup; onChange: () => void 
 }
 
 export function TripView({ rows, at, onStep, stage, figures, ratings, distributions, timelines, layoverRatings, times, onTimes,
-  favorite, onToggleFavorite, onOpenBooking, queue, details }: {
+  favorite, onToggleFavorite, onOpenBooking, queue, details, empty }: {
   rows: FlightRow[]; at: number; onStep: (index: number) => void;
   stage: TripStage;
   /** Each row's figures, from `tripStats`, in the order of `rows`. */
@@ -164,6 +166,11 @@ export function TripView({ rows, at, onStep, stage, figures, ratings, distributi
   queue?: ReactNode;
   /** Booking options and the itinerary, shown on request below the timelines. */
   details: ReactNode;
+  /**
+   * Set when the filters leave nothing: `rows` then holds the last trip shown,
+   * drawn dimmed under this notice, its time handles still there to relax a limit with.
+   */
+  empty?: { title: string; body?: string; action?: { label: string; onClick: () => void } };
 }) {
   const { money } = useCurrency();
   const [showDetails, setShowDetails] = useState(false);
@@ -171,14 +178,15 @@ export function TripView({ rows, at, onStep, stage, figures, ratings, distributi
   const touch = useRef<{ x: number; y: number; scrolls: boolean } | null>(null);
   const row = rows[at];
   if (!row) return null;
-  const stats = figures[at] ?? tripStats(row);
+  // With nothing matching, the figures read as dashes: the trip drawn is only the last one seen.
+  const stats: TripStats = empty ? { price: null, duration: null, layover: null, stops: null } : figures[at] ?? tripStats(row);
   const picking = stage.kind === "pick" ? stage : null;
   const group = picking?.groups.get(row.trip_key);
   const rating = picking ? undefined : ratings.get(row.trip_key);
   // What Prev and Next step through, named on the counter and in the charts.
   const noun = picking ? TITLES[picking.direction] : stage.kind === "pair" ? TITLES[otherDirection(stage.pinned.direction)] : "Trip";
   const nouns = `${noun.toLowerCase()}s`;
-  const best = picking ? undefined : [...row.offers].filter((offer) => offer.deeplink)
+  const best = picking || empty ? undefined : [...row.offers].filter((offer) => offer.deeplink)
     .sort((a, b) => (a.price_base ?? Infinity) - (b.price_base ?? Infinity))[0];
   const step = (by: number) => {
     const to = at + by;
@@ -211,20 +219,22 @@ export function TripView({ rows, at, onStep, stage, figures, ratings, distributi
       times={times[which]} onTimes={onTimes} />;
   };
   const other = picking ? TITLES[otherDirection(picking.direction)].toLowerCase() : "";
-  return <section className="trip-view" aria-label="Trip" onTouchStart={onTouchStart} onTouchEnd={onTouchEnd}>
+  return <section className="trip-view" aria-label="Trip" data-empty={empty ? true : undefined}
+    onTouchStart={onTouchStart} onTouchEnd={onTouchEnd}>
     {stage.kind === "pair" && <Pinned pinned={stage.pinned} onChange={stage.onChange} />}
     <nav className="trip-nav" aria-label={`Browse ${nouns}`}>
       <button type="button" className="trip-nav-first" aria-label={`First ${noun.toLowerCase()}`} title="First (Home)"
-        disabled={at === 0} onClick={() => onStep(0)}><Icon name="chevron-left" /><Icon name="chevron-left" /></button>
-      <button type="button" aria-label={`Previous ${noun.toLowerCase()}`} title="Previous (←)" disabled={at === 0} onClick={() => step(-1)}>
-        <Icon name="chevron-left" /><span className="trip-nav-text">Prev</span></button>
-      <button type="button" aria-label={`Next ${noun.toLowerCase()}`} title="Next (→)" disabled={at === rows.length - 1} onClick={() => step(1)}>
-        <span className="trip-nav-text">Next</span><Icon name="chevron-right" /></button>
-      <span className="trip-counter" aria-live="polite">{noun} <b>{(at + 1).toLocaleString()}</b> of {rows.length.toLocaleString()}</span>
+        disabled={Boolean(empty) || at === 0} onClick={() => onStep(0)}><Icon name="chevron-left" /><Icon name="chevron-left" /></button>
+      <button type="button" aria-label={`Previous ${noun.toLowerCase()}`} title="Previous (←)" disabled={Boolean(empty) || at === 0}
+        onClick={() => step(-1)}><Icon name="chevron-left" /><span className="trip-nav-text">Prev</span></button>
+      <button type="button" aria-label={`Next ${noun.toLowerCase()}`} title="Next (→)" disabled={Boolean(empty) || at === rows.length - 1}
+        onClick={() => step(1)}><span className="trip-nav-text">Next</span><Icon name="chevron-right" /></button>
+      <span className="trip-counter" aria-live="polite">{empty ? <>No {nouns}</>
+        : <>{noun} <b key={at} className="trip-anim-in">{(at + 1).toLocaleString()}</b> of {rows.length.toLocaleString()}</>}</span>
       <span className="trip-nav-end">
         {queue}
-        {!picking && <FavoriteButton row={row} favorite={favorite} onToggle={onToggleFavorite} />}
-        {picking && <button type="button" className="trip-book" onClick={() => picking.onPick(row.trip_key)}
+        {!picking && !empty && <FavoriteButton row={row} favorite={favorite} onToggle={onToggleFavorite} />}
+        {picking && !empty && <button type="button" className="trip-book" onClick={() => picking.onPick(row.trip_key)}
           title={`See the ${other}s sold with this ${noun.toLowerCase()} (Enter)`}>
           Choose{group && <span className="trip-book-seller">{group.pairs.length} {other}{group.pairs.length === 1 ? "" : "s"}</span>}
           <Icon name="chevron-right" /></button>}
@@ -235,6 +245,11 @@ export function TripView({ rows, at, onStep, stage, figures, ratings, distributi
       </span>
     </nav>
     {bookError && <p className="detail-booking-error" role="alert">{bookError}</p>}
+    {empty && <div className="trip-empty" role="status">
+      <span className="trip-empty-text"><b>{empty.title}</b>{empty.body && <span>{empty.body}</span>}
+        <span>Or drag a time handle back on a timeline below.</span></span>
+      {empty.action && <button type="button" onClick={empty.action.onClick}>{empty.action.label}</button>}
+    </div>}
 
     <div className="trip-stats">
       <Stat hero stat="price" label={picking ? "Price from" : "Price"} value={stats.price} format={format.price}
@@ -246,7 +261,7 @@ export function TripView({ rows, at, onStep, stage, figures, ratings, distributi
 
     {picking ? direction(picking.direction) : <>{direction("outbound")}{direction("inbound")}</>}
 
-    {!picking && <div className="trip-details">
+    {!picking && !empty && <div className="trip-details">
       <button type="button" className="trip-details-toggle" aria-expanded={showDetails} onClick={() => setShowDetails((open) => !open)}>
         <Icon name="chevron-right" className="caret" />Booking options and leg details</button>
       {showDetails && details}

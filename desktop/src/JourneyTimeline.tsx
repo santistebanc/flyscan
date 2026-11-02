@@ -81,11 +81,11 @@ export function JourneyTimeline({ leg, title, layoverRatings, scale: shared }: {
     ({ left: `${percent(start, scale)}%`, width: `${(end - start) / span * 100}%` });
   return <div className="journey-timeline" role="img" ref={plot}
     aria-label={`${title} timeline: ${leg.origin_airport} ${clock(leg.departure)} to ${leg.destination_airport} ${clock(leg.arrival)}, ${leg.duration}`}>
-    {midnights.map((mark) => <span key={`d${mark.at}`}>
+    {midnights.map((mark, i) => <span key={`d${i}`}>
       <span className="jt-midnight" title={mark.label} style={{ left: `${percent(mark.at, scale)}%` }} />
       {shownDates.has(mark) && <span className="jt-date" aria-hidden="true" style={{ left: `${percent(mark.at, scale)}%` }}>{mark.label}</span>}
     </span>)}
-    {shownHours.map((mark) => <span key={`h${mark.at}`}>
+    {shownHours.map((mark, i) => <span key={`h${i}`}>
       <span className="jt-hour" style={{ left: `${percent(mark.at, scale)}%` }} />
       <span className="jt-hour-label" aria-hidden="true" style={{ left: `${percent(mark.at, scale)}%` }}>{mark.text}</span>
     </span>)}
