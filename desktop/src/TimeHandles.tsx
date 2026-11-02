@@ -37,11 +37,29 @@ export function limitAt(which: Which, minute: number, base: number, scale: Pick<
 }
 
 /**
- * A handle at `place` against the part of the timeline in sight. The
- * stylesheet holds it at the edge in sight; this says which edge, so its
- * label reads inwards, and `beyond` when its limit lies past it, out of sight.
+ * A limit held on its own side of the other handle's, so the two never pass
+ * each other: no departure later than the latest arrival, no arrival earlier
+ * than the earliest departure. A limit the other side does not set holds
+ * nothing back. `axis` places both on the timeline, as `timeFilterAxis` does.
  */
-export function handleAt(place: number, view: View): { edge?: "start" | "end"; beyond: boolean } {
+export function keptApart(which: Which, value: number, other: number, axis: { depart: number; arrive: number }): number {
+  if (which === "depart") {
+    if (other >= ANY_ARRIVAL) return value;
+    return Math.min(value, Math.max(0, Math.floor((axis.arrive + other - axis.depart) / STEP) * STEP));
+  }
+  if (other <= 0 || value >= ANY_ARRIVAL) return value;
+  return Math.max(value, Math.ceil((axis.depart + other - axis.arrive) / STEP) * STEP);
+}
+
+/**
+ * A handle at `place` against the part of the timeline in sight. The
+ * stylesheet holds it at the edge in sight, while that edge is within the
+ * `reach` of its limits; this says which edge, so its label reads inwards,
+ * and `beyond` when its limit lies past it, out of sight. Scrolled past its
+ * reach, it goes by with the timeline.
+ */
+export function handleAt(place: number, view: View, reach: View = { from: 0, to: 100 }): { edge?: "start" | "end"; beyond: boolean } {
+  if (view.from >= reach.to || view.to <= reach.from) return { beyond: false };
   if (place <= view.from) return { edge: "start", beyond: place < view.from };
   if (place >= view.to) return { edge: "end", beyond: place > view.to };
   return { beyond: false };
@@ -62,11 +80,16 @@ export function TimeHandles({ timing, scale, times, title, view = { from: 0, to:
   const place = (which: Which) => which === "depart"
     ? depart > 0 ? clamp(axis.depart + depart) : 0
     : arrive < ANY_ARRIVAL ? clamp(axis.arrive + arrive) : 100;
+  // As far as each limit goes: a departure by the end of its day, an arrival from that day on.
+  const reach = (which: Which): View => which === "depart"
+    ? { from: 0, to: clamp(axis.depart + 1440) } : { from: clamp(axis.arrive), to: 100 };
   const minuteAt = (clientX: number) => {
     const box = layer.current!.getBoundingClientRect();
     return scale.min + Math.min(1, Math.max(0, (clientX - box.left) / box.width)) * span;
   };
   const base = (which: Which) => which === "depart" ? axis.depart : axis.arrive;
+  // The other handle as set, so neither is dragged or stepped past it.
+  const apart = (which: Which, to: number) => keptApart(which, to, which === "depart" ? times.arrive.to : times.depart.from, axis);
   const label = (which: Which) => which === "depart"
     ? depart > 0 ? `Depart after ${limitClock(depart)}` : "Any departure time"
     : arrive < ANY_ARRIVAL ? `Arrive before ${limitClock(arrive)}` : "Any arrival time";
@@ -78,7 +101,7 @@ export function TimeHandles({ timing, scale, times, title, view = { from: 0, to:
   };
   const onPointerMove = (which: Which) => (event: PointerEvent) => {
     if (drag?.which !== which) return;
-    setDrag({ which, value: limitAt(which, minuteAt(event.clientX), base(which), scale) });
+    setDrag({ which, value: apart(which, limitAt(which, minuteAt(event.clientX), base(which), scale)) });
   };
   const onPointerUp = (which: Which) => () => {
     if (drag?.which !== which) return;
@@ -98,7 +121,7 @@ export function TimeHandles({ timing, scale, times, title, view = { from: 0, to:
     if (next === null) return;
     event.preventDefault();
     event.stopPropagation();
-    onChange({ [which]: which === "depart" ? Math.min(1440, Math.max(0, next)) : Math.min(ANY_ARRIVAL, Math.max(0, next)) });
+    onChange({ [which]: apart(which, which === "depart" ? Math.min(1440, Math.max(0, next)) : Math.min(ANY_ARRIVAL, Math.max(0, next))) });
   };
 
   const shaded = filteredOutSpans(timing, scale, depart > 0 ? depart : null, arrive < ANY_ARRIVAL ? arrive : null);
@@ -107,9 +130,11 @@ export function TimeHandles({ timing, scale, times, title, view = { from: 0, to:
       style={{ left: `${percent(start, scale)}%`, width: `${(end - start) / span * 100}%` }} />)}
     {(["depart", "arrive"] as const).map((which) => {
       const active = which === "depart" ? depart > 0 : arrive < ANY_ARRIVAL;
-      // The stylesheet keeps the handle in sight as the timeline scrolls; `view` only says where its label reads and whether it fades.
-      const at = handleAt(place(which), view);
-      return <span key={which} className="time-handle-track"><span className="time-handle-lead" style={{ width: `${place(which)}%` }} />
+      // The stylesheet keeps the handle in sight as the timeline scrolls, within its reach; `view` only says where its label reads and whether it fades.
+      const { from, to } = reach(which);
+      const at = handleAt(place(which), view, { from, to });
+      return <span key={which} className="time-handle-track" style={{ left: `${from}%`, width: `${to - from}%` }}>
+        <span className="time-handle-lead" style={{ width: `${to > from ? (place(which) - from) / (to - from) * 100 : 0}%` }} />
         <span className={`time-handle ${which}`} data-active={active || undefined}
         data-edge={at.edge} data-beyond={at.beyond || undefined} data-dragging={drag?.which === which || undefined}
         role="slider" tabIndex={0} aria-label={`${title}: ${which === "depart" ? "earliest departure" : "latest arrival"}`}

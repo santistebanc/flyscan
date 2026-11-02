@@ -1125,13 +1125,15 @@ button.primary:hover:not(:disabled) { background: var(--accent-strong); }
 .trip-timeline .jt-end.arrives { top: 76px; }
 /* The time filter handles stand at the timeline's ends; their limits read underneath. */
 .trip-timeline { position: relative; padding-bottom: 20px; }
-.time-handles { position: absolute; left: 0; right: 0; top: 14px; bottom: 20px; pointer-events: none; }
+/* The layer clips sideways without becoming a scroll box, so a handle at an
+   end adds nothing to scroll; its label still hangs below. */
+.time-handles { position: absolute; left: 0; right: 0; top: 14px; bottom: 20px; pointer-events: none; overflow-x: clip; }
 .time-filtered { position: absolute; top: 0; bottom: 0; background: repeating-linear-gradient(135deg, #0000004d 0 4px, #00000026 4px 8px); }
-/* Each handle follows a lead as wide as its place on the timeline, and is
-   sticky to the scrolling box: the browser itself holds it at the edge in
-   sight as a zoomed timeline scrolls, with no lag. The track clips without
-   becoming a scroll box, so a handle at an end adds nothing to scroll. */
-.time-handle-track { position: absolute; inset: 0; display: flex; overflow: clip; pointer-events: none; }
+/* Each handle runs on a track as long as its limits reach, behind a lead as
+   wide as its place on it, and is sticky to the scrolling box: the browser
+   itself holds it at the edge in sight as a zoomed timeline scrolls, with no
+   lag, until the edge passes the end of its track. */
+.time-handle-track { position: absolute; top: 0; bottom: 0; display: flex; pointer-events: none; }
 .time-handle-lead { flex: none; }
 .time-handle {
   --stem-at: 9px; --grip-shift: 4px; position: sticky; left: calc(-1 * var(--stem-at)); right: calc(-1 * var(--stem-at)); flex: none; height: 100%; width: 20px; margin-left: -10px; display: flex; justify-content: center;
