@@ -563,17 +563,16 @@ function Shell() {
     setTab("queue");
     setSheetOpen(true);
   }, []);
-  useEffect(() => { if (!tripMode) setQueueOverlay(false); }, [tripMode]);
-  // A security check waits on a person, so a folded sheet unfolds onto it,
-  // and in the Trip view the queue opens over the trip.
+  // Entering or leaving the Trip view starts it without the panel.
+  useEffect(() => { setQueueOverlay(false); }, [tripMode]);
+  // A security check waits on a person, so a folded sheet unfolds onto it. The
+  // Trip view stays clear: its Queue button lights up instead.
   const needsPerson = pending.length > 0;
   useEffect(() => {
-    if (!needsPerson) return;
-    if (tripMode) { openQueue(); return; }
-    if (!window.matchMedia(SHEET).matches) return;
+    if (!needsPerson || tripMode || !window.matchMedia(SHEET).matches) return;
     setTab("queue");
     setSheetOpen(true);
-  }, [needsPerson, tripMode, openQueue]);
+  }, [needsPerson, tripMode]);
   const [toast, setToast] = useState("");
   // Marked as leaving first, so it can slide out before it is removed.
   const [toastLeaving, setToastLeaving] = useState(false);
@@ -1190,7 +1189,8 @@ function Shell() {
           favorite={favorites.has(listRows[tripAt]!.trip_key)}
           onToggleFavorite={toggleFavorite}
           onOpenBooking={(seller) => setToast(`Opening ${seller} in your browser…`)}
-          queue={<button type="button" className="trip-queue" onClick={openQueue} title="Show the search queue">
+          queue={<button type="button" className="trip-queue" onClick={openQueue} data-alert={needsPerson || undefined}
+            title={needsPerson ? "A security check needs you: open the queue" : "Show the search queue"}>
             Queue<span className="side-tab-count">{activeSearches}</span>
             {pending.length > 0 && <span className="side-tab-alert" role="img" aria-label="Verification needed" />}</button>}
           details={<Details
@@ -1231,9 +1231,9 @@ function Shell() {
         data-overlay={tripMode && queueOverlay || undefined}>
         <div className="side-tabs" role="tablist" aria-label="Side panel">
           {/* The Trip view shows the flight itself; over it the panel is only the queue. */}
-          <button type="button" role="tab" id="tab-flight" aria-selected={tab === "flight"} aria-controls="panel-flight"
-            hidden={tripMode} onClick={() => showTab("flight")}>Flight</button>
-          <button type="button" role="tab" id="tab-queue" aria-selected={tab === "queue"} aria-controls="panel-queue"
+          {!tripMode && <button type="button" role="tab" id="tab-flight" aria-selected={tab === "flight"} aria-controls="panel-flight"
+            onClick={() => showTab("flight")}>Flight</button>}
+          <button type="button" role="tab" id="tab-queue" aria-selected={tripMode || tab === "queue"} aria-controls="panel-queue"
             onClick={() => showTab("queue")}>Queue<span className="side-tab-count">{activeSearches}</span>
             {pending.length > 0 && <span className="side-tab-alert" role="img" aria-label="Verification needed" />}</button>
           {tripMode ? <button type="button" className="side-close queue-icon-button" aria-label="Close the queue" title="Close (Esc)"
@@ -1244,7 +1244,7 @@ function Shell() {
             <Icon name="chevron-down" /></button>
         </div>
         <div className="side-body" id="side-body">
-          <div role="tabpanel" id="panel-queue" aria-labelledby="tab-queue" hidden={tab !== "queue"}>
+          <div role="tabpanel" id="panel-queue" aria-labelledby="tab-queue" hidden={!tripMode && tab !== "queue"}>
             <ChallengeBanner
               api={api}
               pending={pending}
@@ -1254,7 +1254,7 @@ function Shell() {
             />
             <Queue queue={queue} readOnly={hosted} />
           </div>
-          <div role="tabpanel" id="panel-flight" aria-labelledby="tab-flight" hidden={tab !== "flight"}>
+          <div role="tabpanel" id="panel-flight" aria-labelledby="tab-flight" hidden={tripMode || tab !== "flight"}>
             {openRow ? <Details
               row={openRow}
               rating={ratings.get(openRow.trip_key)}

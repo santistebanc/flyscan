@@ -1072,6 +1072,7 @@ button.primary:hover:not(:disabled) { background: var(--accent-strong); }
 }
 .trip-nav .icon { width: 16px; height: 16px; }
 .trip-nav-first .icon + .icon { margin-left: -11px; }
+.trip-queue[data-alert] { border-color: var(--warn); color: var(--warn); }
 .trip-nav > button:hover:not(:disabled), .trip-queue:hover { border-color: var(--accent); color: var(--ink); }
 .trip-nav > button:disabled { opacity: .4; cursor: default; }
 .trip-counter { margin-left: 6px; font-size: 14px; color: var(--muted); white-space: nowrap; }
