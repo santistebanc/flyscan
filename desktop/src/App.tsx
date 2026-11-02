@@ -991,10 +991,12 @@ function Shell() {
       lastTrip.current = { row, figures: tripFigures[tripAt]!, dists: tripDists };
       return { rows: listRows, at: tripAt, row, figures: tripFigures, dists: tripDists, empty: false };
     }
-    const last = lastTrip.current;
-    if (!tripMode || !last || listRows.length || !priceRows.length) return null;
+    if (!tripMode || listRows.length || !priceRows.length) return null;
+    // Opened with nothing matching already (a reload, or List switched to Trip), there is no last trip: stand in the first one found.
+    const last = lastTrip.current ?? { row: priceRows[0]!, figures: tripStats(priceRows[0]!),
+      dists: tripDistributions(priceRows.map((row) => tripStats(row))) };
     return { rows: [last.row], at: 0, row: last.row, figures: [last.figures], dists: last.dists, empty: true };
-  }, [tripMode, listRows, tripAt, tripFigures, tripDists, priceRows.length]);
+  }, [tripMode, listRows, tripAt, tripFigures, tripDists, priceRows]);
   /** Picking a flight one way starts its pairs at the first; changing it goes back to it among the others. */
   const pickInTrip = useCallback((key: string) => {
     setPicked(key);

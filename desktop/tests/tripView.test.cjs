@@ -226,6 +226,14 @@ test("picking an outbound steps through outbounds alone, each priced from its ch
   assert.equal({ ...figures[at] }.duration, 390, "the outbound's time alone");
 });
 
+test("with no outbounds left to pick, both directions' handles stay out", () => {
+  const stage = { kind: "pick", direction: "outbound", groups: new Map(), onPick: () => {} };
+  const html = renderTrip([pairs[0]], 0, { stage, empty: { title: "Nothing matches these limits." } });
+  assert.match(html, /Outbound timeline/);
+  assert.match(html, /Return timeline/, "a return limit may be what ruled them out");
+  assert.equal((html.match(/role="slider"/g) || []).length, 4);
+});
+
 test("the pairs of a picked outbound keep it pinned above them, with a way to pick again", () => {
   const [group] = pickGroups(pairs.filter((row) => legKey(row, "outbound") === legKey(pairs[0], "outbound")), "outbound", "price");
   const rows = pairs.slice(0, 2);

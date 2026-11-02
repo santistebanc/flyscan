@@ -278,7 +278,8 @@ export function TripView({ rows, at, onStep, stage, figures, ratings, distributi
       <Stat stat="stops" label="Stops" value={stats.stops} format={format.stops} dist={distributions.stops} noun={nouns} />
     </div>
 
-    {picking ? direction(picking.direction) : <>{direction("outbound")}{direction("inbound")}</>}
+    {/* With nothing left, both directions' handles stay out, whichever limit ruled the trips out. */}
+    {picking && !empty ? direction(picking.direction) : <>{direction("outbound")}{direction("inbound")}</>}
 
     {!picking && !empty && <div className="trip-details">
       <button type="button" className="trip-details-toggle" aria-expanded={showDetails} onClick={() => setShowDetails((open) => !open)}>
