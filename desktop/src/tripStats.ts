@@ -20,10 +20,16 @@ function total(values: (number | null)[]): number | null {
   return values.some((value) => value === null) ? null : values.reduce<number>((sum, value) => sum + value!, 0);
 }
 
-export function tripStats(row: FlightRow): TripStats {
-  const legs = [row.outbound, row.inbound].filter((leg): leg is Leg => Boolean(leg));
+/**
+ * A pair's figures, both directions together; with `only`, that direction's
+ * times and stops alone, as when one is picked first. A direction has no price
+ * of its own, so `price` then takes the cheapest pair it is sold in.
+ */
+export function tripStats(row: FlightRow, only?: "outbound" | "inbound", price?: number | null): TripStats {
+  const legs = (only ? [row[only]] : [row.outbound, row.inbound]).filter((leg): leg is Leg => Boolean(leg));
+  if (!legs.length) return { price: price ?? null, duration: null, layover: null, stops: null };
   return {
-    price: row.best?.price_base ?? null,
+    price: price !== undefined ? price : row.best?.price_base ?? null,
     duration: total(legs.map((leg) => durationMinutes(leg.duration ?? ""))),
     layover: total(legs.map(legLayover)),
     stops: total(legs.map((leg) => leg.stops ?? null)),
@@ -77,9 +83,8 @@ export function placeIn(dist: Distribution, value: number): Placement {
 }
 
 export type TripDistributions = Record<StatKey, Distribution | null>;
-/** All four figures over a list of trips; stops by whole number. */
-export function tripDistributions(rows: FlightRow[]): TripDistributions {
-  const stats = rows.map(tripStats);
+/** All four figures over the trips' figures, from `tripStats`; stops by whole number. */
+export function tripDistributions(stats: TripStats[]): TripDistributions {
   const of = (key: StatKey) => stats.map((stat) => stat[key]);
   return { price: distribution(of("price")), duration: distribution(of("duration")),
     layover: distribution(of("layover")), stops: distribution(of("stops"), true) };

@@ -273,6 +273,21 @@ export function filteredOutSpans(timing: JourneyTiming, scale: Pick<TimelineScal
   }
   return spans;
 }
+/**
+ * Where the time filters' clocks sit on a timeline, as `filteredOutSpans`
+ * places them: a limit of `v` minutes from local midnight on the departure
+ * day lands at `depart + v` for the earliest departure, read on the departure
+ * clock, and at `arrive + v` for the latest arrival, on the destination clock.
+ */
+export function timeFilterAxis(timing: JourneyTiming): { depart: number; arrive: number } | null {
+  const first = timing.parts[0], last = timing.parts[timing.parts.length - 1];
+  const departed = first ? fromWall(first.part) : null;
+  if (departed === null) return null;
+  const departureDay = Math.floor(departed / DAY) * DAY;
+  const depart = first!.start + departureDay - departed;
+  const arrived = last ? toWall(last.part) : null;
+  return { depart, arrive: arrived === null ? depart : last!.end + departureDay - arrived };
+}
 export interface HourMark { at: number; hour: number }
 /** Pixels six hours need before all three marks show: below it they crowd the strip. */
 const QUARTER_DAY_ROOM = 100;

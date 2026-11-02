@@ -41,12 +41,13 @@ import { SortOptions } from "./SortOptions";
 import { useFavorites } from "./useFavorites";
 import { FavoriteButton } from "./FavoriteButton";
 import { FlightTimeline } from "./TimelineFlight";
-import { TripView } from "./TripView";
+import { TripView, type TripStage } from "./TripView";
+import type { TimesPatch } from "./TimeHandles";
 import { LAYOUT_KEY, LayoutToggle, normalizeLayout, type Layout } from "./LayoutToggle";
-import { tripDistributions } from "./tripStats";
+import { tripDistributions, tripStats } from "./tripStats";
 import { elapsed, flightTimelines, type FlightTimelines } from "./flightTimeline";
 import { FILTERS_KEY, FlightFiltersBar } from "./FilterBar";
-import { DEFAULT_FILTERS, FILTERS_VERSION, matchesFlight, sanitizeFilters, withoutLimit, type ListFilters } from "./flightFilters";
+import { DEFAULT_FILTERS, FILTERS_VERSION, matchesFlight, sanitizeFilters, setDirectionLimits, withoutLimit, type ListFilters } from "./flightFilters";
 import { connectionFilterOptions, filterRanges } from "./filterSuggestions";
 import { PlaceInput } from "./PlaceInput";
 import { TravellersPicker, CABIN_LABELS } from "./TravellersPicker";
@@ -672,8 +673,7 @@ function Shell() {
   )), [priceRows, limits, roundedIn]);
   const shown = useMemo(() => sortFlightRows(filtered, effectiveSort(sort, Boolean(ret))), [filtered, sort, ret]);
   // A stepped view lists flights one way, then the pairs of the one pinned.
-  // The Trip view steps through every pair, whichever view the list is in.
-  const stepDirection = ret && !tripMode ? firstDirection(pairView) : null;
+  const stepDirection = ret ? firstDirection(pairView) : null;
   const pinned = useMemo(() => stepDirection && picked ? pickedGroup(filtered, priceRows, picked, stepDirection) : null,
     [stepDirection, picked, filtered, priceRows]);
   const groups = useMemo(() => stepDirection && !picked ? pickGroups(filtered, stepDirection, sort) : [],
@@ -967,8 +967,40 @@ function Shell() {
     if (foundAt >= 0) lastTripAt.current = foundAt;
     else setOpenKey(listRows[tripAt]!.trip_key);
   }, [tripMode, listRows, foundAt, tripAt]);
-  /** How each figure spreads over the trips the Trip view steps through. */
-  const tripDists = useMemo(() => tripMode ? tripDistributions(listRows) : null, [tripMode, listRows]);
+  /**
+   * Each entry's figures and how they spread over the entries the Trip view
+   * steps through: pairs, or, while picking, one direction's flights, each
+   * priced from the cheapest pair it is sold in.
+   */
+  const tripFigures = useMemo(() => !tripMode ? null : step?.kind === "pick"
+    ? listRows.map((row) => {
+      const group = step.groups.get(row.trip_key);
+      return tripStats(row, group?.direction, group?.low ?? null);
+    })
+    : listRows.map((row) => tripStats(row)), [tripMode, listRows, step]);
+  const tripDists = useMemo(() => tripFigures ? tripDistributions(tripFigures) : null, [tripFigures]);
+  /** Picking a flight one way starts its pairs at the first; changing it goes back to it among the others. */
+  const pickInTrip = useCallback((key: string) => {
+    setPicked(key);
+    setLastPicked(key);
+    lastTripAt.current = 0;
+    setOpenKey(null);
+  }, []);
+  const unpinInTrip = useCallback(() => {
+    setOpenKey(picked);
+    setPicked(null);
+  }, [picked]);
+  const tripStage = useMemo<TripStage>(() => step?.kind === "pick" && stepDirection
+    ? { kind: "pick", direction: stepDirection, groups: step.groups, onPick: pickInTrip }
+    : step?.kind === "pair" ? { kind: "pair", pinned: step.pinned, onChange: unpinInTrip } : { kind: "pairs" },
+  [step, stepDirection, pickInTrip, unpinInTrip]);
+  /** A handle on a Trip view timeline sets the same time limits as the Times filter. */
+  const setTripTimes = useCallback((direction: "outbound" | "inbound", patch: TimesPatch) => setFilters((old) => {
+    let next = old;
+    if (patch.depart !== undefined) next = setDirectionLimits(next, "times", direction, { depart: { from: patch.depart, to: 1440 } });
+    if (patch.arrive !== undefined) next = setDirectionLimits(next, "times", direction, { arrive: { from: 0, to: patch.arrive } });
+    return next;
+  }), []);
 
   /**
    * ↑/↓ walk the list and Escape steps out of it, wherever you are on the page.
@@ -980,18 +1012,31 @@ function Shell() {
    */
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
-      // The Trip view turns with ← and →, and leaves ↑ and ↓ to scroll the page.
-      const keys = tripMode ? ["ArrowLeft", "ArrowRight", "Home", "End", "Escape"] : ["ArrowDown", "ArrowUp", "Home", "End", "Escape"];
+      // The Trip view turns with ← and →, leaves ↑ and ↓ to scroll the page,
+      // and picks the flight shown with Enter.
+      const keys = tripMode ? ["ArrowLeft", "ArrowRight", "Home", "End", "Escape", "Enter"] : ["ArrowDown", "ArrowUp", "Home", "End", "Escape"];
       if (!keys.includes(event.key)) return;
       if (event.altKey || event.metaKey || event.ctrlKey) return;
 
       const focused = document.activeElement?.tagName;
       if (focused === "INPUT" || focused === "SELECT" || focused === "TEXTAREA") return;
+      // A focused slider or button takes its own keys: a time handle its arrows, a button Enter.
+      if (document.activeElement?.getAttribute("role") === "slider") return;
+      if (event.key === "Enter" && focused === "BUTTON") return;
       // An open dialog owns the keyboard, Escape included.
       if (document.querySelector("dialog[open]")) return;
 
       if (tripMode) {
-        if (event.key === "Escape") { setQueueOverlay(false); return; }
+        // Escape closes the queue first, then lets go of a picked flight.
+        if (event.key === "Escape") {
+          if (queueOverlay) setQueueOverlay(false);
+          else if (tripStage.kind === "pair") tripStage.onChange();
+          return;
+        }
+        if (event.key === "Enter") {
+          if (tripStage.kind === "pick" && listRows[tripAt]) { event.preventDefault(); tripStage.onPick(listRows[tripAt]!.trip_key); }
+          return;
+        }
         if (!listRows.length) return;
         event.preventDefault();
         const to = event.key === "Home" ? 0 : event.key === "End" ? listRows.length - 1
@@ -1019,7 +1064,7 @@ function Shell() {
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [listRows, step, openKey, pickFlight, tripMode, tripAt]);
+  }, [listRows, step, openKey, pickFlight, tripMode, tripAt, tripStage, queueOverlay]);
 
   const openRow = filtered.find((row) => row.trip_key === openKey) ?? null;
   const listView = useMemo(() => JSON.stringify({ sort, filters, stepDirection, picked }), [sort, filters, stepDirection, picked]);
@@ -1167,7 +1212,7 @@ function Shell() {
               {engine.running && listRows.length ? " · more arriving" : ""}</span>
             <div className="results-view-controls">
               <LayoutToggle layout={layout} onChange={setLayout} />
-              {ret && !tripMode && <PairViewPicker view={pairView} onChange={setPairView} />}
+              {ret && <PairViewPicker view={pairView} onChange={setPairView} />}
               <CurrencyInput />
             </div>
           </div>
@@ -1178,10 +1223,14 @@ function Shell() {
           </div>
         </div>
 
-        {tripMode && tripDists && listRows[tripAt] ? <TripView
+        {tripMode && tripDists && tripFigures && listRows[tripAt] ? <TripView
           rows={listRows}
           at={tripAt}
           onStep={(to) => setOpenKey(listRows[to]!.trip_key)}
+          stage={tripStage}
+          figures={tripFigures}
+          times={{ outbound: filters.outbound, inbound: filters.inbound }}
+          onTimes={setTripTimes}
           ratings={ratings}
           distributions={tripDists}
           timelines={timelines}

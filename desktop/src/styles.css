@@ -1123,6 +1123,37 @@ button.primary:hover:not(:disabled) { background: var(--accent-strong); }
 .trip-timeline .jt-end { font-size: 13px; }
 .trip-timeline .jt-end.departs { top: 20px; }
 .trip-timeline .jt-end.arrives { top: 76px; }
+/* The time filter handles stand at the timeline's ends; their limits read underneath. */
+.trip-timeline { position: relative; padding-bottom: 20px; }
+.time-handles { position: absolute; left: 0; right: 0; top: 14px; bottom: 20px; pointer-events: none; }
+.time-filtered { position: absolute; top: 0; bottom: 0; background: repeating-linear-gradient(135deg, #0000004d 0 4px, #00000026 4px 8px); }
+.time-handle {
+  position: absolute; top: 0; bottom: 0; width: 20px; margin-left: -10px; display: flex; justify-content: center;
+  cursor: ew-resize; touch-action: none; pointer-events: auto; outline: none;
+}
+.time-handle::before { content: ""; width: 2px; height: 100%; border-radius: 1px; background: var(--line); }
+.time-handle-grip {
+  position: absolute; top: 50%; width: 10px; height: 26px; margin-top: -13px; border-radius: 4px;
+  border: 1px solid var(--muted); background: var(--panel);
+}
+.time-handle:hover::before, .time-handle:focus-visible::before { background: var(--muted); }
+.time-handle:hover .time-handle-grip, .time-handle:focus-visible .time-handle-grip { border-color: var(--ink); }
+.time-handle[data-active]::before, .time-handle[data-dragging]::before { background: var(--accent); }
+.time-handle[data-active] .time-handle-grip, .time-handle[data-dragging] .time-handle-grip { border-color: var(--accent); background: var(--accent-soft); }
+.time-handle-label { position: absolute; top: calc(100% + 3px); font: 500 11px/14px var(--mono); color: var(--accent); white-space: nowrap; pointer-events: none; }
+.time-handle.depart .time-handle-label { left: 0; }
+.time-handle.arrive .time-handle-label { right: 0; }
+@media (pointer: coarse) { .time-handle { width: 32px; margin-left: -16px; } .time-handle-grip { width: 14px; height: 32px; margin-top: -16px; } }
+
+/* The flight picked first, above the pairs it is sold in. */
+.trip-pinned {
+  display: flex; flex-wrap: wrap; align-items: center; gap: 4px 12px; margin-bottom: 10px; padding: 8px 12px;
+  border: 1px solid var(--accent); border-radius: 6px; background: var(--accent-soft); font-size: 13px;
+}
+.trip-pinned-what { font-size: 11px; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; color: var(--accent); }
+.trip-pinned-flight { font-family: var(--mono); color: var(--ink); }
+.trip-pinned button { margin-left: auto; padding: 4px 12px; border: 1px solid var(--accent); border-radius: 4px; font-size: 12px; font-weight: 600; color: var(--accent); }
+.trip-pinned button:hover { background: var(--accent); color: var(--bg); }
 
 .trip-details { padding-top: 14px; }
 .trip-details-toggle { display: flex; align-items: center; gap: 6px; padding: 6px 0; font-size: 12px; font-weight: 600; color: var(--ink-soft); }

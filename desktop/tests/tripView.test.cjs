@@ -12,19 +12,23 @@ const code = buildSync({ stdin: { contents: `
   export { tripStats, distribution, placeIn, tripDistributions } from './src/tripStats';
   export { normalizeLayout } from './src/LayoutToggle';
   export { CurrencyProvider } from './src/currency';
-  export { journeyTiming, journeyScale, journeyHourMarks, flightTimelines } from './src/flightTimeline';
+  export { journeyTiming, journeyScale, journeyHourMarks, flightTimelines, timeFilterAxis } from './src/flightTimeline';
+  export { limitAt, limitClock } from './src/TimeHandles';
+  export { pickGroups, legKey } from './src/pairPicking';
+  export { OPEN_FILTERS, ANY_ARRIVAL } from './src/flightFilters';
 `, resolveDir: path.join(__dirname, "..") }, bundle: true, external: ["react", "react-dom"],
   write: false, format: "cjs", platform: "node", jsx: "automatic", define: { "import.meta.env": "{}" } }).outputFiles[0].text;
 const mod = { exports: {} };
 vm.runInNewContext(code, { module: mod, exports: mod.exports, require, window: {},
   localStorage: { getItem: () => null } });
 const { JourneyTimeline, placeEndLabels, TripView, tripStats, distribution, placeIn, tripDistributions, normalizeLayout, CurrencyProvider,
-  journeyTiming, journeyScale, journeyHourMarks, flightTimelines } = mod.exports;
+  journeyTiming, journeyScale, journeyHourMarks, flightTimelines, timeFilterAxis, limitAt, limitClock, pickGroups, legKey,
+  OPEN_FILTERS, ANY_ARRIVAL } = mod.exports;
 
 const segment = (origin, destination, departure, arrival, duration, flight) => ({
   origin, destination, departure, arrival, duration, carrier: flight.slice(0, 2), carrier_name: "", flight_number: flight });
 const oneStop = { origin_airport: "BER", destination_airport: "MAD", departure: "2026-12-10T06:10",
-  arrival: "2026-12-10T12:40", duration: "6h 30m", stops: 1, segments: [
+  arrival: "2026-12-10T12:40", duration: "6h 30m", stops: 1, flight_numbers: "LH171, LH1120", segments: [
     segment("BER", "FRA", "2026-12-10T06:10", "2026-12-10T07:20", "1h 10m", "LH171"),
     segment("FRA", "MAD", "2026-12-10T09:00", "2026-12-10T12:40", "3h 40m", "LH1120")] };
 
@@ -88,7 +92,7 @@ test("a leg without segment times is drawn as one journey that says so", () => {
 });
 
 const back = { origin_airport: "MAD", destination_airport: "BER", departure: "2026-12-17T18:00",
-  arrival: "2026-12-17T21:10", duration: "3h 10m", stops: 0, segments: [
+  arrival: "2026-12-17T21:10", duration: "3h 10m", stops: 0, flight_numbers: "IB3670", segments: [
     segment("MAD", "BER", "2026-12-17T18:00", "2026-12-17T21:10", "3h 10m", "IB3670")] };
 const trip = (key, price, outbound, inbound) => ({ trip_key: key, route: "BER-MAD", depart_date: "2026-12-10",
   return_date: inbound ? "2026-12-17" : "", outbound, inbound, best: { price_base: price },
@@ -140,11 +144,12 @@ test("only a stored trip layout opens the Trip view", () => {
   for (const value of ["list", null, "grid", 1]) assert.equal(normalizeLayout(value), "list");
 });
 
-const renderTrip = (rows, at) => {
+const renderTrip = (rows, at, { stage = { kind: "pairs" }, figures = rows.map((row) => tripStats(row)), times = OPEN_FILTERS } = {}) => {
   const timelines = flightTimelines(rows);
   return renderToStaticMarkup(React.createElement(CurrencyProvider, { api: null }, React.createElement(TripView, {
-    rows, at, onStep: () => {}, ratings: new Map(), distributions: tripDistributions(rows), timelines,
-    layoverRatings: { outbound: new Map(), inbound: new Map() }, favorite: false, onToggleFavorite: () => {}, details: null,
+    rows, at, onStep: () => {}, stage, figures, ratings: new Map(), distributions: tripDistributions(figures), timelines,
+    layoverRatings: { outbound: new Map(), inbound: new Map() }, times: { outbound: times.outbound, inbound: times.inbound },
+    onTimes: () => {}, favorite: false, onToggleFavorite: () => {}, details: null,
   })));
 };
 
@@ -181,4 +186,67 @@ test("a one-way trip has no return section", () => {
   const html = renderTrip([trip("a", 240, oneStop, null)], 0);
   assert.doesNotMatch(html, /Return timeline/);
   assert.doesNotMatch(html, /Return flight details unavailable/);
+});
+
+// Two returns sold with the same outbound, and a second outbound.
+const late = { ...back, departure: "2026-12-17T21:00", arrival: "2026-12-18T00:10", flight_numbers: "IB3672",
+  segments: [segment("MAD", "BER", "2026-12-17T21:00", "2026-12-18T00:10", "3h 10m", "IB3672")] };
+const nonstop = { ...back, origin_airport: "BER", destination_airport: "MAD", departure: "2026-12-10T09:00", flight_numbers: "IB3671",
+  arrival: "2026-12-10T12:10", segments: [segment("BER", "MAD", "2026-12-10T09:00", "2026-12-10T12:10", "3h 10m", "IB3671")] };
+const pairs = [trip("a", 240, oneStop, back), trip("b", 300, oneStop, late), trip("c", 180, nonstop, back)];
+
+test("picking an outbound steps through outbounds alone, each priced from its cheapest pair", () => {
+  const groups = pickGroups(pairs, "outbound", "price");
+  const rows = groups.map((group) => ({ ...group.example, trip_key: group.key }));
+  const figures = groups.map((group) => tripStats(group.example, "outbound", group.low));
+  const stage = { kind: "pick", direction: "outbound", groups: new Map(groups.map((group) => [group.key, group])), onPick: () => {} };
+  const at = groups.findIndex((group) => group.leg === oneStop);
+  const html = renderTrip(rows, at, { stage, figures });
+  assert.match(html, /Outbound <b>2<\/b> of 2/);
+  assert.match(html, /Price from/);
+  assert.match(html, /Choose<span class="trip-book-seller">2 returns</);
+  assert.match(html, /Outbound timeline/);
+  assert.doesNotMatch(html, /Return timeline|Book<span/, "one direction, and nothing to book until a pair is chosen");
+  assert.match(html, /More expensive|None cost more/);
+  assert.equal({ ...figures[at] }.price, 240, "from the cheaper of its two pairs");
+  assert.equal({ ...figures[at] }.duration, 390, "the outbound's time alone");
+});
+
+test("the pairs of a picked outbound keep it pinned above them, with a way to pick again", () => {
+  const [group] = pickGroups(pairs.filter((row) => legKey(row, "outbound") === legKey(pairs[0], "outbound")), "outbound", "price");
+  const rows = pairs.slice(0, 2);
+  const html = renderTrip(rows, 0, { stage: { kind: "pair", pinned: group, onChange: () => {} } });
+  assert.match(html, /class="trip-pinned-what">Outbound picked/);
+  assert.match(html, /BER 06:10 → MAD 12:40 · /);
+  assert.match(html, />Change</);
+  assert.match(html, /Return <b>1<\/b> of 2/);
+  assert.match(html, /Book<span/);
+});
+
+test("a time limit lands on the timeline from the local midnight of the departure day", () => {
+  const timing = journeyTiming(oneStop);
+  const axis = timeFilterAxis(timing);
+  // Departs 06:10: the departure clock's midnight is 370 minutes before.
+  assert.equal(timing.start - axis.depart, 6 * 60 + 10);
+  assert.equal(axis.arrive, axis.depart, "no time zones crossed in the fixture's clocks");
+});
+
+test("a dragged handle snaps to a quarter hour, and dragged out to its end lifts the limit", () => {
+  const scale = { min: 300, max: 1740 };
+  assert.equal(limitAt("depart", 300 + 7 * 60 + 8, 300, scale), 7 * 60 + 15);
+  assert.equal(limitAt("depart", 300, 0, scale), 0);
+  assert.equal(limitAt("arrive", 1740, 0, scale), ANY_ARRIVAL);
+  assert.equal(limitAt("arrive", 1500, 0, scale), 1500);
+  assert.equal(limitClock(1500), "01:00 +1");
+  assert.equal(limitClock(7 * 60 + 30), "07:30");
+});
+
+test("set time limits show on the handles and shade the hours they rule out", () => {
+  const times = { ...OPEN_FILTERS, outbound: { ...OPEN_FILTERS.outbound, depart: { from: 7 * 60, to: 1440 } } };
+  const html = renderTrip([trip("a", 240, oneStop, back)], 0, { times });
+  assert.match(html, /aria-valuetext="Depart after 07:00"/);
+  assert.match(html, /class="time-handle-label">Depart after 07:00</);
+  assert.match(html, /aria-valuetext="Any arrival time"/);
+  assert.equal((html.match(/class="time-filtered"/g) || []).length, 1);
+  assert.equal((html.match(/role="slider"/g) || []).length, 4, "two handles on each direction");
 });
