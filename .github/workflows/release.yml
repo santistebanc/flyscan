@@ -1,8 +1,8 @@
 name: Release
 
 # One trigger for a release: bump every version, write the notes, commit and tag on main,
-# then build, sign and publish public/private Windows and web editions, and deploy
-# both web services. Start it from the Actions tab, the GitHub app, or `gh workflow run release`.
+# then build, sign and publish the Windows installer and the web release in this
+# repository, and deploy the web release to flyscan.site. Start it from the Actions tab, the GitHub app, or `gh workflow run release`.
 on:
   workflow_dispatch:
     inputs:
@@ -28,17 +28,11 @@ jobs:
         env:
           RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
           RAILWAY_SERVICE: ${{ vars.RAILWAY_SERVICE_ID }}
-          RAILWAY_PRIVATE_SERVICE: ${{ vars.RAILWAY_PRIVATE_SERVICE_ID }}
-          PRIVATE_UPDATE_ORIGIN: ${{ vars.PRIVATE_UPDATE_ORIGIN }}
-          RELEASES_REPOSITORY: ${{ vars.RELEASES_REPOSITORY }}
-          RELEASES_TOKEN: ${{ secrets.RELEASES_TOKEN }}
           SIGNING_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
         run: |
-          for name in RAILWAY_TOKEN RAILWAY_SERVICE RAILWAY_PRIVATE_SERVICE PRIVATE_UPDATE_ORIGIN RELEASES_REPOSITORY RELEASES_TOKEN SIGNING_KEY; do
+          for name in RAILWAY_TOKEN RAILWAY_SERVICE SIGNING_KEY; do
             if [ -z "${!name}" ]; then echo "::error::Missing release setting: $name"; exit 1; fi
           done
-          case "$PRIVATE_UPDATE_ORIGIN" in https://*) ;; *) echo "::error::Private updates require HTTPS"; exit 1;; esac
-          if [ "$RELEASES_REPOSITORY" = "$GITHUB_REPOSITORY" ]; then echo "::error::Public/private release repositories must differ"; exit 1; fi
 
   tag:
     needs: preflight
@@ -86,15 +80,9 @@ jobs:
     needs: tag
     runs-on: windows-latest
     timeout-minutes: 45
-    strategy:
-      fail-fast: false
-      matrix:
-        edition: [public, private]
     permissions:
-      contents: write
+      contents: read
     env:
-      RELEASE_EDITION: ${{ matrix.edition }}
-      PRIVATE_UPDATE_ORIGIN: ${{ vars.PRIVATE_UPDATE_ORIGIN }}
       RELEASE_TAG: ${{ needs.tag.outputs.tag }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -120,11 +108,11 @@ jobs:
         env:
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ""
-          RELEASES_REPOSITORY: ${{ matrix.edition == 'private' && github.repository || vars.RELEASES_REPOSITORY }}
-        run: ./packaging/build-windows.ps1 -Edition $env:RELEASE_EDITION -UpdateOrigin $env:PRIVATE_UPDATE_ORIGIN -Python (Get-Command python).Source -UpdaterRelease -ReleaseRepository $env:RELEASES_REPOSITORY
+          RELEASES_REPOSITORY: ${{ github.repository }}
+        run: ./packaging/build-windows.ps1 -Python (Get-Command python).Source -UpdaterRelease -ReleaseRepository $env:RELEASES_REPOSITORY
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
-          name: Flyscan-${{ matrix.edition }}-Windows-${{ needs.tag.outputs.tag }}
+          name: Flyscan-Windows-${{ needs.tag.outputs.tag }}
           path: release/*
           if-no-files-found: error
           retention-days: 14
@@ -133,11 +121,7 @@ jobs:
     needs: tag
     runs-on: ubuntu-latest
     permissions:
-      contents: write
-    strategy:
-      fail-fast: false
-      matrix:
-        edition: [public, private]
+      contents: read
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -145,23 +129,18 @@ jobs:
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version: "22"
-      - name: Prepare the edition and build the deployable image
-        env:
-          EDITION: ${{ matrix.edition }}
+      - name: Build and check the deployable image
         run: |
-          # The private archive defaults to private; the public archive defaults to public.
-          sed -i "s/ARG FLYSCAN_EDITION=public/ARG FLYSCAN_EDITION=$EDITION/" Dockerfile
-          docker build --tag "flyscan:$EDITION" .
-          password_hash="$(docker run --rm --entrypoint python "flyscan:$EDITION" -c "from werkzeug.security import generate_password_hash; print(generate_password_hash('ci-only-password'))")"
-          docker run --detach --name flyscan-smoke -e FLYSCAN_SESSION_SECRET=ci-only-session -e "FLYSCAN_PRIVATE_PASSWORD_HASH=$password_hash" "flyscan:$EDITION"
+          docker build --tag flyscan .
+          docker run --detach --name flyscan-smoke flyscan
           trap 'docker rm -f flyscan-smoke' EXIT
-          docker exec -i flyscan-smoke python - "$EDITION" < packaging/smoke_web.py
+          docker exec -i flyscan-smoke python - < packaging/smoke_web.py
           mkdir -p release
-          tar --exclude='desktop/node_modules' --exclude='desktop/dist' --exclude='desktop/src-tauri' --exclude='flyscan/__pycache__' --exclude='flyscan/_build.py' -czf "release/flyscan-$EDITION-web.tar.gz" Dockerfile .dockerignore railway.json pyproject.toml README.md packaging/requirements-web.lock flyscan desktop
+          tar --exclude='desktop/node_modules' --exclude='desktop/dist' --exclude='desktop/src-tauri' --exclude='flyscan/__pycache__' -czf release/flyscan-web.tar.gz Dockerfile .dockerignore railway.json pyproject.toml README.md packaging/requirements-web.lock flyscan desktop
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
-          name: Flyscan-${{ matrix.edition }}-Web-${{ needs.tag.outputs.tag }}
-          path: release/flyscan-${{ matrix.edition }}-web.tar.gz
+          name: Flyscan-Web-${{ needs.tag.outputs.tag }}
+          path: release/flyscan-web.tar.gz
           if-no-files-found: error
 
   publish:
@@ -169,35 +148,26 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: write
-    strategy:
-      fail-fast: false
-      matrix:
-        edition: [public, private]
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           ref: ${{ needs.tag.outputs.tag }}
       - uses: actions/download-artifact@634f93cb2916e3fdff6788551b99b062d0335ce0 # v5
         with:
-          pattern: Flyscan-${{ matrix.edition }}-*-${{ needs.tag.outputs.tag }}
+          pattern: Flyscan-*-${{ needs.tag.outputs.tag }}
           path: release
           merge-multiple: true
-      - name: Publish complete, verified edition
+      - name: Publish the complete, verified release
         shell: pwsh
         env:
-          GH_TOKEN: ${{ matrix.edition == 'private' && github.token || secrets.RELEASES_TOKEN }}
-          REPOSITORY: ${{ matrix.edition == 'private' && github.repository || vars.RELEASES_REPOSITORY }}
-          RELEASE_EDITION: ${{ matrix.edition }}
+          GH_TOKEN: ${{ github.token }}
+          REPOSITORY: ${{ github.repository }}
           RELEASE_TAG: ${{ needs.tag.outputs.tag }}
-        run: ./packaging/publish-windows-release.ps1 -Edition $env:RELEASE_EDITION -Repository $env:REPOSITORY
+        run: ./packaging/publish-windows-release.ps1 -Repository $env:REPOSITORY
 
   deploy:
     needs: [tag, publish]
     runs-on: ubuntu-latest
-    strategy:
-      fail-fast: false
-      matrix:
-        edition: [public, private]
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -208,8 +178,5 @@ jobs:
       - name: Deploy this exact release to Railway
         env:
           RAILWAY_TOKEN: ${{ secrets.RAILWAY_TOKEN }}
-          RAILWAY_SERVICE: ${{ matrix.edition == 'private' && vars.RAILWAY_PRIVATE_SERVICE_ID || vars.RAILWAY_SERVICE_ID }}
-          EDITION: ${{ matrix.edition }}
-        run: |
-          sed -i "s/ARG FLYSCAN_EDITION=public/ARG FLYSCAN_EDITION=$EDITION/" Dockerfile
-          npx --yes @railway/cli@4 up --ci --service "$RAILWAY_SERVICE"
+          RAILWAY_SERVICE: ${{ vars.RAILWAY_SERVICE_ID }}
+        run: npx --yes @railway/cli@4 up --ci --service "$RAILWAY_SERVICE"

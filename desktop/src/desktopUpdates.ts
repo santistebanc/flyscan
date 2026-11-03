@@ -10,19 +10,10 @@ try { stored = JSON.parse(localStorage.getItem(UPDATE_PREFERENCES_KEY) ?? "null"
 
 export const desktopUpdates = new UpdateManager({
   async check() {
-    const privateEdition = await invoke<boolean>("update_edition");
-    if (privateEdition && stored == null) {
-      stored = { autoDownload: true, installOnStartup: true, autoInstall: true };
-      desktopUpdates.setPreferences(stored as { autoDownload: boolean; installOnStartup: boolean; autoInstall: boolean });
-    }
-    const password = privateEdition ? await invoke<string | null>("update_password") : null;
-    if (privateEdition && !password) throw new Error("Enter the private update password in App updates.");
-    const encoded = password ? btoa(String.fromCharCode(...new TextEncoder().encode(password))) : "";
-    const headers = encoded ? { Authorization: `Bearer ${encoded}` } : undefined;
-    const artifact = await check({ timeout: privateEdition ? 45_000 : 15_000, headers });
+    const artifact = await check({ timeout: 15_000 });
     if (!artifact) return null;
     return { version: artifact.version, body: artifact.body,
-      download: (event, options) => artifact.download(event, { ...options, headers }),
+      download: (event, options) => artifact.download(event, options),
       install: (options) => artifact.install(options), close: () => artifact.close() };
   },
   version: getVersion,

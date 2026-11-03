@@ -40,7 +40,7 @@ def build(names=None, **kwargs) -> List[Source]:
         raise ValueError(f"unknown source(s): {', '.join(unknown)} (known: {known})")
     disabled = set(chosen) - set(enabled)
     if disabled:
-        raise ValueError("source(s) disabled in this edition: " + ", ".join(sorted(disabled)))
+        raise ValueError("source(s) disabled on the web: " + ", ".join(sorted(disabled)))
     return [REGISTRY[name](**kwargs) for name in chosen]
 
 

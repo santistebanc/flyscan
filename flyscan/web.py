@@ -23,7 +23,7 @@ from flask import Flask, jsonify, send_from_directory
 
 from . import errorlog
 from .api import api, search_fingerprint
-from .deployment import allowed_sources, edition, web_mode
+from .deployment import allowed_sources, web_mode
 from .jobs import JobRegistry
 from .models import parse_date, trip_pairs
 from .scheduler import (
@@ -51,7 +51,7 @@ def parse_params(form: Dict[str, Any]):
         if not isinstance(chosen, list) or not all(isinstance(s, str) for s in chosen):
             return None, "sources must be a list of names"
         if set(chosen) - set(allowed_sources(REGISTRY)):
-            return None, "source disabled in this edition"
+            return None, "source disabled on the web"
         unknown = [s for s in chosen if s not in REGISTRY]
         if unknown:
             return None, "unknown source(s): " + ", ".join(unknown)
@@ -158,15 +158,12 @@ def create_app() -> Flask:
     """
     root = Path(__file__).parent.parent
     bundle = _frontend_dir(root)
-    edition()  # Validate configuration before serving requests.
-    allowed_sources(REGISTRY)
+    allowed_sources(REGISTRY)  # Validate configuration before serving requests.
     app = Flask(__name__, static_folder=None)
     app.config["MAX_CONTENT_LENGTH"] = 64 * 1024
     from .hosted import install_hosted_policy
-    from .private_updates import updates
 
     install_hosted_policy(app)
-    app.register_blueprint(updates)
 
     @app.errorhandler(Exception)
     def _record_unhandled(exc):

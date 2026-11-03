@@ -6,14 +6,11 @@ COPY desktop/ ./
 RUN npm run build
 
 FROM python:3.12-slim-bookworm
-ARG FLYSCAN_EDITION=public
 WORKDIR /app
 COPY pyproject.toml README.md ./
 COPY packaging/requirements-web.lock /tmp/requirements-web.lock
 COPY flyscan/ ./flyscan/
-RUN test "$FLYSCAN_EDITION" = public -o "$FLYSCAN_EDITION" = private \
-    && printf 'EDITION = "%s"\n' "$FLYSCAN_EDITION" > flyscan/_build.py \
-    && pip install --no-cache-dir --require-hashes -r /tmp/requirements-web.lock \
+RUN pip install --no-cache-dir --require-hashes -r /tmp/requirements-web.lock \
     && pip install --no-cache-dir --no-deps .
 COPY --from=frontend /build/desktop/dist ./desktop/dist
 ENV FLYSCAN_MODE=web FLYSCAN_DATA_DIR=/data PYTHONUNBUFFERED=1

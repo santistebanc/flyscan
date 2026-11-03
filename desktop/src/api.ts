@@ -377,7 +377,7 @@ export class FlyscanApi {
   }
 
   version() {
-    return this.json<{ version: string; edition: "development" | "public" | "private"; mode: "desktop" | "web" }>("/version");
+    return this.json<{ version: string; mode: "desktop" | "web" }>("/version");
   }
 
   health() {

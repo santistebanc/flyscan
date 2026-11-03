@@ -50,14 +50,6 @@ class UpdateManifest(unittest.TestCase):
         with self.assertRaises(ValueError):
             self.create()
 
-    def test_private_manifest_has_distinct_installer_and_edition(self):
-        private = self.root / "Flyscan-Private-0.3.2-windows-x64-setup.exe"
-        self.installer.rename(private)
-        self.installer.with_suffix(".exe.sig").rename(private.with_suffix(".exe.sig"))
-        result = module.manifest(self.root, "0.3.2", "owner/private", "Private notes", "private")
-        self.assertEqual(result["edition"], "private")
-        self.assertIn("/Flyscan-Private-", result["platforms"]["windows-x86_64"]["url"])
-
     def test_invalid_signature_repository_and_version_are_rejected(self):
         for version, repository in (
             ("0.3.2-beta", "owner/downloads"),

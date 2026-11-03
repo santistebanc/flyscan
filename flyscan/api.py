@@ -33,7 +33,7 @@ from flask import Blueprint, Response, current_app, jsonify, request
 
 from . import __version__, errorlog, fx
 from .challenge import CHALLENGE_VIEWER_URL_ENV
-from .deployment import allowed_sources, edition, web_mode
+from .deployment import allowed_sources, web_mode
 from .jobs import Job
 from .manual import itinerary_from, query_from
 from .models import SearchQuery, parse_date, pretty_duration, trip_pairs
@@ -169,7 +169,7 @@ def _cors(response: Response) -> Response:
 
 @api.get("/version")
 def version():
-    return jsonify(version=__version__, edition=edition(), mode="web" if web_mode() else "desktop")
+    return jsonify(version=__version__, mode="web" if web_mode() else "desktop")
 
 
 @api.get("/health")
@@ -178,7 +178,6 @@ def health():
         {
             "status": "ok",
             "sources": allowed_sources(REGISTRY),
-            "edition": edition(),
             "mode": "web" if web_mode() else "desktop",
             "scheduler": default_scheduler().snapshot(),
         }

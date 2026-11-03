@@ -2,12 +2,12 @@
   <img src="docs/flyscan-logo.svg" alt="flyscan" width="280" height="64" />
 </h1>
 
-![flyscan: round-trip results for Berlin to Madrid, with each itinerary's timeline and the selected flight's legs and booking option in the side panel](docs/screenshots/app.png)
+![flyscan: round-trip results for Berlin to Sydney, with each itinerary's timeline and the selected flight's legs and booking option in the side panel](docs/screenshots/app.png)
 
 <p align="left">
   <a href="https://flyscan.site"><strong>Live app: flyscan.site</strong></a>
   ·
-  <a href="https://github.com/santistebanc/flight-scraper-releases/releases/latest">Windows download</a>
+  <a href="https://github.com/santistebanc/flyscan/releases/latest">Windows download</a>
 </p>
 
 **flyscan** searches five flight metasearch sources at once: Kayak, Skyscanner,
@@ -29,9 +29,9 @@ price into one currency so they can actually be compared.
   put in front of you in a browser window, and the search waits until you have
   cleared it.
 - **Desktop and web.** A Tauri app for Windows with signed auto-updates, and
-  the same frontend served on the web. Both come in a public edition and a
-  private one with every source. See
-  [packaging/WEB-RELEASES.md](packaging/WEB-RELEASES.md).
+  the same frontend served on the web. The desktop app searches every source;
+  the web leaves out Kayak and Momondo. See
+  [packaging/RELEASES.md](packaging/RELEASES.md).
 
 The interesting output is not the cheapest flight — it is the **spread**: the
 same Ryanair seat on the same day comes back €28 apart depending on who is

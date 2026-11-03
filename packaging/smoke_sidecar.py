@@ -13,7 +13,7 @@ from urllib.error import HTTPError, URLError
 from urllib.request import Request, urlopen
 
 
-def smoke(binary: Path, edition="public") -> None:
+def smoke(binary: Path) -> None:
     with socket.socket() as listener:
         listener.bind(("127.0.0.1", 0))
         port = listener.getsockname()[1]
@@ -88,14 +88,9 @@ def smoke(binary: Path, edition="public") -> None:
                 )
                 assert status == 200 and "Authorization" in headers["Access-Control-Allow-Headers"]
                 identity = json.loads(request("/v1/version")[1])
-                assert identity["edition"] == edition and identity["mode"] == "desktop"
+                assert identity["mode"] == "desktop"
                 sources = {row["name"] for row in json.loads(request("/v1/sources")[1])}
-                assert (
-                    ({"momondo", "ff-kayak"} <= sources)
-                    if edition == "private"
-                    else not ({"momondo", "ff-kayak"} & sources)
-                )
-                # An environment override must not widen a frozen public build.
+                assert {"momondo", "ff-kayak"} <= sources
                 assert request("/")[0] == 200, "Missing bundled frontend"
                 status, body, _ = request("/v1/flights?all=1&start=2026-12-21")
                 assert status == 200, (
@@ -123,6 +118,5 @@ def smoke(binary: Path, edition="public") -> None:
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("binary", type=Path)
-    parser.add_argument("--edition", choices=["public", "private"], default="public")
     args = parser.parse_args()
-    smoke(args.binary, args.edition)
+    smoke(args.binary)

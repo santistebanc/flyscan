@@ -51,20 +51,13 @@ jobs:
       - run: npm run build
 
   web:
-    name: web container (${{ matrix.edition }})
+    name: web container
     runs-on: ubuntu-latest
-    strategy:
-      fail-fast: false
-      matrix:
-        edition: [public, private]
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - name: Build and probe the container without scraping
-        env:
-          EDITION: ${{ matrix.edition }}
         run: |
-          docker build --build-arg "FLYSCAN_EDITION=$EDITION" --tag "flyscan:$EDITION" .
-          password_hash="$(docker run --rm --entrypoint python "flyscan:$EDITION" -c "from werkzeug.security import generate_password_hash; print(generate_password_hash('ci-only-password'))")"
-          docker run --detach --name flyscan-smoke -e FLYSCAN_SESSION_SECRET=ci-only-session -e "FLYSCAN_PRIVATE_PASSWORD_HASH=$password_hash" "flyscan:$EDITION"
+          docker build --tag flyscan .
+          docker run --detach --name flyscan-smoke flyscan
           trap 'docker rm -f flyscan-smoke' EXIT
-          docker exec -i flyscan-smoke python - "$EDITION" < packaging/smoke_web.py
+          docker exec -i flyscan-smoke python - < packaging/smoke_web.py

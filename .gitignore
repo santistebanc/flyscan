@@ -27,4 +27,3 @@ desktop/src-tauri/binaries/
 data/
 
 # Generated, immutable release policy (never credentials).
-flyscan/_build.py
