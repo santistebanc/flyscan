@@ -1,7 +1,7 @@
 # Windows release build
 
-For the public/private desktop and web release workflow and Railway setup, see
-[WEB-RELEASES.md](WEB-RELEASES.md).
+For what a release contains, the web deployment and flyscan.site, see
+[RELEASES.md](RELEASES.md).
 
 The installer includes the React UI, Tauri shell and a frozen Python service.
 Users do not need Python, Node or Rust. It installs for the current Windows user,
@@ -46,17 +46,13 @@ It bumps every version file (`set-version.py`), writes
 `packaging/release-notes.md`, commits `Release vX.Y.Z` and its tag to `main`,
 then runs every test, builds the installer and its Tauri signature, verifies the
 signature against the public key embedded in the app, and creates `latest.json`.
-It uploads the installer, signature, manifest and checksum to a draft in
-`santistebanc/flight-scraper-releases`, then publishes the complete release.
-The source repository stays private. Published versions cannot be overwritten,
-and a version must be newer than the last for installed apps to take it.
+It uploads the installer, signature, manifest, checksum and web release to a
+draft release in this repository, then publishes the complete release.
+Published versions cannot be overwritten, and a version must be newer than the
+last for installed apps to take it.
 
-The release workflow needs `TAURI_SIGNING_PRIVATE_KEY` and `RELEASES_TOKEN` as
-repository Actions secrets, and `RELEASES_REPOSITORY` as a repository variable.
-`RELEASES_TOKEN` needs Contents read/write on only the downloads repository;
-renew it before its expiry. The normal GitHub workflow token cannot write to a
-different repository; the workflow's own token only commits and tags the
-release on `main`.
+The release workflow needs `TAURI_SIGNING_PRIVATE_KEY` as a repository Actions
+secret. It publishes with the workflow's own token.
 
 The updater public key is committed in `tauri.conf.json`. The private key is
 backed up locally outside the checkout under `~/.flight-scraper-signing/` with
@@ -197,7 +193,8 @@ matters, `--onedir` trades a single file for a faster start.
 
 ## Rename compatibility
 
-The application identifier `com.flightscraper.desktop`, public downloads repository
-`santistebanc/flight-scraper-releases`, and existing signing-key backup location
-are deliberately stable so installed applications retain their data and update trust.
+The application identifier `com.flightscraper.desktop` and the existing
+signing-key backup location are deliberately stable so installed applications
+retain their data and update trust. Releases moved from
+`santistebanc/flight-scraper-releases` to this repository in 0.4.0.
 The source repository, Python package and command are now named `flyscan`.

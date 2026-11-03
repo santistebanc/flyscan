@@ -11,5 +11,4 @@ desktop/src-tauri/binaries
 packaging/build
 packaging/dist
 release
-flyscan/_build.py
 **/__pycache__
