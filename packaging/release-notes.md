@@ -1,4 +1,1 @@
-- Use the fs mark for the favicon and the desktop app icon
-- Show each codeshare flight as the cheapest seller sells it, and who operates it
-- Show the version small under the logo, with X for the private edition; add a favicon
-- Answer the hosted queue selection with the resolved search
+Flyscan is now one public project. The Windows app searches every source, including Kayak and Momondo, and updates from github.com/santistebanc/flyscan. The web version runs on flyscan.site.
