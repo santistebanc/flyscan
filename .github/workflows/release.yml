@@ -1,8 +1,9 @@
 name: Release
 
 # One trigger for a release: bump every version, write the notes, commit and tag on main,
-# then build, sign and publish the Windows installer and the web release in this
-# repository, and deploy the web release to flyscan.site. Start it from the Actions tab, the GitHub app, or `gh workflow run release`.
+# then build, sign and publish the desktop app for Windows and Linux (x64 and ARM64) and
+# macOS (Apple Silicon and Intel), and the web release, in this repository, and deploy the
+# web release to flyscan.site. Start it from the Actions tab, the GitHub app, or `gh workflow run release`.
 on:
   workflow_dispatch:
     inputs:
@@ -78,8 +79,15 @@ jobs:
 
   windows:
     needs: tag
-    runs-on: windows-latest
-    timeout-minutes: 45
+    strategy:
+      matrix:
+        include:
+          - runner: windows-latest
+            arch: x64
+          - runner: windows-11-arm
+            arch: arm64
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 60
     permissions:
       contents: read
     env:
@@ -96,11 +104,18 @@ jobs:
       - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
         with:
           python-version: "3.12"
-          architecture: x64
+          architecture: ${{ matrix.arch }}
       - uses: astral-sh/setup-uv@1c37ad07a6a961277cf70c0d37d6f313000f5884 # v10.3.0
       - name: Install Rust stable
         shell: pwsh
         run: |
+          if (-not (Get-Command rustup -ErrorAction SilentlyContinue)) {
+            $arch = if ($env:RUNNER_ARCH -eq "ARM64") { "aarch64" } else { "x86_64" }
+            Invoke-WebRequest "https://static.rust-lang.org/rustup/dist/$arch-pc-windows-msvc/rustup-init.exe" -OutFile "$env:RUNNER_TEMP/rustup-init.exe"
+            & "$env:RUNNER_TEMP/rustup-init.exe" -y --profile minimal --default-toolchain none
+            "$env:USERPROFILE/.cargo/bin" | Out-File -Append -Encoding utf8 $env:GITHUB_PATH
+            $env:PATH = "$env:USERPROFILE/.cargo/bin;$env:PATH"
+          }
           rustup toolchain install stable --profile minimal
           rustup default stable
       - name: Build, test and sign updater assets
@@ -108,11 +123,77 @@ jobs:
         env:
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ""
-          RELEASES_REPOSITORY: ${{ github.repository }}
-        run: ./packaging/build-windows.ps1 -Python (Get-Command python).Source -UpdaterRelease -ReleaseRepository $env:RELEASES_REPOSITORY
+        run: ./packaging/build-windows.ps1 -Python (Get-Command python).Source -Architecture ${{ matrix.arch }} -UpdaterRelease
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
-          name: Flyscan-Windows-${{ needs.tag.outputs.tag }}
+          name: Flyscan-windows-${{ matrix.arch }}-${{ needs.tag.outputs.tag }}
+          path: release/*
+          if-no-files-found: error
+          retention-days: 14
+
+  unix:
+    needs: tag
+    strategy:
+      matrix:
+        include:
+          - runner: macos-15
+            platform: macos-arm64
+          - runner: macos-15-intel
+            platform: macos-x64
+          # The oldest supported Ubuntu sets the oldest glibc the app runs on.
+          - runner: ubuntu-22.04
+            platform: linux-x64
+          - runner: ubuntu-22.04-arm
+            platform: linux-arm64
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 60
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ needs.tag.outputs.tag }}
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: desktop/package-lock.json
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: "3.12"
+      - uses: astral-sh/setup-uv@1c37ad07a6a961277cf70c0d37d6f313000f5884 # v10.3.0
+      - name: System libraries for Tauri
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf xdg-utils
+      - name: Install Rust stable
+        run: |
+          rustup toolchain install stable --profile minimal
+          rustup default stable
+      - name: Build, test and sign updater assets
+        env:
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ""
+          # Optional Developer ID signing and notarization; without them the app is signed ad hoc.
+          SECRET_APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
+          SECRET_APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+          SECRET_APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
+          SECRET_APPLE_ID: ${{ secrets.APPLE_ID }}
+          SECRET_APPLE_PASSWORD: ${{ secrets.APPLE_PASSWORD }}
+          SECRET_APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+        run: |
+          # Tauri treats a set but empty variable as configured, so pass on only real values.
+          if [ "$RUNNER_OS" = macOS ]; then
+            for name in APPLE_CERTIFICATE APPLE_CERTIFICATE_PASSWORD APPLE_SIGNING_IDENTITY APPLE_ID APPLE_PASSWORD APPLE_TEAM_ID; do
+              secret="SECRET_$name"
+              if [ -n "${!secret}" ]; then export "$name=${!secret}"; fi
+            done
+          fi
+          packaging/build-unix.sh --python "$(command -v python)" --updater-release
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: Flyscan-${{ matrix.platform }}-${{ needs.tag.outputs.tag }}
           path: release/*
           if-no-files-found: error
           retention-days: 14
@@ -144,7 +225,7 @@ jobs:
           if-no-files-found: error
 
   publish:
-    needs: [tag, windows, web]
+    needs: [tag, windows, unix, web]
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -157,13 +238,18 @@ jobs:
           pattern: Flyscan-*-${{ needs.tag.outputs.tag }}
           path: release
           merge-multiple: true
+      - name: Check every platform's build and write the update manifest
+        env:
+          REPOSITORY: ${{ github.repository }}
+          RELEASE_TAG: ${{ needs.tag.outputs.tag }}
+        run: python3 packaging/create-update-manifest.py --version "${RELEASE_TAG#v}" --repository "$REPOSITORY" --notes packaging/release-notes.md
       - name: Publish the complete, verified release
         shell: pwsh
         env:
           GH_TOKEN: ${{ github.token }}
           REPOSITORY: ${{ github.repository }}
           RELEASE_TAG: ${{ needs.tag.outputs.tag }}
-        run: ./packaging/publish-windows-release.ps1 -Repository $env:REPOSITORY
+        run: ./packaging/publish-release.ps1 -Repository $env:REPOSITORY
 
   deploy:
     needs: [tag, publish]

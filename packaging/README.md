@@ -1,36 +1,62 @@
-# Windows release build
+# Desktop release builds
 
 For what a release contains, the web deployment and flyscan.site, see
 [RELEASES.md](RELEASES.md).
 
-The installer includes the React UI, Tauri shell and a frozen Python service.
-Users do not need Python, Node or Rust. It installs for the current Windows user,
-adds a Start menu entry, registers an uninstaller, and checks for WebView2. The
-Microsoft bootstrapper is embedded; installing WebView2 when it is missing
-requires an internet connection.
+Every build includes the React UI, Tauri shell and a frozen Python service.
+Users do not need Python, Node or Rust. Each OS builds on its own machine,
+because PyInstaller does not cross-compile.
 
-The installer targets Windows x64: Windows 10/11 x64, or Windows 11 ARM64 with
-x64 emulation. This build does not produce a native ARM64 or 32-bit installer.
+| OS | Download | Runs on |
+| --- | --- | --- |
+| Windows | `Flyscan-<v>-windows-x64-setup.exe`, `Flyscan-<v>-windows-arm64-setup.exe` | Windows 10/11 x64, or Windows 11 ARM64 |
+| macOS | `Flyscan-<v>-macos-arm64.dmg`, `Flyscan-<v>-macos-x64.dmg` | macOS 11 or later, Apple Silicon or Intel |
+| Linux | `Flyscan-<v>-linux-x64.AppImage`, `.deb`, `.rpm`, and the same for `linux-arm64` | x86-64 or ARM64 with glibc 2.35 or later (Ubuntu 22.04, Debian 12, Fedora 36 and newer) and WebKitGTK 4.1 |
 
-## Build the installer
+The Windows installer installs for the current user, adds a Start menu entry,
+registers an uninstaller, and checks for WebView2. The Microsoft bootstrapper is
+embedded; installing WebView2 when it is missing requires an internet
+connection. There is no 32-bit build.
 
-The Windows build machine needs Node 22+, x64 Python 3.12, uv, Rust stable and
-Visual Studio C++ Build Tools with the Windows SDK and x64 C++ tools. From the
-repository root:
+## Build on Windows
+
+The Windows build machine needs Node 22+, Python 3.12, uv, Rust stable and
+Visual Studio C++ Build Tools with the Windows SDK and the C++ tools for the
+target architecture. From the repository root:
 
 ```powershell
 ./packaging/build-windows.ps1 -Python .venv/Scripts/python.exe
 ```
 
-Pass another x64 Python interpreter path if necessary. The script creates an
+That builds the x64 installer with an x64 Python. `-Architecture arm64` builds
+the ARM64 installer, on an ARM64 machine with an ARM64 Python: the frozen
+service runs on the architecture of the Python that froze it. The script creates an
 isolated build environment, synchronizes `requirements-windows.lock`, installs
 the npm lockfile, runs Python, frontend and native regression tests and npm audit, builds the UI,
 freezes and smoke-tests the service, and builds NSIS using the Cargo lockfile.
 A stale or missing sidecar fails the build. `-SkipTests` is for local iteration.
 
-The output is in `release/`: the setup executable, `SHA256SUMS.txt`, and
-`build-info.json` with version, source revision, dirty-workspace and signing
-status.
+## Build on macOS or Linux
+
+The build machine needs Node 22+, a native Python 3.12, uv and Rust stable;
+Linux also needs the WebKitGTK development packages Tauri lists
+(`libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf xdg-utils`
+on Debian and Ubuntu). From the repository root:
+
+```bash
+packaging/build-unix.sh --python python3.12
+```
+
+It runs the same steps as the Windows script with `requirements-macos.lock` or
+`requirements-linux.lock`, for the machine's own architecture, and makes a disk
+image on macOS or an AppImage, `.deb` and `.rpm` on Linux. `--skip-tests` is
+for local iteration. The locks are compiled with the Windows lock as a
+constraint, so every OS freezes the same versions; recompile all three together
+(the command is at the top of each).
+
+Each build leaves its downloads in `release/` with `build-info-<platform>.json`:
+version, source revision, dirty-workspace and signing status, and the SHA-256
+of every file.
 
 ## Automatic updates and releases
 
@@ -44,10 +70,14 @@ gh workflow run release -f version=0.4.0 -f notes="What changed"
 
 It bumps every version file (`set-version.py`), writes
 `packaging/release-notes.md`, commits `Release vX.Y.Z` and its tag to `main`,
-then runs every test, builds the installer and its Tauri signature, verifies the
-signature against the public key embedded in the app, and creates `latest.json`.
-It uploads the installer, signature, manifest, checksum and web release to a
-draft release in this repository, then publishes the complete release.
+then builds on Windows and Linux (x64 and ARM64) and macOS (Apple Silicon and
+Intel) at once, each on a native runner. Each
+build runs every test, signs its updates and verifies each signature against the
+public key embedded in the app. `create-update-manifest.py` then checks that all
+six builds are there, of this version and with the bytes they recorded, and
+writes one `latest.json` for every platform and `SHA256SUMS.txt`. Everything is
+uploaded to a draft release in this repository, which is published once
+complete. One failed build publishes nothing.
 Published versions cannot be overwritten, and a version must be newer than the
 last for installed apps to take it.
 
@@ -61,9 +91,10 @@ Keep an additional secure backup: changing or losing that key breaks updates
 for existing installations. Never commit it, include it in artifacts or print it.
 
 For a local signed updater build, set `TAURI_SIGNING_PRIVATE_KEY` to the key's
-path and run `build-windows.ps1 -UpdaterRelease`. The flag requires a signing
+path and run `build-windows.ps1 -UpdaterRelease` or
+`build-unix.sh --updater-release`. The flag requires a signing
 key; builds without the flag do not create updater signatures. Tauri update
-signatures are separate from Windows Authenticode publisher signatures below.
+signatures are separate from the Windows and Apple publisher signatures below.
 
 The desktop app checks at startup and every six hours, downloads and verifies
 updates in the background by default, and offers **Restart and update**. The
@@ -82,6 +113,22 @@ Without a certificate, builds are explicitly unsigned. Windows may show an
 unknown-publisher or SmartScreen warning. For a trusted-publisher release,
 arrange a code-signing certificate.
 
+On macOS, a build without a Developer ID is signed ad hoc, which Apple Silicon
+requires to run it at all. Gatekeeper still blocks the first launch of a
+downloaded copy: open it once, then choose **Open Anyway** under System
+Settings > Privacy & Security. Updates installed by the app are not affected.
+With an Apple Developer ID, add the optional `APPLE_*` secrets listed in
+[RELEASES.md](RELEASES.md): Tauri then signs with the hardened runtime and
+`desktop/src-tauri/entitlements.plist`, and notarizes, so it opens without the
+warning. `APPLE_CERTIFICATE` is the base64 of the exported `.p12`,
+`APPLE_SIGNING_IDENTITY` its name (`Developer ID Application: …`), and
+`APPLE_PASSWORD` an app-specific password of `APPLE_ID`.
+
+Linux packages carry no publisher signature; `SHA256SUMS.txt` and the update
+signatures cover them.
+
+### Windows publisher signing
+
 With a code-signing certificate and private key in the Windows certificate
 store, pass its thumbprint:
 
@@ -96,7 +143,9 @@ Hardware and cloud signing services may need a custom Tauri sign command.
 ## Installed application
 
 Data, caches, challenge cookies, exports and `sidecar.log` live under
-`%LOCALAPPDATA%/com.flightscraper.desktop/`. The installation directory contains
+`%LOCALAPPDATA%/com.flightscraper.desktop/` on Windows,
+`~/Library/Application Support/com.flightscraper.desktop/` on macOS and
+`~/.local/share/com.flightscraper.desktop/` on Linux. The installation directory contains
 code only. `FLYSCAN_DATA_DIR` can override the data path for isolated tests.
 
 The shell starts a hidden service on a random loopback port with a fresh session
@@ -112,7 +161,7 @@ the security check and remains stable for two seconds. A redirect back to the
 check restarts that wait. Closing the window or reaching the five-minute timeout
 leaves verification incomplete. Cookies are read only for the verified site.
 
-Updates preserve data. The uninstaller offers a separate choice to remove app
+Updates preserve data. The Windows uninstaller offers a separate choice to remove app
 data; leave it unchecked to retain saved searches and settings.
 
 The frozen-service smoke test uses an empty directory and verifies startup,

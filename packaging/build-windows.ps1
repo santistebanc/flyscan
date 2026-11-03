@@ -1,9 +1,10 @@
 [CmdletBinding()]
 param(
     [string]$Python = ".venv/Scripts/python.exe",
+    [ValidateSet("x64", "arm64")]
+    [string]$Architecture = "x64",
     [switch]$SkipTests,
     [switch]$UpdaterRelease,
-    [string]$ReleaseRepository = "santistebanc/flyscan",
     [string]$SigningThumbprint = ""
 )
 $ErrorActionPreference = "Stop"
@@ -22,15 +23,21 @@ try {
         if (-not (Get-Command $tool -ErrorAction SilentlyContinue)) { throw "Missing build tool: $tool" }
     }
     $pythonPath = if (Test-Path -LiteralPath $Python) { (Resolve-Path -LiteralPath $Python).Path } else { $Python }
+    # PyInstaller freezes the interpreter it runs in, so the Python must match the installer.
+    $architectures = @{
+        x64 = @{ python = "win-amd64"; target = "x86_64-pc-windows-msvc"; update = "windows-x86_64" }
+        arm64 = @{ python = "win-arm64"; target = "aarch64-pc-windows-msvc"; update = "windows-aarch64" }
+    }
+    $arch = $architectures[$Architecture]
     $platform = & $pythonPath -c "import sys, sysconfig; print(f'{sysconfig.get_platform()} {sys.version_info.major}.{sys.version_info.minor}')"
-    if ($LASTEXITCODE -ne 0 -or $platform.Trim() -ne "win-amd64 3.12") { throw "Use an x64 Python 3.12 interpreter for the Windows x64 installer." }
+    if ($LASTEXITCODE -ne 0 -or $platform.Trim() -ne "$($arch.python) 3.12") { throw "Use an $Architecture Python 3.12 interpreter for the Windows $Architecture installer." }
     $version = (Get-Content desktop/package.json -Raw | ConvertFrom-Json).version
     $tauriVersion = (Get-Content desktop/src-tauri/tauri.conf.json -Raw | ConvertFrom-Json).version
     if ($version -ne $tauriVersion) { throw "Frontend and Tauri versions disagree." }
     if ($UpdaterRelease -and -not $env:TAURI_SIGNING_PRIVATE_KEY) { throw "An updater release requires TAURI_SIGNING_PRIVATE_KEY." }
-    $target = "x86_64-pc-windows-msvc"
-    $buildPython = Join-Path $projectRoot "packaging/.venv-x64/Scripts/python.exe"
-    Invoke-Native "uv" @("venv", "--allow-existing", "--python", $pythonPath, "packaging/.venv-x64")
+    $target = $arch.target
+    $buildPython = Join-Path $projectRoot "packaging/.venv-$Architecture/Scripts/python.exe"
+    Invoke-Native "uv" @("venv", "--allow-existing", "--python", $pythonPath, "packaging/.venv-$Architecture")
     Invoke-Native "uv" @("pip", "sync", "--python", $buildPython, "packaging/requirements-windows.lock")
     Invoke-Native "npm.cmd" @("ci", "--prefix", "desktop")
     if (-not $SkipTests) {
@@ -40,9 +47,9 @@ try {
     Invoke-Native "npm.cmd" @("audit", "--prefix", "desktop", "--audit-level=high")
     Invoke-Native "npm.cmd" @("run", "build", "--prefix", "desktop")
     $tauriConfig = Join-Path $projectRoot "desktop/src-tauri/tauri.conf.json"
-    $sidecar = Join-Path $projectRoot "packaging/dist/x64/flyscan-sidecar.exe"
+    $sidecar = Join-Path $projectRoot "packaging/dist/$Architecture/flyscan-sidecar.exe"
     $started = [DateTime]::UtcNow
-    Invoke-Native $buildPython @("-m", "PyInstaller", "--noconfirm", "--clean", "--distpath", "packaging/dist/x64", "--workpath", "packaging/build/x64", "packaging/flyscan-sidecar.spec")
+    Invoke-Native $buildPython @("-m", "PyInstaller", "--noconfirm", "--clean", "--distpath", "packaging/dist/$Architecture", "--workpath", "packaging/build/$Architecture", "packaging/flyscan-sidecar.spec")
     if (-not (Test-Path -LiteralPath $sidecar) -or (Get-Item -LiteralPath $sidecar).LastWriteTimeUtc -lt $started) { throw "The sidecar was not rebuilt; refusing to package a stale binary." }
     Invoke-Native $buildPython @("packaging/smoke_sidecar.py", $sidecar)
     $binaryDirectory = Join-Path $projectRoot "desktop/src-tauri/binaries"
@@ -53,7 +60,7 @@ try {
         Invoke-Native "cargo" @("test", "--manifest-path", "desktop/src-tauri/Cargo.toml", "--release", "--target", $target, "--locked", "--bin", "flyscan-desktop")
     }
     $tauriArguments = @("run", "tauri", "--prefix", "desktop", "--", "build", "--target", $target, "--bundles", "nsis", "--ci")
-    $overridesFile = Join-Path $projectRoot "packaging/build/bundle-overrides.json"
+    $overridesFile = Join-Path $projectRoot "packaging/build/bundle-overrides-$Architecture.json"
     New-Item -ItemType Directory -Path (Split-Path $overridesFile) -Force | Out-Null
     $bundleOverrides = @{ createUpdaterArtifacts = [bool]$UpdaterRelease }
     if ($SigningThumbprint) { $bundleOverrides.windows = @{ certificateThumbprint = $SigningThumbprint; digestAlgorithm = "sha256"; timestampUrl = "http://timestamp.digicert.com" } }
@@ -61,28 +68,31 @@ try {
     $tauriArguments += @("--config", $overridesFile)
     $tauriArguments += @("--", "--locked")
     Invoke-Native "npm.cmd" $tauriArguments
-    $installer = Join-Path $projectRoot "desktop/src-tauri/target/$target/release/bundle/nsis/Flyscan_${version}_x64-setup.exe"
+    $installer = Join-Path $projectRoot "desktop/src-tauri/target/$target/release/bundle/nsis/Flyscan_${version}_${Architecture}-setup.exe"
     if (-not (Test-Path -LiteralPath $installer)) { throw "NSIS installer was not produced." }
     $releaseDirectory = Join-Path $projectRoot "release"
     New-Item -ItemType Directory -Path $releaseDirectory -Force | Out-Null
-    $releaseName = "Flyscan-$version-windows-x64-setup.exe"
+    $releaseName = "Flyscan-$version-windows-${Architecture}-setup.exe"
     $releasePath = Join-Path $releaseDirectory $releaseName
     Copy-Item -LiteralPath $installer -Destination $releasePath -Force
-    $hash = (Get-FileHash -LiteralPath $releasePath -Algorithm SHA256).Hash.ToLowerInvariant()
-    "$hash  $releaseName" | Set-Content -LiteralPath (Join-Path $releaseDirectory "SHA256SUMS.txt") -Encoding ASCII
     $signature = (Get-AuthenticodeSignature -LiteralPath $releasePath).Status.ToString()
     if ($SigningThumbprint -and $signature -ne "Valid") { throw "Installer signing failed validation." }
-    $commit = & git rev-parse HEAD
-    $dirty = [bool](& git status --porcelain)
-    $buildInfo = @{ version = $version; architecture = "x64"; installer = $releaseName; sha256 = $hash; signature = $signature; commit = $commit; uncommittedChanges = $dirty; builtAtUtc = [DateTime]::UtcNow.ToString("o") } | ConvertTo-Json
-    [IO.File]::WriteAllText((Join-Path $releaseDirectory "build-info.json"), $buildInfo, [Text.UTF8Encoding]::new($false))
+    $files = @($releaseName)
+    $updates = @{}
     if ($UpdaterRelease) {
         $updateSignature = "$installer.sig"
         if (-not (Test-Path -LiteralPath $updateSignature)) { throw "The updater signature was not produced." }
         Copy-Item -LiteralPath $updateSignature -Destination "$releasePath.sig" -Force
         Invoke-Native "cargo" @("run", "--manifest-path", "desktop/src-tauri/Cargo.toml", "--example", "verify-artifact", "--release", "--target", $target, "--locked", "--", $tauriConfig, $releasePath, "$releasePath.sig")
-        Invoke-Native $buildPython @("packaging/create-update-manifest.py", "--directory", $releaseDirectory, "--version", $version, "--repository", $ReleaseRepository, "--notes", "packaging/release-notes.md")
+        $files += "$releaseName.sig"
+        $updates[$arch.update] = $releaseName
     }
+    $hashes = [ordered]@{}
+    foreach ($file in $files) { $hashes[$file] = (Get-FileHash -LiteralPath (Join-Path $releaseDirectory $file) -Algorithm SHA256).Hash.ToLowerInvariant() }
+    $commit = & git rev-parse HEAD
+    $dirty = [bool](& git status --porcelain)
+    $buildInfo = [ordered]@{ version = $version; platform = "windows-$Architecture"; files = $hashes; updates = $updates; signature = $signature; commit = $commit; uncommittedChanges = $dirty; builtAtUtc = [DateTime]::UtcNow.ToString("o") } | ConvertTo-Json -Depth 4
+    [IO.File]::WriteAllText((Join-Path $releaseDirectory "build-info-windows-$Architecture.json"), $buildInfo, [Text.UTF8Encoding]::new($false))
     Write-Host "Installer ready: $releasePath (signature: $signature)"
 } finally {
     Pop-Location

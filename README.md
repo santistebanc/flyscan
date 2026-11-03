@@ -7,7 +7,7 @@
 <p align="left">
   <a href="https://flyscan.site"><strong>Live app: flyscan.site</strong></a>
   ·
-  <a href="https://github.com/santistebanc/flyscan/releases/latest">Windows download</a>
+  <a href="https://github.com/santistebanc/flyscan/releases/latest">Download for Windows, macOS and Linux</a>
 </p>
 
 **flyscan** searches five flight metasearch sources at once: Kayak, Skyscanner,
@@ -28,7 +28,8 @@ price into one currency so they can actually be compared.
 - **A person clears security checks.** When a source shows a bot check, it is
   put in front of you in a browser window, and the search waits until you have
   cleared it.
-- **Desktop and web.** A Tauri app for Windows with signed auto-updates, and
+- **Desktop and web.** A Tauri app for Windows, macOS and Linux with signed
+  auto-updates, and
   the same frontend served on the web. The desktop app searches every source;
   the web leaves out Kayak and Momondo. See
   [packaging/RELEASES.md](packaging/RELEASES.md).
@@ -509,7 +510,7 @@ desktop/
     App.tsx       header of search controls, source panel, results list
     Details.tsx   itinerary detail and every seller, in the side panel
   src-tauri/      spawns the sidecar on a free port; open_challenge, open_external
-packaging/       the Windows installer, its signing, and the update manifest
+packaging/       the desktop builds per OS, their signing, and the update manifest
 dev.sh           the dev loop on a laptop
 beelink/dev.sh   the same loop on the Beelink, with checks streamed to a phone
 ```

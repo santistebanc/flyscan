@@ -3,8 +3,10 @@
 Every release is published in this repository and contains two things built
 from the same tag:
 
-- **The desktop app**: a signed Windows installer that searches every source,
-  with its update signature, `latest.json` and `SHA256SUMS.txt`.
+- **The desktop app**, which searches every source: a Windows installer, a
+  macOS disk image and a Linux AppImage, `.deb` and `.rpm`, each for both
+  architectures (x64 and ARM64; Intel and Apple Silicon on macOS). Each comes with its update signature; one `latest.json`
+  serves every platform and `SHA256SUMS.txt` covers every file.
 - **The web release**: `flyscan-web.tar.gz`, the Dockerfile, pinned Python
   dependency lock and source that run on [flyscan.site](https://flyscan.site).
   The web release leaves out `ff-kayak` and `momondo`; those are searched only
@@ -19,8 +21,8 @@ parser and scheduler enforce this, including retries and restored queue work.
 ## One release trigger
 
 Trigger **Release** on `main` (see [README.md](README.md#automatic-updates-and-releases)).
-It checks that its settings exist before creating the version and tag. The
-Windows build is signed and smoke-tested, and the Docker image is built and
+It checks that its settings exist before creating the version and tag. Every
+desktop build is signed and smoke-tested on its own OS, and the Docker image is built and
 probed before anything is published. The workflow then publishes the release
 here with the job's own token and deploys that exact tag to Railway. An
 ordinary push or merge does not deploy.
@@ -32,6 +34,7 @@ Repository settings:
 | Secret | `TAURI_SIGNING_PRIVATE_KEY` | Existing updater signing key; keep it unchanged |
 | Secret | `RAILWAY_TOKEN` | Railway project/environment deployment token |
 | Variable | `RAILWAY_SERVICE_ID` | The `flyscan-public` service in the `heartfelt-flow` project |
+| Secrets, optional | `APPLE_CERTIFICATE`, `APPLE_CERTIFICATE_PASSWORD`, `APPLE_SIGNING_IDENTITY`, `APPLE_ID`, `APPLE_PASSWORD`, `APPLE_TEAM_ID` | Developer ID signing and notarization for macOS (see [README.md](README.md#signing)) |
 
 Use a Railway **project/environment token**, not an account token.
 
@@ -59,7 +62,8 @@ The installed app keeps the identifier `com.flightscraper.desktop`, so data
 and settings stay where they were. It checks
 `https://github.com/santistebanc/flyscan/releases/latest/download/latest.json`
 at startup and every six hours and verifies the Tauri signature before
-installing. Apps from before 0.4 checked `santistebanc/flight-scraper-releases`;
+installing. Each Linux package updates as itself: the AppImage replaces its
+file, and the `.deb` and `.rpm` ask for an administrator password to install. Apps from before 0.4 checked `santistebanc/flight-scraper-releases`;
 that repository's last release carries a `latest.json` pointing at the first
 release here, which moves them over.
 
