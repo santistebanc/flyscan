@@ -144,6 +144,31 @@ fn startup_error(message: &str) {
             MessageBoxW(0, text.as_ptr(), caption.as_ptr(), 0x10);
         }
     }
+    // The message travels as an argument, never as script or shell text.
+    #[cfg(target_os = "macos")]
+    let _ = Command::new("osascript")
+        .args([
+            "-e",
+            "on run argv",
+            "-e",
+            "display alert \"Flyscan could not start\" message (item 1 of argv) as critical",
+            "-e",
+            "end run",
+            message,
+        ])
+        .status();
+    #[cfg(all(unix, not(target_os = "macos")))]
+    {
+        let shown = Command::new("zenity")
+            .args(["--error", "--title=Flyscan could not start", "--text", message])
+            .status()
+            .is_ok_and(|status| status.success());
+        if !shown {
+            let _ = Command::new("kdialog")
+                .args(["--title", "Flyscan could not start", "--error", message])
+                .status();
+        }
+    }
 }
 
 /// The sidecar's base URL, so the frontend does not have to guess the port.

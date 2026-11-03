@@ -1,4 +1,4 @@
-# Required PR checks. Linux only; Windows builds stay in the release workflows.
+# Required PR checks. Linux only; desktop app builds for each OS stay in the release workflow.
 name: CI
 
 on:
