@@ -1,1 +1,5 @@
-Flyscan is now one public project. The Windows app searches every source, including Kayak and Momondo, and updates from github.com/santistebanc/flyscan. The web version runs on flyscan.site.
+Moved the backend to TypeScript, keeping curl_cffi in a private transport worker.
+
+- Preserves existing flight data, search queues and human verification flows.
+- Bundles Node and the native curl transport with desktop installers.
+- Moves launchers, release tools and regression tests to Node/TypeScript.

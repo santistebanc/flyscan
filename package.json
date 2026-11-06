@@ -1,6 +1,6 @@
 {
   "name": "flyscan",
-  "version": "0.4.0",
+  "version": "0.4.1",
   "private": true,
   "scripts": {
     "flyscan": "node backend/dist/index.cjs",
