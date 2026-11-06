@@ -1,6 +1,6 @@
 [project]
 name = "flyscan"
-version = "0.4.1"
+version = "0.4.2"
 description = "Flyscan curl_cffi transport dependencies."
 requires-python = ">=3.10"
 dependencies = [
