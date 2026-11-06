@@ -11,6 +11,7 @@ import {
 import { resolve, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { parseArgs } from "node:util";
+import { pythonArchitecture } from "./build-architecture.mjs";
 
 const root = fileURLToPath(new URL("../", import.meta.url));
 const { values } = parseArgs({
@@ -25,15 +26,17 @@ const result = spawnSync(
   python,
   [
     "-c",
-    'import json,sysconfig; print(json.dumps({"platform":sysconfig.get_platform()}))',
+    'import json,platform,sysconfig; print(json.dumps({"platform":sysconfig.get_platform(),"machine":platform.machine()}))',
   ],
   { encoding: "utf8", windowsHide: true },
 );
 if (result.status !== 0)
   throw new Error(result.stderr || "Could not inspect Python architecture");
-const architecture = /arm64|aarch64/i.test(JSON.parse(result.stdout).platform)
-  ? "arm64"
-  : "x64";
+const pythonInfo = JSON.parse(result.stdout);
+const architecture = pythonArchitecture(
+  pythonInfo.platform,
+  pythonInfo.machine,
+);
 if (process.arch !== architecture)
   throw new Error("Node and Python must have the same target architecture");
 const [major, minor] = process.versions.node.split(".").map(Number);
