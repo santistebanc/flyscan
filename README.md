@@ -39,7 +39,7 @@ same Ryanair seat on the same day comes back €28 apart depending on who is
 selling it. The CLI shows it directly:
 
 ```bash
-flyscan scrape berlin london 2026-09-19
+npm run flyscan -- scrape berlin london 2026-09-19
 ```
 
 ```
@@ -65,8 +65,10 @@ flyscan scrape berlin london 2026-09-19
 ## Install
 
 ```bash
-uv sync                          # the CLI, the service and the dev tools
-uv run flyscan --help
+uv sync                          # curl_cffi transport dependencies
+npm ci --prefix backend
+npm run build --prefix backend    # Node.js 22.13+ required
+npm run flyscan -- --help
 ./dev.sh                         # the app with live reload: http://localhost:1420
 ```
 
@@ -79,38 +81,38 @@ is in [`desktop/README.md`](desktop/README.md#running-it).
 
 ```bash
 # one date, every source
-flyscan scrape berlin london 2026-08-22
+npm run flyscan -- scrape berlin london 2026-08-22
 
 # a range of departure dates
-flyscan scrape BER LON 2026-09-01 2026-09-14
+npm run flyscan -- scrape BER LON 2026-09-01 2026-09-14
 
 # round trip, two adults, business, prices shown in GBP
-flyscan scrape berlin london 2026-09-01 --return 2026-09-08 \
+npm run flyscan -- scrape berlin london 2026-09-01 --return 2026-09-08 \
     --adults 2 --cabin business --base-currency GBP
 
 # a family
-flyscan scrape BER LON 2026-09-12 --return 2026-09-19 \
+npm run flyscan -- scrape BER LON 2026-09-12 --return 2026-09-19 \
     --adults 2 --children 3 --infants 2
 
 # skip the slow ones
-flyscan scrape BER LON +7 --sources ff-kiwi ff-kayak momondo
+npm run flyscan -- scrape BER LON +7 --sources ff-kiwi ff-kayak momondo
 
 # ask every source again regardless of what was cached
-flyscan scrape BER LON 2026-09-12 --cache-hours 0
+npm run flyscan -- scrape BER LON 2026-09-12 --cache-hours 0
 
-flyscan query --origin BER --max-stops 1 --top 20   # read the store back
-flyscan query --summary                             # per-source totals
-flyscan places berlin                               # find an IATA code
-flyscan sources                                     # list the sources
-flyscan rates                                       # show FX rates in use
-flyscan prune                                       # forget departed flights
-flyscan cache                                       # what has been cached
-flyscan cache --purge                               # drop stale entries
-flyscan serve                                       # local web UI
+npm run flyscan -- query --origin BER --max-stops 1 --top 20   # read the store back
+npm run flyscan -- query --summary                             # per-source totals
+npm run flyscan -- places berlin                               # find an IATA code
+npm run flyscan -- sources                                     # list the sources
+npm run flyscan -- rates                                       # show FX rates in use
+npm run flyscan -- prune                                       # forget departed flights
+npm run flyscan -- cache                                       # what has been cached
+npm run flyscan -- cache --purge                               # drop stale entries
+npm run flyscan -- serve                                       # local web UI
 ```
 
 The UI is a React + TypeScript app in `desktop/`, built once and served by
-`flyscan serve` at <http://127.0.0.1:5000> — the same bundle the desktop
+`npm run flyscan -- serve` at <http://127.0.0.1:5000> — the same bundle the desktop
 shell loads. There is deliberately no server-rendered UI: there used to be one
 here *and* the desktop app, each with its own copy of the list, detail panel and
 price formatting, and they drifted in ways that only surfaced at runtime.
@@ -224,7 +226,7 @@ children — where a lap infant is `INL` (not `INF`) and each child carries an a
 ```
 
 **Real child ages are not modelled.** This engine demands a number per child, so
-every child is sent as `DEFAULT_CHILD_AGE` (10), which sits inside every
+every child is sent as age 10, which sits inside every
 airline's child fare band. Carrying true ages would change the price on this one
 source while being invisible to the other four and to the stored schema — a
 search keyed on them would look distinct while producing results nothing could
@@ -463,11 +465,11 @@ fetch lookup, on the same route triple for trips, and on price both globally and
 per trip.
 
 ```bash
-flyscan query --origin BER --destination LON --start 2026-09-01 --max-stops 1
-flyscan query --summary --base-currency GBP
+npm run flyscan -- query --origin BER --destination LON --start 2026-09-01 --max-stops 1
+npm run flyscan -- query --summary --base-currency GBP
 ```
 
-Schema changes after this layout go in `MIGRATIONS` in `store.py`, appended and
+Schema changes after this layout go in `migrations` in `backend/src/schema.ts`, appended and
 never edited once released. The database records how many it has taken
 (`PRAGMA user_version`) and runs the rest when opened, each in one transaction, so
 an installed app keeps its data, prices added by hand included, across updates. A
@@ -478,559 +480,132 @@ Every file the app keeps (`flights.db`, `.challenges/`, the place and rate cache
 to give an environment its own folder; the desktop app runs its service in the
 app's data folder for the same reason.
 
-## Layout
+## Backend architecture
 
-```
-flyscan/
-  models.py      SearchQuery, Itinerary, Offer — and trip_key, the merge key
-  sources/
-    base.py          what a source must provide
-    kayak.py         ff-kayak + momondo (one engine, two hosts)
-    flightsfinder.py ff-sky + ff-kiwi (one front-end, two portals)
-    travelpayouts.py jetradar
-  task_queue.py  generic handlers, priorities, retries, deadlines, resource limits, actions
-  scheduler.py   scraping adapter; cached results, deduplication, challenge records
-  challenge.py   challenge lifecycle; browser/cookie adapters and live reconciliation
-  aggregate.py   fans a search across every (source, date) and merges by trip_key
-  cache.py       replays a source's answer to an identical recent search
-  jobs.py        atomic search start/join, cancellation, completion, and replay
-  searches.py    search execution, result presentation, and export adapter
-  api.py         the /v1 HTTP surface
-  store.py       the normalized SQLite schema above
-  fx.py          rate fetching, caching, conversion
-  places.py      free text -> IATA
-  cli.py, web.py   command/request adapters; web.py serves the app and HTTP interface
-                   and the built frontend, and renders nothing itself
-desktop/
-  src/
-    api.ts        typed /v1 client — the part worth keeping if the UI is rebuilt
-    platform.ts   the three calls that need the desktop shell, and browser fallbacks
-    currency.tsx  display currency and the formatting that depends on it
-    useFlights.ts the engine: loadStored reads the DB, runSearch is the only scrape
-    App.tsx       header of search controls, source panel, results list
-    Details.tsx   itinerary detail and every seller, in the side panel
-  src-tauri/      spawns the sidecar on a free port; open_challenge, open_external
-packaging/       the desktop builds per OS, their signing, and the update manifest
-dev.sh           the dev loop on a laptop
-beelink/dev.sh   the same loop on the Beelink, with checks streamed to a phone
-```
+The application backend is TypeScript in `backend/src/`. Python is limited to
+`flyscan/transport.py`, a private, long-lived `curl_cffi` worker.
+The React client and backend share the `/v1` wire types in
+`shared/contracts.ts`.
 
-Adding a source means writing a `Source` subclass and listing it in
-`sources/__init__.py`; the CLI and the API both read that registry.
+- `sources.ts` builds source requests and parses their responses.
+- `scheduler.ts` owns scrape sharing, subscriptions, priorities, retries, per-source
+  limits, cancellation and physical worker occupancy.
+- `challenges.ts` owns challenge persistence, human clearance, cookie storage and
+  queue resumption. Playwright is used only to display checks during browser development.
+- `store.ts` owns SQLite reads and writes. `schema.ts` retains the released schema
+  and append-only migrations, including stable trip and query identities.
+- `searches.ts` owns search startup, progress, results, cancellation, completion
+  and resumable event logs.
+- `api.ts` serves `/v1`, the compiled frontend and local exports.
+- `support.ts` provides currency conversion, place lookup and error logging.
+- `capture.ts` records and trims exchanges. `ReplayTransport` strictly reads saved
+  responses and never falls back to the network.
+- `cli.ts` supplies the CLI and server entry points.
+
+The transport protocol uses JSON lines on private stdin/stdout pipes. TypeScript
+opens an opaque session, issues sequential requests within that session, and closes
+it. Distinct sessions can request concurrently. Responses preserve body bytes as
+base64, repeated headers, final URLs and cookie scope. Python has no knowledge of
+sources, flights, retries, searches, challenges or SQLite.
+
+A cancelled or timed-out request retains its physical worker and per-source slot
+until it exits. Late results cannot write to the database. Cancelling a search
+releases only its subscriptions; other searches sharing its scrapes continue.
+A challenge pauses its source while unrelated sources remain available, and
+human-earned clearance resumes the original waiting subscriptions.
 
 ## The API
 
-`flyscan serve` exposes `/v1` alongside the built frontend, so another
-frontend can drive it.
-
-```
-POST   /v1/searches               → {search_id, status}   202, or 200 if it joined one
-GET    /v1/searches/{id}          → status snapshot
-GET    /v1/searches/{id}/events   → SSE, resumable
-GET    /v1/searches/{id}/results  → merged rows, usable mid-run
-DELETE /v1/searches/{id}          → cancel
-GET    /v1/flights?origin=&…      → what is already stored; never scrapes
-GET    /v1/searches               GET /v1/sources    GET /v1/health
-GET    /v1/places?q=              GET /v1/rates
-```
-
-**Reading is separate from scraping, on purpose.** `GET /v1/flights` answers
-only from the database — same row shape as a live search, so the table and the
-detail panel cannot tell where a row came from. That split is what lets a UI
-fill in the instant a form changes while keeping "go and ask five sources" a
-deliberate act. It takes the same filters plus the party, matched exactly so a
-family fare is never folded into a one-adult comparison, and reports `last_seen`
-so the page can say how old what it is showing is.
-
-```js
-const { search_id } = await (await fetch("/v1/searches", {
-  method: "POST", headers: { "Content-Type": "application/json" },
-  body: JSON.stringify({ origin: "BER", destination: "LON", start: "2026-09-12" }),
-})).json();
-
-const events = new EventSource(`/v1/searches/${search_id}/events`);
-events.onmessage = (e) => render(JSON.parse(e.data));
-```
-
-Three things make it usable by something other than a tab you control.
-
-**Streams are replayable.** Events carry a sequence number, so a client that
-drops its connection reconnects with `Last-Event-ID` and is caught up from
-exactly where it stopped — no gap, no repeat. Two clients can watch one search
-and see the identical sequence. The first version kept progress in a
-`queue.Queue`, which hands each event to whoever reads first: a second listener
-saw half the run, and a dropped connection lost the rest.
-
-**Creation is idempotent.** Posting a search that is already running returns
-that search's id with `joined: true` rather than scraping it twice. The sources
-are the scarce resource, not the server, so the API's job is to absorb repeated
-demand — the cache covers searches that already finished, this covers the one
-still in flight. Pass `force: true` to override.
-
-**There is a snapshot as well as a stream.** `GET /v1/searches/{id}` and
-`/results` answer the same questions by polling, for clients that cannot hold an
-SSE connection. `/results` works mid-run, filtered by `?day=`, `?max_stops=`,
-`?limit=`.
-
-Set `FLYSCAN_API_KEY` to require `Authorization: Bearer <key>` or
-`X-API-Key`; unset means open, which is fine on localhost and not elsewhere —
-an unauthenticated caller spends *your* IP's standing with the sources. CORS is
-permissive by default.
-
-### Search lifecycle ownership
-
-`JobRegistry.start()` atomically joins or creates a search and starts its
-protected runner. `Job` owns cancellation, aggregator attachment, and terminal
-completion; HTTP request handlers do not reach into a running aggregator.
-Cancellation during startup is remembered and prevents later scraping.
-`searches.py` supplies search execution and export behavior through that lifecycle.
-Startup, scraping, and export exceptions all emit an error, mark the search
-failed, and close its replay stream with one final event. Collected results
-remain inspectable after an export failure.
-
-Event IDs increase independently of retained history. Keeping only the last
-5,000 events does not reuse IDs, so reconnect cursors continue to advance.
-Search snapshots return copies; queue observations are frozen. Domain terms
-are defined in [GLOSSARY.md](GLOSSARY.md).
-
-## Parallelism and rate limits
-
-The unit of work is one **(source, date)** pair, not one date. Six sources over
-fourteen days is 84 independent jobs, all submitted up front — a fast source is
-never left idle waiting for a slow one on an earlier date.
-
-What keeps that from becoming a stampede is a gate per source rather than one
-global worker count — and crucially those gates live in **one process-wide
-scheduler**, not in each search. When each search owned its own, two running at
-once meant two independent limits and twice the agreed traffic, which is how the
-Kayak engine came to answer with a bot block. Each source declares what it
-tolerates:
-
-```python
-max_concurrency = 2  # searches of this source in flight at once
-min_interval = 0.5  # seconds between starting them
-```
-
-The Kayak engine sets `1` and `2.5`, because it is the strictest: one search
-there already costs a page fetch, a poll per phase and a request per result
-page, and overlapping two of them earns an IP-scoped bot block. `--workers`
-caps the total in flight across all sources (default 12) so a long date range
-does not open a hundred sockets at once.
-
-Days are still handed back oldest-first, so output stays readable even though
-everything ran at once — a date that finishes early waits its turn rather than
-holding anything up.
-
-The scheduler also collapses **in-flight duplicates**: two searches wanting the
-same source and date at the same moment share one scrape, and each gets its own
-copy of the result.
-
-Choose the process ledger and worker count when starting the server:
-`flyscan serve --db path/to/flights.db --workers 12`. Searches inherit
-these settings; conflicting database or worker settings are rejected rather
-than silently ignored. Results are read through the same scheduler that writes
-them. `cache_hours` remains a per-search policy, so a short freshness window
-does not inherit an earlier caller's window. Refresh and freshness settings
-also distinguish search subscriptions when duplicate requests are joined.
-
-An aggregator owns its subscriptions until its iterator finishes or closes.
-Admission errors, cancellation, and `Aggregator.close()` release those
-subscriptions, including work submitted before an error. Other subscribers
-keep shared scrapes alive. Close an abandoned iterator explicitly or use the
-aggregator as a context manager.
-
-Progress events identify the source, outbound and return dates, scrape ID,
-and attempt. The frontend derives counts from logical scrapes: retries and
-human waits release the running count, and shared completions settle it once.
-
-### The queue
-
-`task_queue.py` owns execution policy; `Scheduler` adds scraping, cached results,
-and source challenge records. Existing searches use it automatically. Push a
-single scrape from Python with:
-
-```python
-from datetime import date
-from flyscan.models import SearchQuery
-from flyscan.scheduler import default_scheduler
-from flyscan.sources import REGISTRY
-
-future = default_scheduler().submit(
-    REGISTRY["ff-sky"](),
-    SearchQuery("BER", "CDG", date(2026, 12, 21)),
-    owner="my-search",
-)
-# Submission returns immediately. Read the result in background code:
-result = future.result()
-```
-
-Or post a single job without creating a date-range search:
-
-```http
-POST /v1/jobs
-Content-Type: application/json
-
-{"source":"ff-sky","origin":"BER","destination":"CDG","depart":"2026-12-21"}
-```
-
-This returns HTTP 202 with `id` and a status URL. Identical live scrapes share
-one job, including across different callers. A cached answer returns HTTP 200
-with `id: null`, `cached: true`, and its stored count. `ret`, passenger counts,
-`cabin`, `currency`, and boolean `refresh` are optional. Codes must be three-letter
-IATA/currency codes. The usual API-key authentication applies.
+`npm run flyscan -- serve` or `node backend/dist/index.cjs serve` serves `/v1` and the
+built frontend. Installed desktop users need neither Node nor Python installed.
 
 ```text
-GET  /v1/jobs                  source tasks plus independent query_jobs groups
-GET  /v1/jobs/{id}             one job, attempts, retry delay and requested action
-POST /v1/jobs/{id}/cancel      cancel waiting or running source work
-POST /v1/jobs/{id}/promote     raise its priority
-POST /v1/jobs/{id}/retry       submit a terminal job again, ignoring cached results
-POST /v1/jobs/cancel           cancel queued, delayed and human-waiting work
+POST   /v1/searches
+GET    /v1/searches
+GET    /v1/searches/{id}
+GET    /v1/searches/{id}/events
+GET    /v1/searches/{id}/results
+DELETE /v1/searches/{id}
+GET    /v1/flights
+GET    /v1/trips
+GET    /v1/sources
+GET    /v1/jobs
+POST   /v1/jobs
+GET    /v1/jobs/{id}
+POST   /v1/jobs/{id}/{cancel|promote|retry}
+POST   /v1/jobs/cancel
+POST   /v1/query-jobs/{id}/{cancel|retry}
+POST   /v1/query-jobs/{id}/sources/{source}/{cancel|retry}
+POST   /v1/queue/selection
+POST   /v1/queue/actions/{cancel|retry}
+POST   /v1/freshness
+POST   /v1/manual-offers
+PATCH  /v1/manual-offers/{id}
+DELETE /v1/manual-offers/{id}
+GET    /v1/challenges
+POST   /v1/challenges/{source}/solve
+POST   /v1/challenges/{source}/cookies
+DELETE /v1/challenges/{source}
+GET    /v1/places?q=berlin
+GET    /v1/rates?base=EUR
+GET    /v1/health
+GET    /v1/version
+GET    /v1/errors
+POST   /v1/errors
+DELETE /v1/errors
+POST   /v1/maintenance/purge
 ```
 
-The sidebar shows **query jobs**: one exact origin, destination, departure,
-return (if any), passenger mix, cabin and quote currency, with the latest task
-for each requested source underneath. Date ranges expand into one query job per
-valid departure/return combination. Cached source answers appear in the same
-group. Changing the main filters or opening a flight never hides these groups.
-The queue retains every live group and the last 100 completed groups in memory;
-queue history does not survive a server restart.
+Set `FLYSCAN_API_KEY` to require `Authorization: Bearer <key>` or `X-API-Key`.
+Only the read-only SSE endpoint also accepts `api_key` in its URL, for native
+EventSource clients. SSE resumes with `Last-Event-ID` or `after` and ends after
+one terminal search event. The desktop shell supplies a fresh session credential.
 
-```text
-POST /v1/queue/selection                        selected search filters, or JSON null
-POST /v1/queue/actions/cancel                   cancel unfinished sources in supplied filters
-POST /v1/queue/actions/retry                    retry unsuccessful sources in supplied filters
-POST /v1/query-jobs/{query_id}/cancel            cancel all unfinished sources
-POST /v1/query-jobs/{query_id}/retry             retry failed/cancelled/timed-out sources
-POST /v1/query-jobs/{query_id}/sources/{source}/cancel
-POST /v1/query-jobs/{query_id}/sources/{source}/retry
-```
+Hosted mode (`FLYSCAN_MODE=web`) disables Kayak and Momondo, limits search ranges
+and queue capacity, restricts mutations and cross-origin writes, and keeps server
+exports and diagnostics private. The same restrictions apply below the UI.
 
-Group retry preserves successful/cached sources and leaves live work alone.
-The header summarizes every queued query matching the selected route, date
-ranges, passenger mix, cabin and quote currency. Its retry/cancel actions cover
-that entire selection across search subscriptions. They use the filters sent
-with the action, independently of another tab's foreground selection. The
-sidebar and header share one queue subscription; the sidebar still lists all
-queries. Fetch/refresh in the header covers every trip in the selected range.
-Individual retry can also explicitly refresh a successful source. Blocked sources
-wait for verification; retry never clears a challenge or bypasses a cooldown.
-Group actions return `cancelled`, `retried`, `skipped`, and per-source `errors`.
-A cancelled or timed-out request still winding down cannot be manually retried
-until it releases its physical worker and source slot.
+## Offline development and tests
 
-`queue_state` retains the exact queue state; the additive `status` field exposes
-`waiting`, `running`, `retrying`, `rate_limited`, `waiting_input`, `completed`,
-`cached`, `failed`, `timed_out`, `cancelled`, `cancelling`, and `stopping`.
-`ready_in` and `wait_reason` explain scheduling delays; `action` describes human
-input. The legacy `jobs` list and its abbreviated `state` remain available.
-
-Execution rules:
-
-- Per-source concurrency and minimum start intervals are checked before a worker
-  is allocated. Every retry passes through the same limits. Priorities remain
-  steerable with `focus(owner)` for headless callers. Once a UI sets
-  `/v1/queue/selection`, its selected filters own foreground priority for both
-  existing and future tasks. Every matching query in a selected date range has
-  that priority. Other tasks continue when capacity permits. Equal priorities
-  start in submission order; running work is never interrupted by selection.
-- Only explicit transient failures, connection failures, and timeouts retry.
-  Backoff grows exponentially with jitter and a cap. Parse/input errors and
-  unexpected programming errors fail immediately. `Source.retries` is the total
-  failure-attempt budget (default two), including the first attempt.
-- HTTP 429 pauses the whole source for `Retry-After` seconds, or its HTTP-date
-  equivalent. Missing/invalid values use 60 seconds. HTTP 503 with `Retry-After`
-  uses the same rule; other server errors are transient failures. Cooldowns
-  apply to sibling jobs even if the rate-limited job exhausted its attempts.
-- Each source attempt has a 180-second wall-clock deadline (`Source.job_timeout`).
-  Each HTTP call is capped by the remaining attempt time and `Source.timeout`.
-  Queue delays do not consume this budget. Poll pauses support cancellation.
-- A timeout settles the future promptly. Python threads cannot forcibly stop an
-  arbitrary handler: a handler that ignores its context retains its worker and
-  source slot until it exits, and is never retried concurrently. Cooperative
-  request timeouts can retry after the previous attempt exits. New handlers
-  must use `context.check()`, `context.remaining()`, or `context.sleep()` around
-  blocking operations, and check before writing external results.
-- CAPTCHA requests pause that source without retaining workers. Clearing the
-  challenge through the existing solve/cookie/DELETE endpoints resumes the
-  original futures and sibling jobs automatically. Human waits expire after
-  15 minutes by default (`Scheduler(action_timeout=...)`). Repeated action
-  requests have a separate budget of three resolutions per job.
-- The queue accepts at most 10,000 unfinished jobs by default. Python callers get
-  `QueueFull`; direct HTTP enqueue returns 429 with `Retry-After: 5`.
-  Shutdown rejects submissions and settles unfinished futures as cancelled.
-  Search cancellation detaches its subscriptions; another caller sharing the
-  scrape still receives the answer. Running scraping work may finish and cache.
-
-The queue is **process-local and in memory**. Restarting loses queued payloads
-and job IDs; results and source challenge records remain in SQLite. Limits are
-shared within one process, so run one scheduler process per scraping IP. Durable
-or multi-process delivery would require a persistent queue/worker adapter.
-
-### Adding another kind of background work
-
-Register a handler on the existing shared queue. This also supports future route
-calculation jobs without importing scraping types into the queue module:
-
-```python
-from flyscan.scheduler import default_scheduler
-from flyscan.task_queue import ResourceLimit, RetryPolicy
-
-queue = default_scheduler().queue
-
-
-def calculate_route(payload, context):
-    context.check()
-    # Replace with the route algorithm; check context inside long loops.
-    return {"airports": payload["airports"], "legs": len(payload["airports"]) - 1}
-
-
-queue.register("route", calculate_route)  # once, during application setup
-queue.limit("route-cpu", ResourceLimit(concurrency=2))
-job = queue.submit(
-    "route",
-    {"airports": ["BER", "CDG", "MAD"]},
-    resource="route-cpu",
-    timeout=30,
-    retry=RetryPolicy(max_attempts=1),
-)
-answer = job.future.result()
-```
-
-`TaskQueue` can also be used as a standalone context manager. Handlers return a
-value or raise `RetryableError`, `PermanentError`, `RateLimited(retry_after)`, or
-`ActionRequired(kind, message, url)`. Resources group jobs that share a limit or
-human action. Call `queue.resolve_action(resource)` after the requested action
-is completed; it resumes every waiting job for that resource. Observe actions
-and retries with `TaskQueue(on_event=callback)`, whose callback receives
-`(event, snapshot)` for `action_required`, `retry`, and `finished`. Each frozen
-snapshot captures that transition, so retaining it does not observe later
-attempts. Callbacks run outside the queue lock and should return quickly.
-`submit()` returns a read-only handle with `id` and a standard result future;
-only the queue can complete that future. Inspect `handle.describe()`,
-`queue.get(id)`, or `queue.tasks()` for consistent observations without mutable
-execution context or payload access. The `/v1/jobs` endpoints describe scrapes.
-Handlers restart from their beginning after retry/action resolution and must
-make their external side effects idempotent. Thread workers suit I/O work;
-heavy CPU algorithms should use a process worker behind the handler.
-
-## When a source asks for a human
-
-The Kayak engine answers a flagged request with a 403 whose body names a real
-challenge page — a Continue button in front of reCAPTCHA Enterprise:
-
-```json
-{ "errors": [{ "code": "BOT_CAPTCHA_REDIRECT" }],
-  "captchaRedirectUrl": "https://ie-kayak.flightsfinder.com/security/check?out=…&t=…" }
-```
-
-That URL is worth reading rather than treating the 403 as a dead end. (The
-*search page* path redirects somewhere else — a static "you look like a bot"
-explainer with nothing to solve. Only the API body carries the real one.)
-
-So the run stops asking and hands you the link:
-
-```
-  ff-kayak wants a human to confirm you are one:
-    https://ie-kayak.flightsfinder.com/security/check?out=%2Fflights%2FBER-LON%2F2026-10-02&t=UFYe…
-    open it, or run:  flyscan unblock ff-kayak
-```
+Flight sites must not be contacted while developing without an explicit owner
+decision. Set `FLYSCAN_OFFLINE=1`, or pass `--offline` to the CLI. Both development
+scripts default to offline mode. Offline mode supports stored-data reads and local
+API work; attempting a source request fails instead of silently making a live call.
 
 ```bash
-flyscan unblock ff-kayak      # opens it in a visible browser and waits for you
-flyscan unblock --status      # which sources have been cleared, and how long ago
-flyscan unblock ff-kayak --forget    # discard a stored clearance
+npm test --prefix backend
+npm run build --prefix backend
+npm run test:transport
+npm run test:packaging
+npm test --prefix desktop
+npm run build --prefix desktop
+uv run pre-commit run --all-files
+
+# Replay captured responses; no browser or network is used.
+node backend/dist/index.cjs replay tests/recordings/ff-sky-ber-cdg
 ```
 
-`unblock` works standalone. Pending challenges are stored in the selected
-SQLite database; clearance cookies and browser profiles live in `.challenges/`.
-Use `flyscan unblock ff-kayak --db path/to/flights.db` to clear a custom
-database. CLI and browser recovery share `ChallengeCoordinator`, including
-probing for a current challenge URL and falling back to the recorded URL only
-when probing fails. An unsuccessful probe with no recorded URL leaves the
-challenge pending.
+Backend tests cover parser outputs and digests against recordings, captured timing
+and codeshare metadata, a database written by the previous Python implementation,
+search and challenge lifecycles, cancellation, shared work, queue restoration,
+HTTP authentication, SSE replay, manual prices and hosted restrictions. Golden
+reference files in `backend/tests/fixtures/` were exported from the Python backend
+before removing it; the original source recordings remain in `tests/recordings/`.
 
-A running scheduler reconciles that database every 0.2 seconds. Clearing a
-challenge from a separate CLI process resumes its original waiting futures;
-it does not require a server restart or another search. Clearance-cookie files
-are written atomically and reread when a source opens a session, so a running
-process uses cookies saved by another process. A cookie-write failure leaves
-work paused instead of reporting a clearance that was not saved.
+The checkout CLI runs with `npm run flyscan -- <command>` after building the backend.
+`FLYSCAN_PYTHON` selects the curl worker's interpreter when using the source checkout.
+`FLYSCAN_DATA_DIR` selects an isolated data directory. Existing database and cache
+paths remain compatible. `FLYSCAN_FRONTEND` selects the compiled frontend.
 
-**The scheduler keeps challenged sources paused until clearance is reported.**
-Solving locally, posting clearance cookies, or deleting the challenge resumes
-waiting work automatically. If an IP block has lifted on its own, use the
-existing solve/probe flow or explicitly clear the challenge before asking again.
-Challenge records survive shutdown and expired human waits.
+## Packaging
 
-Shutdown closes admission to challenge recovery and signals active browsers
-to stop. Late probe or browser answers cannot clear the closed coordinator's
-ledger or resume its queue. `Scheduler.shutdown(wait=True)` drains recovery
-operations as well as scraping workers. Browser cancellation takes effect at
-the next check after a blocking browser operation returns.
+Tauri starts Node directly with the compiled TypeScript backend and frontend resources.
+The backend owns a separate frozen curl worker, connected only through private pipes.
+`flyscan/transport.py` is the only Python source file in the repository. Release tools,
+version updates, smoke probes and tests run in Node/TypeScript. Users install neither
+Node nor Python: both runtimes ship in the desktop bundle. Playwright is omitted from
+installed desktop builds because Tauri owns the verification webviews.
 
-`unblock` opens the page in a **headed** browser with a profile kept on disk,
-waits for you to finish, then stores whatever cookies the site handed back —
-`Source.session()` sends them from then on. It does not solve, answer or work
-around the challenge; if nobody is there, nothing happens.
-
-Two things make this more than cosmetic:
-
-**It stops the run knocking.** A challenge pauses the source and all its waiting
-jobs. They retain their original futures, consume no worker threads, and resume
-only after clearance. Requests already in flight may finish; no new request for
-that source starts while it is held.
-
-**Other sources carry on.** Only the challenged source stops.
-
-Frontends get it too — a `challenge_required` event on the stream, plus
-`GET /v1/challenges` and `DELETE /v1/challenges/{source}`.
-
-**And when the server is on your own machine, the web UI can clear it.**
-`POST /v1/challenges/{source}/solve` opens the check in a browser *this process*
-owns; you solve it on screen, and the cookies land where the scraper can use
-them — which a check cleared in your own Chrome does not, since those cookies
-stay in Chrome. It returns immediately and the UI watches `/challenges` for the
-source to disappear, because solving takes as long as a person takes.
-
-`GET /challenges` reports `can_solve_here`, which is false when the process has
-no browser to open — as in the packaged sidecar, which excludes Playwright
-deliberately because the desktop shell uses its own webview instead.
-
-**A server with no one at its screen can still have the check cleared.** With
-`FLYSCAN_CHALLENGE_VIEWER_URL` set to a page streaming its display (noVNC,
-on the Beelink), `/challenges` reports it as `viewer_url`, the check opens the
-moment a source asks rather than on Verify, and the UI offers the stream in a
-new tab. `FLYSCAN_CHECK_SCREEN` sizes the check window to that display.
-
-## When something goes wrong
-
-Failures are written to `.errors/errors.jsonl`, one JSON object per line, and
-read back with:
-
-```bash
-flyscan errors                  # what has been failing, and the last few
-flyscan errors --where source.ff-kayak --json
-flyscan errors --clear
-```
-
-The message is never the useful part. "poll returned HTTP 404" is the same
-sentence whether the route was wrong, the session expired, or the site is
-blocking us — so every entry carries the **context it happened in**: the route,
-the dates, the party, the URL that answered, how many attempts it took. A source
-failure also carries the `flyscan capture` line that would record it, so
-the next step after reading one is a fixture rather than another guess.
-
-`GET /v1/errors` serves the same thing to a frontend, and the page posts its own
-failures to `POST /v1/errors` — an unhandled error, a rejected promise, a search
-that would not start. In the desktop shell there is no console to open, so an
-error that only reached one may as well not have happened.
-
-Entries are capped at 500 so the file can be read whole, and recording never
-raises: a failure to record a failure must not become the failure being
-reported.
-
-## Tests, and the bytes behind them
-
-```bash
-python -m unittest discover -s tests -t .
-```
-
-Most of what breaks here is not our code changing but a site changing under it,
-and the evidence for that is an error string and a count that dropped — the
-bytes that caused it are long gone. So the parsers are tested against recorded
-searches:
-
-```bash
-flyscan capture ff-sky BER CDG 2026-09-28 --out tests/recordings/ff-sky-ber-cdg --trim
-```
-
-That runs one real search and writes down every exchange it makes — method,
-URL, request headers and body, status, response headers, and each body to its
-own file. `--trim` then cuts the result payloads to a few cards, because a full
-ff-sky capture is 32 MB of near-identical polls and three cards exercise every
-branch of the parser. Cards and their modals are joined by position, so the
-`myModalN` ids are renumbered to keep that promise once the ones in between are
-dropped.
-
-Replay never touches the network. A URL the recording does not hold, a poll
-asked more times than was recorded, or a body that was truncated is an error —
-a suite that quietly reaches the internet when a recording is incomplete passes
-on a good day and fails in CI for reasons nobody can reproduce.
-
-Beside each recording is what it should parse to: the offer count **and** a
-digest of the parsed values — prices, agents, and every segment's carrier,
-flight number, airports and times. The count alone is exactly what fails to
-notice markup that still parses but comes back with empty flight numbers, which
-is how 547 stored easyJet segments lost theirs.
-
-A search that *fails* is recorded too, and kept. A 404 from a poll or a page of
-markup that no longer parses is the case this exists for; the recording is what
-lets the parser be worked on afterwards without waiting for the site to be in
-the same mood again.
-
-## Caching
-
-**The `fetches` table is the cache.** It records *that* a source answered a given
-search, and when. A hit means exactly one thing: do not ask that source again
-yet. Nothing comes back from it — the offers are in the same database, written
-when that source first answered, so whoever needs them reads them there.
-
-```
-run 1  5 sources, cold      47s
-run 2  same search, 4 skipped   1s   — identical output, read back from the store
-```
-
-There used to be a second database holding every offer as JSON as well. That was
-a copy of what `flights.db` already had: 25 MB for fifty searches, **47% of it
-booking URLs**, some 1.6 KB apiece. Deleting it lost nothing.
-
-`query_key` covers everything that changes an answer: source, route, dates,
-cabin, currency and the passenger counts. Change any one and it is a different
-search. `--cache-hours` sets the window (default 6, `0` disables).
-
-A source that exhausts its queue attempt budget is recorded as `failed`. The
-ledger also bounds repeated failed searches (`max_retries`, default three).
-A human challenge is recorded as `challenge` and paused until explicitly
-cleared; it never triggers unattended retries.
-
-The decision is **per source**, not per search, so a search with four fresh
-sources and one stale one asks only the stale one:
-
-```
-ff-kayak   cache      234  1.1h old
-ff-kiwi    scrape     272  FETCHED in 3.0s
-ff-sky     cache      245  1.1h old
-jetradar   cache      364  1.1h old
-momondo    cache      235  1.1h old
-```
-
-**No database means no cache.** `--db ''` skips storage, and with nowhere to read
-a skipped source back from, skipping it would silently drop it from the output —
-so in that mode every source is asked.
-
-Only successes are cached — a source that failed gets asked again rather than
-having its failure remembered. An empty result *is* a success: the source really
-did find nothing, and asking again within the window will not change that.
-
-**Searching again is refreshing.** There is no separate refresh button because
-there does not need to be one: a repeat search replays whatever is still fresh
-instantly and only re-asks the sources that have gone stale. Every result says
-where it came from — `scrape`, `cache` (with its age) or `shared` — so the UI
-can show *some prices up to 4.2 h old* rather than implying everything on screen
-is live. `POST /v1/freshness` reports the same per source and per date, and
-`refresh: true` on a search forces every source to be asked again.
-
-## Forgetting
-
-Nothing about a departed flight can become useful again, and the database
-otherwise only grows.
-
-```bash
-flyscan prune                      # drop everything before today
-flyscan prune --before 2026-09-01
-```
-
-That drops fetches for departed dates; their offers go with them through the
-foreign key, and trips left without any offer are swept after.
-`POST /v1/maintenance/purge` does the same over HTTP.
+See [desktop/README.md](desktop/README.md) for development and
+[packaging/README.md](packaging/README.md) for builds. Releases still go through the
+Release workflow only when requested by the owner.

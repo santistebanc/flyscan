@@ -1,10 +1,10 @@
 # flyscan
 
-Python scrapers and a local API (`flyscan/`), plus a Tauri 2 / React desktop shell (`desktop/`, see its README). Use the domain terms in `GLOSSARY.md` in code, tests and PRs.
+Use the domain terms in `GLOSSARY.md` in code, tests and PRs.
 
 ## Stay offline
 
-Live requests to the flight sites risk IP bans and bot challenges. Work against tests, `tests/fixtures/` and `tests/recordings/` (replayed by `flyscan.capture`, never the network). The CLI commands `scrape`, `capture`, `unblock`, `places`, `rates` and `serve`, `./dev.sh`, `beelink/dev.sh` and the desktop dev app reach the live sites: develop against an offline configuration, and run live requests only when an explicit owner decision allows them. A challenge is always put in front of a person; code waits for clearance.
+Live requests to the flight sites risk IP bans and bot challenges. Set `FLYSCAN_OFFLINE=1`; use tests, `tests/fixtures/` and `tests/recordings/` (replayed by `backend/src/transport.ts`, never the network). Run live requests only when an explicit owner decision allows them. A challenge is always put in front of a person; code waits for clearance.
 
 ## Showing a change
 
@@ -12,7 +12,8 @@ Working on the Beelink (the owner on a phone): run `beelink/dev.sh` from the che
 
 ## Checks
 
-- Python: `uv run pytest -q tests/test_<area>.py` while working; `uv run pytest -q` before the PR.
+- Backend: `npm ci --prefix backend` once, then `npm test --prefix backend` and `npm run build --prefix backend`.
+- Curl transport: `npm run test:transport` (after `uv sync`). Release tools: `npm run test:packaging`.
 - Desktop: `cd desktop && npm ci` once, then `npm test` and `npm run build` (tsc + vite).
 - Everything the commit hook runs: `uv run pre-commit run --all-files`.
 - Rust/Tauri builds are heavy: let CI run them (`CI (Tauri)` on PRs that touch `desktop/src-tauri/`).

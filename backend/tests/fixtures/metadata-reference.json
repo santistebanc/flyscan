@@ -1,0 +1,479 @@
+[
+  {
+    "name": "momondo-ber-slp-timing",
+    "query": {
+      "origin": "BER",
+      "destination": "SLP",
+      "depart": "2026-12-10",
+      "ret": "2026-12-12"
+    },
+    "source": "momondo",
+    "payload": {
+      "results": [
+        {
+          "type": "core",
+          "resultId": "fixture",
+          "legs": [
+            {
+              "id": "BERSLP1796900400000AA66931796911200000AA69501796979600000AA10973",
+              "segments": [
+                {
+                  "id": "1796900400000AA669306050710"
+                },
+                {
+                  "id": "1796911200000AA695009451410"
+                },
+                {
+                  "id": "1796979600000AA109704580716"
+                }
+              ]
+            }
+          ],
+          "bookingOptions": [
+            {
+              "providerCode": "fixture",
+              "displayPrice": {
+                "price": 100,
+                "currency": "EUR"
+              }
+            }
+          ]
+        }
+      ],
+      "legs": {
+        "BERSLP1796900400000AA66931796911200000AA69501796979600000AA10973": {
+          "duration": 1931,
+          "arrival": "2026-12-11T12:16:00",
+          "departure": "2026-12-10T11:05:00"
+        }
+      },
+      "segments": {
+        "1796900400000AA669306050710": {
+          "airline": "AA",
+          "flightNumber": "6693",
+          "origin": "BER",
+          "destination": "LHR",
+          "arrival": "2026-12-10T12:10:00",
+          "departure": "2026-12-10T11:05:00",
+          "duration": 125
+        },
+        "1796911200000AA695009451410": {
+          "airline": "AA",
+          "flightNumber": "6950",
+          "origin": "LHR",
+          "destination": "DFW",
+          "arrival": "2026-12-10T19:10:00",
+          "departure": "2026-12-10T14:45:00",
+          "duration": 625
+        },
+        "1796979600000AA109704580716": {
+          "airline": "AA",
+          "flightNumber": "1097",
+          "origin": "DFW",
+          "destination": "SLP",
+          "arrival": "2026-12-11T12:16:00",
+          "departure": "2026-12-11T09:58:00",
+          "duration": 138
+        }
+      },
+      "airlines": {
+        "AA": {
+          "name": "American Airlines"
+        }
+      }
+    },
+    "expected": [
+      {
+        "outbound": {
+          "origin_airport": "BER",
+          "destination_airport": "SLP",
+          "departure": "2026-12-10T11:05:00",
+          "arrival": "2026-12-11T12:16:00",
+          "duration_minutes": 1931,
+          "stops": 2,
+          "airlines": "American Airlines",
+          "flight_numbers": "AA6693, AA6950, AA1097",
+          "segments": [
+            {
+              "carrier": "AA",
+              "carrier_name": "American Airlines",
+              "flight_number": "AA6693",
+              "origin": "BER",
+              "destination": "LHR",
+              "departure": "2026-12-10T11:05:00",
+              "arrival": "2026-12-10T12:10:00",
+              "duration_minutes": 125,
+              "operating_carrier": "",
+              "operating_carrier_name": "",
+              "operating_flight_number": ""
+            },
+            {
+              "carrier": "AA",
+              "carrier_name": "American Airlines",
+              "flight_number": "AA6950",
+              "origin": "LHR",
+              "destination": "DFW",
+              "departure": "2026-12-10T14:45:00",
+              "arrival": "2026-12-10T19:10:00",
+              "duration_minutes": 625,
+              "operating_carrier": "",
+              "operating_carrier_name": "",
+              "operating_flight_number": ""
+            },
+            {
+              "carrier": "AA",
+              "carrier_name": "American Airlines",
+              "flight_number": "AA1097",
+              "origin": "DFW",
+              "destination": "SLP",
+              "departure": "2026-12-11T09:58:00",
+              "arrival": "2026-12-11T12:16:00",
+              "duration_minutes": 138,
+              "operating_carrier": "",
+              "operating_carrier_name": "",
+              "operating_flight_number": ""
+            }
+          ]
+        },
+        "inbound": null,
+        "price": 100.0,
+        "currency": "EUR",
+        "agent": "fixture",
+        "source_id": "fixture",
+        "deeplink": "",
+        "trip_key": "bfdce0474edf6cf3afc2525ac60a01183ea12672"
+      }
+    ]
+  },
+  {
+    "name": "jetradar-ber-slp-timing",
+    "query": {
+      "origin": "BER",
+      "destination": "SLP",
+      "depart": "2026-12-10",
+      "ret": "2026-12-12"
+    },
+    "source": "jetradar",
+    "payload": {
+      "tickets": [
+        {
+          "id": "fixture",
+          "segments": [
+            {
+              "flights": [0, 1, 2]
+            }
+          ],
+          "proposals": [
+            {
+              "flight_terms": {
+                "0": {
+                  "marketing_carrier_designator": {
+                    "carrier": "AA",
+                    "number": "6693"
+                  }
+                }
+              },
+              "id": "fixture",
+              "price": {
+                "value": 100,
+                "currency_code": "EUR"
+              }
+            }
+          ]
+        }
+      ],
+      "flight_legs": [
+        {
+          "origin": "BER",
+          "destination": "LHR",
+          "local_departure_date_time": "2026-12-10 11:05",
+          "local_arrival_date_time": "2026-12-10 12:10",
+          "departure_unix_timestamp": 1796897100,
+          "arrival_unix_timestamp": 1796904600,
+          "operating_carrier_designator": {
+            "carrier": "BA",
+            "airline_id": "BA",
+            "number": "6693"
+          }
+        },
+        {
+          "origin": "LHR",
+          "destination": "DFW",
+          "local_departure_date_time": "2026-12-10 13:50",
+          "local_arrival_date_time": "2026-12-10 18:25",
+          "departure_unix_timestamp": 1796910600,
+          "arrival_unix_timestamp": 1796948700,
+          "operating_carrier_designator": {
+            "carrier": "AA",
+            "airline_id": "AA",
+            "number": "81"
+          }
+        },
+        {
+          "origin": "DFW",
+          "destination": "SLP",
+          "local_departure_date_time": "2026-12-11 09:58",
+          "local_arrival_date_time": "2026-12-11 12:16",
+          "departure_unix_timestamp": 1797004680,
+          "arrival_unix_timestamp": 1797012960,
+          "operating_carrier_designator": {
+            "carrier": "AA",
+            "airline_id": "AA",
+            "number": "1097"
+          }
+        }
+      ],
+      "airlines": {
+        "AA": {
+          "name": {
+            "en": {
+              "default": "American Airlines"
+            }
+          }
+        }
+      }
+    },
+    "expected": [
+      {
+        "outbound": {
+          "origin_airport": "BER",
+          "destination_airport": "SLP",
+          "departure": "2026-12-10T11:05",
+          "arrival": "2026-12-11T12:16",
+          "duration_minutes": 1931,
+          "stops": 2,
+          "airlines": "American Airlines",
+          "flight_numbers": "AA6693, AA81, AA1097",
+          "segments": [
+            {
+              "carrier": "AA",
+              "carrier_name": "American Airlines",
+              "flight_number": "AA6693",
+              "origin": "BER",
+              "destination": "LHR",
+              "departure": "2026-12-10T11:05",
+              "arrival": "2026-12-10T12:10",
+              "duration_minutes": 125,
+              "operating_carrier": "BA",
+              "operating_carrier_name": "",
+              "operating_flight_number": "BA6693"
+            },
+            {
+              "carrier": "AA",
+              "carrier_name": "American Airlines",
+              "flight_number": "AA81",
+              "origin": "LHR",
+              "destination": "DFW",
+              "departure": "2026-12-10T13:50",
+              "arrival": "2026-12-10T18:25",
+              "duration_minutes": 635,
+              "operating_carrier": "",
+              "operating_carrier_name": "",
+              "operating_flight_number": ""
+            },
+            {
+              "carrier": "AA",
+              "carrier_name": "American Airlines",
+              "flight_number": "AA1097",
+              "origin": "DFW",
+              "destination": "SLP",
+              "departure": "2026-12-11T09:58",
+              "arrival": "2026-12-11T12:16",
+              "duration_minutes": 138,
+              "operating_carrier": "",
+              "operating_carrier_name": "",
+              "operating_flight_number": ""
+            }
+          ]
+        },
+        "inbound": null,
+        "price": 100.0,
+        "currency": "EUR",
+        "agent": "",
+        "source_id": "fixture:fixture",
+        "deeplink": "https://jetradeu.cheapflightsfinder.com/?flightSearch=BER1012SLP1212100&ticketId=fixture",
+        "trip_key": "2c6d0e17b35c35b0c07a19bbc6a16a40b323d8bf"
+      }
+    ]
+  },
+  {
+    "name": "jetradar-slp-ber-codeshare",
+    "query": {
+      "origin": "BER",
+      "destination": "SLP",
+      "depart": "2026-12-10",
+      "ret": "2026-12-12"
+    },
+    "source": "jetradar",
+    "payload": {
+      "tickets": [
+        {
+          "id": "fixture",
+          "segments": [
+            {
+              "flights": [0, 1, 2]
+            }
+          ],
+          "proposals": [
+            {
+              "price": {
+                "value": 100,
+                "currency_code": "EUR"
+              },
+              "flight_terms": {
+                "0": {
+                  "marketing_carrier_designator": {
+                    "carrier": "UA",
+                    "airline_id": "UA",
+                    "number": "2405"
+                  }
+                },
+                "1": {
+                  "marketing_carrier_designator": {
+                    "carrier": "LH",
+                    "airline_id": "LH",
+                    "number": "9241"
+                  }
+                },
+                "2": {
+                  "marketing_carrier_designator": {
+                    "carrier": "LH",
+                    "airline_id": "LH",
+                    "number": "4064"
+                  }
+                }
+              },
+              "id": "fixture"
+            }
+          ]
+        }
+      ],
+      "flight_legs": [
+        {
+          "origin": "SLP",
+          "destination": "IAH",
+          "local_departure_date_time": "2026-12-23 12:49",
+          "local_arrival_date_time": "2026-12-23 14:43",
+          "departure_unix_timestamp": 1798051740,
+          "arrival_unix_timestamp": 1798058580,
+          "operating_carrier_designator": {
+            "carrier": "UA",
+            "airline_id": "UA",
+            "number": "2405"
+          }
+        },
+        {
+          "origin": "IAH",
+          "destination": "MUC",
+          "local_departure_date_time": "2026-12-23 16:35",
+          "local_arrival_date_time": "2026-12-24 09:45",
+          "departure_unix_timestamp": 1798065300,
+          "arrival_unix_timestamp": 1798101900,
+          "operating_carrier_designator": {
+            "carrier": "UA",
+            "airline_id": "UA",
+            "number": "102"
+          }
+        },
+        {
+          "origin": "MUC",
+          "destination": "BER",
+          "local_departure_date_time": "2026-12-24 12:15",
+          "local_arrival_date_time": "2026-12-24 13:25",
+          "departure_unix_timestamp": 1798110900,
+          "arrival_unix_timestamp": 1798115100,
+          "operating_carrier_designator": {
+            "carrier": "VL",
+            "airline_id": "VL",
+            "number": "4064"
+          }
+        }
+      ],
+      "airlines": {
+        "LH": {
+          "name": {
+            "en": {
+              "default": "Lufthansa"
+            }
+          }
+        },
+        "UA": {
+          "name": {
+            "en": {
+              "default": "United Airlines"
+            }
+          }
+        },
+        "VL": {
+          "name": {
+            "en": {
+              "default": "Lufthansa City Airlines"
+            }
+          }
+        }
+      }
+    },
+    "expected": [
+      {
+        "outbound": {
+          "origin_airport": "SLP",
+          "destination_airport": "BER",
+          "departure": "2026-12-23T12:49",
+          "arrival": "2026-12-24T13:25",
+          "duration_minutes": 1056,
+          "stops": 2,
+          "airlines": "United Airlines, Lufthansa",
+          "flight_numbers": "UA2405, LH9241, LH4064",
+          "segments": [
+            {
+              "carrier": "UA",
+              "carrier_name": "United Airlines",
+              "flight_number": "UA2405",
+              "origin": "SLP",
+              "destination": "IAH",
+              "departure": "2026-12-23T12:49",
+              "arrival": "2026-12-23T14:43",
+              "duration_minutes": 114,
+              "operating_carrier": "",
+              "operating_carrier_name": "",
+              "operating_flight_number": ""
+            },
+            {
+              "carrier": "LH",
+              "carrier_name": "Lufthansa",
+              "flight_number": "LH9241",
+              "origin": "IAH",
+              "destination": "MUC",
+              "departure": "2026-12-23T16:35",
+              "arrival": "2026-12-24T09:45",
+              "duration_minutes": 610,
+              "operating_carrier": "UA",
+              "operating_carrier_name": "United Airlines",
+              "operating_flight_number": "UA102"
+            },
+            {
+              "carrier": "LH",
+              "carrier_name": "Lufthansa",
+              "flight_number": "LH4064",
+              "origin": "MUC",
+              "destination": "BER",
+              "departure": "2026-12-24T12:15",
+              "arrival": "2026-12-24T13:25",
+              "duration_minutes": 70,
+              "operating_carrier": "VL",
+              "operating_carrier_name": "Lufthansa City Airlines",
+              "operating_flight_number": "VL4064"
+            }
+          ]
+        },
+        "inbound": null,
+        "price": 100.0,
+        "currency": "EUR",
+        "agent": "",
+        "source_id": "fixture:fixture",
+        "deeplink": "https://jetradeu.cheapflightsfinder.com/?flightSearch=BER1012SLP1212100&ticketId=fixture",
+        "trip_key": "469c5d4f4655899e967747ad1bad3d50add70e3a"
+      }
+    ]
+  }
+]

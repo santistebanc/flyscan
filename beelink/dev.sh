@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # The dev loop on the Beelink, for working from a phone (T3 Code runs there). Run it from the
-# checkout being edited and open http://beelink-home:1420 on the tailnet: Python edits restart
+# checkout being edited and open http://beelink-home:1420 on the tailnet: TypeScript edits restart
 # the service, UI edits show at once, nothing needs committing. A check opens in a real
 # Chromium on a phone-shaped virtual screen, streamed by noVNC; Verify opens the stream.
 #
@@ -40,7 +40,9 @@ case "${1:-}" in
 esac
 
 echo "Preparing $CHECKOUT…"
-(cd "$CHECKOUT" && uv sync -q && .venv/bin/python -m playwright install chromium >/dev/null)
+(cd "$CHECKOUT" && uv sync -q)
+npm ci --prefix "$CHECKOUT/backend" --silent --no-audit --no-fund
+(cd "$CHECKOUT/backend" && npx --no-install playwright install chromium >/dev/null)
 lock="$CHECKOUT/desktop/package-lock.json"
 installed="$CHECKOUT/desktop/node_modules/.package-lock.json"
 if [ ! -f "$installed" ] || [ "$lock" -nt "$installed" ]; then
@@ -90,10 +92,12 @@ After=flyscan-dev-novnc.service
 [Service]
 WorkingDirectory=$CHECKOUT
 Environment=FLYSCAN_DATA_DIR=$DATA
+Environment=FLYSCAN_PYTHON=$CHECKOUT/.venv/bin/python
+Environment=FLYSCAN_OFFLINE=${FLYSCAN_OFFLINE:-1}
 Environment=DISPLAY=:$DISPLAY_NUMBER
 Environment=FLYSCAN_CHECK_SCREEN=$SCREEN
 Environment="FLYSCAN_CHALLENGE_VIEWER_URL=$VIEWER"
-ExecStart=$CHECKOUT/.venv/bin/flyscan serve --debug --host 127.0.0.1 --port $API_PORT
+ExecStart=$(command -v npm) run dev --prefix $CHECKOUT/backend -- --host 127.0.0.1 --port $API_PORT
 # The Beelink is shared and often busy; a check's browser starts a third faster with priority.
 CPUWeight=1000
 Restart=on-failure

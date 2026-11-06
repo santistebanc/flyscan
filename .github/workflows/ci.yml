@@ -23,15 +23,24 @@ jobs:
       - name: pre-commit (desktop typecheck runs in the desktop job)
         run: uv run pre-commit run --all-files --show-diff-on-failure
         env:
-          SKIP: desktop-typecheck
+          SKIP: desktop-typecheck,backend-typecheck
 
-  python:
-    name: python tests
+  tooling:
+    name: curl transport + release tools
     runs-on: ubuntu-latest
+    env:
+      FLYSCAN_OFFLINE: "1"
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 22
       - uses: astral-sh/setup-uv@07a047e608db84b3d8c06cd9a7c7dcc9c355c18e # v10.3.2
-      - run: uv run pytest -q
+      - run: uv sync --frozen
+      - run: echo "FLYSCAN_PYTHON=$PWD/.venv/bin/python" >> "$GITHUB_ENV"
+      - run: npm ci --prefix backend
+      - run: npm run test:packaging
+      - run: npm run test:transport
 
   desktop:
     name: desktop tests + build
@@ -51,6 +60,7 @@ jobs:
       - run: npm run build
 
   web:
+    # Container probes only read local endpoints.
     name: web container
     runs-on: ubuntu-latest
     steps:
@@ -60,4 +70,20 @@ jobs:
           docker build --tag flyscan .
           docker run --detach --name flyscan-smoke flyscan
           trap 'docker rm -f flyscan-smoke' EXIT
-          docker exec -i flyscan-smoke python - < packaging/smoke_web.py
+          docker exec flyscan-smoke node /app/packaging/smoke_web.mjs
+
+  backend:
+    name: backend tests + build
+    runs-on: ubuntu-latest
+    env:
+      FLYSCAN_OFFLINE: "1"
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: backend/package-lock.json
+      - run: npm ci --prefix backend
+      - run: npm test --prefix backend
+      - run: npm run build --prefix backend

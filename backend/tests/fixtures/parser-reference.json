@@ -1,0 +1,236 @@
+{
+  "ff-kiwi-ber-cdg": [
+    {
+      "price": 56.0,
+      "currency": "EUR",
+      "agent": "Kiwi.com",
+      "deeplink": "https://www.kiwi.com/deep?affilid=cffinternationalltdapi&currency=EUR&flightsId=004225c350ed0000782e0081_0&from=BER&lang=en&passengers=1&searchBags=0.0&to=CDG&booking_token=HL0ewTo4xGyRe3o5WqoPlRt8eyIowrnGkttrHsHFBaWhy7zCiagnPi7cMTy59Jx94LzECacZB0yBr6bJiBSLeQuGQca2Fl_uGrSRGnGKZDaNhbhwLLd6ohMvaknsuEWttu9HRgXcKu_I4C_IbnXV_mfvUMebKjMGUCVGZ_IpFTRnyX6mowRYt7KFvZcuhUhAj7coMZx3Vpfdp7POHxRVwYkws6loqxT3oEdimXtBNoUZFjZ43DZU8eBzKuovcRnn-WNKQIuwUNcyUVHr-vtwlpsRKnUu0lAAdmw_snbElWCMCXgBm-TnK1dRQsdguBtbMAz-rjlUK-ZkgTUaV_-fH78Q1J3pO3_mcVh3RbvzRVW3vf4KOHUB8GpOtrreBFTjEKfyzgTE99oYllvmxG2u6rDoh7VnsxmP92IFf4nIX9qri3Fg93fneRYs_ataYRS43-lVBS62OYDKVRDyBURURdvWu-GH1pKPIwtnIGYq4K6vcwP0nwCwqisoKuvbSSTv04L42h9g8rn17yBdcCTe98PB8a0_TIWW3rRHX4ACRT4HZnI6JmUuJZEk6AZl2zjeocJUgnooPR_QSPWbV5gN_pGvV8a8y2vNFJQg5bMjNOrnhUnhcU8f1XDrjlyY3VYhEmibVXgFmKeFyoMkfmKxRcA1GjbGg_OiE1KfQav1v4NjlGs0lDOAWiDUPydmQIiY3J2R_PjebU9m5grnfEtxTWNEeIXpG1_4f1C20o0oaZR4FTj80y6fMyTuYJZkgI0G_by0SeLTbulgHAiQrkQJJWMSPal2en97YRfMYvJnnrOszVnKf2h8HFg8xT4w5OJHejxhYOgORNJn9loZqrmzhFAZWUlqN_7INMsa3HXsMX_oRvyTruXCnjqD3JZdsak5KBevX7U0q5glDkceUD7QyRj36ttaBDZhH1eFBCAdViOzqFowEOxH3qYtTfnn-AfTBiBi5JAJGCn2DHR9vgyAnUI1LCYPb6dKARHfgrkoWT9T-DwVRQu3guVeMEiMm6aGULGMUtqcB8hKJg_cHO_N4Cg==",
+      "source_id": "166",
+      "outbound": {
+        "origin_airport": "BER",
+        "destination_airport": "CDG",
+        "departure": "2026-09-21T18:00",
+        "arrival": "2026-09-21T19:50",
+        "duration_minutes": 110,
+        "stops": 0,
+        "airlines": "easyJet",
+        "flight_numbers": "U25165",
+        "segments": [
+          {
+            "carrier": "U2",
+            "carrier_name": "easyJet",
+            "flight_number": "U25165",
+            "origin": "BER",
+            "destination": "CDG",
+            "departure": "2026-09-21T18:00",
+            "arrival": "2026-09-21T19:50",
+            "duration_minutes": 110,
+            "operating_carrier": "",
+            "operating_carrier_name": "",
+            "operating_flight_number": ""
+          }
+        ]
+      },
+      "inbound": null,
+      "trip_key": "b6a01f414746a2aa0657d5f19eea3e162e1fba55"
+    },
+    {
+      "price": 60.0,
+      "currency": "EUR",
+      "agent": "Kiwi.com",
+      "deeplink": "https://www.kiwi.com/deep?affilid=cffinternationalltdapi&currency=EUR&flightsId=004225c350ed00005ab51f69_0&from=BER&lang=en&passengers=1&searchBags=0.0&to=CDG&booking_token=HcdQ_eDJresw_Tf8up6REiPb07eToNdYOyy3HRqi-GNs09lv3Flcb9nlhI72OfTCVRh7fd4P2WOLPWNa_iIGXQfRSXYOwr6C2WmYUAsQaMq7kLYNxoiiRJyON4aA53_qVfs_dA930Nyt6lHUkVxJixPH5EvF9kPmSjmNC4dl7W1GL09up_l6oV0fSfWQG08N6GOLIVhfCHFeByNR_yT3u4xtpBupL2QX_T-qclUbu81LB-jRonj-VhrgcOTFppFnoFmoMrJ_BpP4m9-aunHhkeRIXY9ySWUd3UCVIpcc6AJACdmXSafRjWXAVfzmsog_xoWRIAiEMB4TOB1WFoSKIPusBQTW2qQBvX2PMcAGU35ZQmpI8w1-CPw_jstC2saAN2ebgFr4mVUHa8zvmY1ByM7OAmz2twzlTBa8qOGY7_0rGnZrCNWAn7DYeAoyoJ2gCjTps_nlBb9uKxxe_yhOJNFwGK8WMKtYF6LkrD1rpTQeN08Bf_swD3XOzAb-9_SFu6nLPzZ58vxe97w384qZ5S4CO9jd9Q4_10oX1QgMdLRCBbbuO8vYioSBQ6y_n7XQDQmulunN2Wg436EO6gIEML1eLmIFqzxGMvuDE9Yu4CCt2YCpiMo1THTYHWw3YPQdPlmmYR6rCnURf3iwUb2arT2oUMjcShgFcC0AYZHcFaFFoLV63ASBBAX4g_jH1nKRwcLIaglGU4N7yHR_7qzzjNVh4nQaadUiXhrfC8kZ1AftdcE0Am71NL14xg1x52CyC730nwha7gXhunZW8TrM_3hI4_2ipR_3zFDBo21_OfMAuApDQkZyfug6dtHjN7c7aZGyn99yXeIpPI10aBvJOrYszjR1DQrtLVQXdFhzouLGtuSJftFxOwLlMZ3asLK6rtRdjRyGQcWgo8DSFwvJGSvsD6AjZ90rK-IOfZ8J0Bf8U5Ow5U6qgOeHbHf7PN823MF7yW7yPBw5SMG_ER3aOYQEcb1RNJOLAQuPLB5CKuJq711MZoyJnkdnxyehkpZL4hW4Yns2kn1_5wAmDCRBMTg==",
+      "source_id": "170",
+      "outbound": {
+        "origin_airport": "BER",
+        "destination_airport": "CDG",
+        "departure": "2026-09-21T07:00",
+        "arrival": "2026-09-21T08:50",
+        "duration_minutes": 110,
+        "stops": 0,
+        "airlines": "easyJet",
+        "flight_numbers": "U25159",
+        "segments": [
+          {
+            "carrier": "U2",
+            "carrier_name": "easyJet",
+            "flight_number": "U25159",
+            "origin": "BER",
+            "destination": "CDG",
+            "departure": "2026-09-21T07:00",
+            "arrival": "2026-09-21T08:50",
+            "duration_minutes": 110,
+            "operating_carrier": "",
+            "operating_carrier_name": "",
+            "operating_flight_number": ""
+          }
+        ]
+      },
+      "inbound": null,
+      "trip_key": "5d4d1b68b2979d513565ba2d2ec0d75ab5b09162"
+    },
+    {
+      "price": 66.0,
+      "currency": "EUR",
+      "agent": "Kiwi.com",
+      "deeplink": "https://www.kiwi.com/deep?affilid=cffinternationalltdapi&currency=EUR&flightsId=004225c350ed0000914da5b4_0&from=BER&lang=en&passengers=1&searchBags=0.0&to=CDG&booking_token=Hco1C_TQQqy8c1TNtntGm-QHj2RHCuzp2dEL4lzqJuVRcPzQyt9zTdmrBgFa7Emgigi9kjlAJ-5vIKlASWjb4ojAEJzR_IlouAUQKO_y2TklxoOHydoGrnZVjd54qVQYOJWOjw59TQNMjj6PIg-_QxLo5y8I7ZYyZHy8rrzh_wuBGc-3hgKyPaaxL7KKXE-r6XucH2HIm9R0KquqGLTRk202CFCAIRZ6ZmKwl4WsM4IJ4f7siP36Bu1DPriWVxpAMKhHo1iN653I_lMU1YrLJfmXpdDdYtmMvvJmWZpVHkM429TFann40gLutS5JQ0pngDBbW4c-6MxXo2WbiVUjZZAGuKSMRMwKz4UqL4UtJxeOvzijAfFOH0ExAVmLorVTy8d4xlGKBlMNDINyiMB4Pskm7JaVRrXPpovWnk2Miqb7nWPjivzzpEIEy6o9jcyMZcY_aXARobKnZ-KoYJDY422WrRZJ3DFugKMUd2Sx_sTo2woDcjkbXfUOpk_Rbf2XwyFylPmMrj8cwt-7s1rlaMrj2lGTWLnEhayxMqyQwyH8aVgaIvQeeP2hpsj4cAWqcBNse2rbBoFJ1jIZ9c3bdGWVCfd_mN7t92XPJGD6Zn2Stz1jbOp0A74RNf4udN4QWqlzqTUuijXS6pSBGrXF1CLy1wH9o5CHRnFcOEN4MnyuCx9IlT3-mgmwTKEmVvlKJ6GmEiwqDRjYeoHX65kDgM247Fi2vWJqfb2tTAI8jcG5i7IFINANtyJpjJ32RAtHwXcsaU-MvDABQ0njd3WrXkTFwi-RckvBWc_5Vw99oHD4Le1vP3L18iEZX_OERmCSe7SUOY1E8qBO8t_B2s2eY-nbk-B6dKIKE9bIUB4dkiOoD7gRvl9qCA-Vr3RIQcs8PscTQRIzvCcllQ5LXZMVpyQwaGF5xSDNyExCgGb2HnKfFU05zFqmA-_4O2TLc-furvjt1AKNE28PzfT3qpxV6a7j7K91n0m0k3p3jRzAFjYfsZpCZ0wIGMtVEuCe7wvRF4hidsSkmRNRjnmwUYkFxbw==",
+      "source_id": "176",
+      "outbound": {
+        "origin_airport": "BER",
+        "destination_airport": "CDG",
+        "departure": "2026-09-21T12:35",
+        "arrival": "2026-09-21T14:25",
+        "duration_minutes": 110,
+        "stops": 0,
+        "airlines": "easyJet",
+        "flight_numbers": "U25163",
+        "segments": [
+          {
+            "carrier": "U2",
+            "carrier_name": "easyJet",
+            "flight_number": "U25163",
+            "origin": "BER",
+            "destination": "CDG",
+            "departure": "2026-09-21T12:35",
+            "arrival": "2026-09-21T14:25",
+            "duration_minutes": 110,
+            "operating_carrier": "",
+            "operating_carrier_name": "",
+            "operating_flight_number": ""
+          }
+        ]
+      },
+      "inbound": null,
+      "trip_key": "535fdb30eb4ccbe37c603e50f988a3f139d8e26d"
+    }
+  ],
+  "ff-sky-ber-cdg": [
+    {
+      "price": 718.0,
+      "currency": "EUR",
+      "agent": "Air France",
+      "deeplink": "https://agw.skyscnr.com/v1/redirect?pageUrl=https%3A%2F%2Fskyscanner.pxf.io%2Fc%2F2988255%2F1103265%2F13416%3Fu%3Dhttps%253A%252F%252Fwww.skyscanner.com%252Ftransport_deeplink%252F4.0%252FUS%252Fen-GB%252FEUR%252Fairf%252F1%252F9828.10413.2026-09-28%252Fair%252Fairli%252Fflights%253Fitinerary%253Dflight%25257C-32132%25257C1770%25257C9828%25257C2026-09-28T06%25253A00%25257C9451%25257C2026-09-28T07%25253A25%25257C85%25257CBYQ0BN9A%25257CB%25257CBASIC%25253Bflight%25257C-32132%25257C1405%25257C9451%25257C2026-09-28T08%25253A10%25257C10413%25257C2026-09-28T09%25253A30%25257C80%25257CBYQ0BN9A%25257CB%25257CBASIC%2526carriers%253D-32132%2526operators%253D-32132%25253B-32132%2526passengers%253D1%2526channel%253Ddataapi%2526cabin_class%253Deconomy%2526fps_session_id%253D77dac82d-00be-4b2d-8971-eee938fa55ce%2526ticket_price%253D717.61%2526is_npt%253Dfalse%2526is_multipart%253Dfalse%2526client_id%253Dskyscanner_b2b%2526request_id%253D54a571fb-1f06-4a50-84e8-4c6640426c14%2526q_ids%253DH4sIAAAAAAAA_-PS42JJzCxKE-LleOKjxGFpamZubGxhLMXLsTYQxDU1MzUwMVRouPPsKpsRkwIjALbffc8wAAAA%25257C7431953904115036389%25257C2%2526q_sources%253DJACQUARD%2526commercial_filters%253Dfalse%2526q_datetime_utc%253D2026-08-24T14%25253A50%25253A45%2526pqid%253Dfalse%2526fare_type%253Dbase_fare%2526api_pbs%253Dtrue%2526app_id%253Ddrmo%2525252F%2525252B%2525252BLZWahakSAJkRrfdsE%2525252BxNAAl0Gp6SRtLZpicJX5XC4Nca%2525252Bjff5kzs%2525252BdeFm&impactMediaPartnerId=2988255",
+      "source_id": "1028",
+      "outbound": {
+        "origin_airport": "BER",
+        "destination_airport": "CDG",
+        "departure": "2026-09-28T06:00",
+        "arrival": "2026-09-28T09:30",
+        "duration_minutes": 210,
+        "stops": 1,
+        "airlines": "KLM",
+        "flight_numbers": "KL1770, KL1405",
+        "segments": [
+          {
+            "carrier": "KL",
+            "carrier_name": "KLM",
+            "flight_number": "KL1770",
+            "origin": "BER",
+            "destination": "AMS",
+            "departure": "2026-09-28T06:00",
+            "arrival": "2026-09-28T07:25",
+            "duration_minutes": 85,
+            "operating_carrier": "",
+            "operating_carrier_name": "",
+            "operating_flight_number": ""
+          },
+          {
+            "carrier": "KL",
+            "carrier_name": "KLM",
+            "flight_number": "KL1405",
+            "origin": "AMS",
+            "destination": "CDG",
+            "departure": "2026-09-28T08:10",
+            "arrival": "2026-09-28T09:30",
+            "duration_minutes": 80,
+            "operating_carrier": "",
+            "operating_carrier_name": "",
+            "operating_flight_number": ""
+          }
+        ]
+      },
+      "inbound": null,
+      "trip_key": "a5426a9db9caca7a97e97e44cdc0b9c3c664280e"
+    },
+    {
+      "price": 141.0,
+      "currency": "EUR",
+      "agent": "easyJet",
+      "deeplink": "https://agw.skyscnr.com/v1/redirect?pageUrl=https%3A%2F%2Fskyscanner.pxf.io%2Fc%2F2988255%2F1103265%2F13416%3Fu%3Dhttps%253A%252F%252Fwww.skyscanner.com%252Ftransport_deeplink%252F4.0%252FUS%252Fen-GB%252FEUR%252Feapr%252F1%252F9828.10413.2026-09-28%252Fair%252Fairli%252Fflights%253Fitinerary%253Dflight%25257C-32356%25257C5143%25257C9828%25257C2026-09-28T06%25253A00%25257C14581%25257C2026-09-28T08%25253A05%25257C125%25257C-%25257C-%25257C-%25253Bflight%25257C-32356%25257C4528%25257C14581%25257C2026-09-28T15%25253A25%25257C10413%25257C2026-09-28T17%25253A05%25257C100%25257C-%25257C-%25257C-%2526carriers%253D-32356%2526operators%253D-32356%25253B-32356%2526passengers%253D1%2526channel%253Ddataapi%2526cabin_class%253Deconomy%2526fps_session_id%253D77dac82d-00be-4b2d-8971-eee938fa55ce%2526ticket_price%253D140.99%2526is_npt%253Dtrue%2526is_multipart%253Dfalse%2526client_id%253Dskyscanner_b2b%2526request_id%253D54a571fb-1f06-4a50-84e8-4c6640426c14%2526q_ids%253DH4sIAAAAAAAA_-PS42JJTSwoEuLleOKjxGFpamZubGxhLMXLsTYQxDU1MzUwMVRouPPsKpsRkwIjAKb6nucwAAAA%25257C4084878170166264002%25257C2%2526q_sources%253DJACQUARD%2526commercial_filters%253Dfalse%2526q_datetime_utc%253D2026-08-24T14%25253A07%25253A23%2526transfer_protection%253Dnon-protected%2526pqid%253Dfalse%2526fare_type%253Dbase_fare%2526api_pbs%253Dtrue%2526app_id%253Ddrmo%2525252F%2525252B%2525252BLZWahakSAJkRrfdsE%2525252BxNAAl0Gp6SRtLZpicJX5XC4Nca%2525252Bjff5kzs%2525252BdeFm&impactMediaPartnerId=2988255",
+      "source_id": "906",
+      "outbound": {
+        "origin_airport": "BER",
+        "destination_airport": "CDG",
+        "departure": "2026-09-28T06:00",
+        "arrival": "2026-09-28T17:05",
+        "duration_minutes": 665,
+        "stops": 1,
+        "airlines": "easyJet",
+        "flight_numbers": "EZY5143, EZY4528",
+        "segments": [
+          {
+            "carrier": "EZY",
+            "carrier_name": "easyJet",
+            "flight_number": "EZY5143",
+            "origin": "BER",
+            "destination": "NCE",
+            "departure": "2026-09-28T06:00",
+            "arrival": "2026-09-28T08:05",
+            "duration_minutes": 125,
+            "operating_carrier": "",
+            "operating_carrier_name": "",
+            "operating_flight_number": ""
+          },
+          {
+            "carrier": "EZY",
+            "carrier_name": "easyJet",
+            "flight_number": "EZY4528",
+            "origin": "NCE",
+            "destination": "CDG",
+            "departure": "2026-09-28T15:25",
+            "arrival": "2026-09-28T17:05",
+            "duration_minutes": 100,
+            "operating_carrier": "",
+            "operating_carrier_name": "",
+            "operating_flight_number": ""
+          }
+        ]
+      },
+      "inbound": null,
+      "trip_key": "8d6494c9538259e6261f25d4775f587237b5bfe4"
+    },
+    {
+      "price": 501.0,
+      "currency": "EUR",
+      "agent": "Air France",
+      "deeplink": "https://agw.skyscnr.com/v1/redirect?pageUrl=https%3A%2F%2Fskyscanner.pxf.io%2Fc%2F2988255%2F1103265%2F13416%3Fu%3Dhttps%253A%252F%252Fwww.skyscanner.com%252Ftransport_deeplink%252F4.0%252FUS%252Fen-GB%252FEUR%252Fairf%252F1%252F9828.10413.2026-09-28%252Fair%252Fairli%252Fflights%253Fitinerary%253Dflight%25257C-32677%25257C1135%25257C9828%25257C2026-09-28T06%25253A15%25257C10413%25257C2026-09-28T08%25253A10%25257C115%25257CPYQ0BN9A%25257CP%25257CBASIC%2526carriers%253D-32677%2526operators%253D-32677%2526passengers%253D1%2526channel%253Ddataapi%2526cabin_class%253Deconomy%2526fps_session_id%253D77dac82d-00be-4b2d-8971-eee938fa55ce%2526ticket_price%253D501.08%2526is_npt%253Dfalse%2526is_multipart%253Dfalse%2526client_id%253Dskyscanner_b2b%2526request_id%253D54a571fb-1f06-4a50-84e8-4c6640426c14%2526q_ids%253DH4sIAAAAAAAA_-PS42JJzCxKE-LleOKjxGFpamZubGxhLMXLsTYQxDU1MzUwMVRouPPsKpsRkwIjALbffc8wAAAA%25257C1950072440241273562%25257C2%2526q_sources%253DJACQUARD%2526commercial_filters%253Dfalse%2526q_datetime_utc%253D2026-08-24T14%25253A50%25253A45%2526pqid%253Dfalse%2526fare_type%253Dbase_fare%2526api_pbs%253Dtrue%2526app_id%253Ddrmo%2525252F%2525252B%2525252BLZWahakSAJkRrfdsE%2525252BxNAAl0Gp6SRtLZpicJX5XC4Nca%2525252Bjff5kzs%2525252BdeFm&impactMediaPartnerId=2988255",
+      "source_id": "616",
+      "outbound": {
+        "origin_airport": "BER",
+        "destination_airport": "CDG",
+        "departure": "2026-09-28T06:15",
+        "arrival": "2026-09-28T08:10",
+        "duration_minutes": 115,
+        "stops": 0,
+        "airlines": "Air France",
+        "flight_numbers": "AF1135",
+        "segments": [
+          {
+            "carrier": "AF",
+            "carrier_name": "Air France",
+            "flight_number": "AF1135",
+            "origin": "BER",
+            "destination": "CDG",
+            "departure": "2026-09-28T06:15",
+            "arrival": "2026-09-28T08:10",
+            "duration_minutes": 115,
+            "operating_carrier": "",
+            "operating_carrier_name": "",
+            "operating_flight_number": ""
+          }
+        ]
+      },
+      "inbound": null,
+      "trip_key": "7e7524639416b09b07766b0f1d76178f6a969cc3"
+    }
+  ]
+}

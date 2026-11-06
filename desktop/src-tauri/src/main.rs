@@ -1,8 +1,7 @@
 //! Desktop shell for the flyscan.
 //!
-//! It does two things the browser could not. It owns the Python sidecar — the
-//! scrapers stay in Python because `curl_cffi`'s TLS impersonation is what
-//! makes the sources answer a plain HTTP request at all — and it holds the
+//! It does two things the browser could not. It owns the Node backend — the
+//! backend owns the scrapers and a private `curl_cffi` transport — and it holds the
 //! security checks the sources occasionally ask for.
 //!
 //! That second one is why this is a desktop app rather than a web page. A
@@ -99,6 +98,38 @@ fn sidecar_path(app: &AppHandle) -> Option<std::path::PathBuf> {
     None
 }
 
+/// Resources are beside the Node sidecar in a package or in the prepared dev bundle.
+fn service_resource(
+    app: &AppHandle,
+    node: &std::path::Path,
+    name: &str,
+) -> Option<std::path::PathBuf> {
+    if let Ok(resources) = app.path().resource_dir() {
+        let candidate = resources.join(name);
+        if candidate.is_file() {
+            return Some(candidate);
+        }
+    }
+    if let Some(directory) = node.parent() {
+        let candidate = directory.join(name);
+        if candidate.is_file() {
+            return Some(candidate);
+        }
+    }
+    if cfg!(debug_assertions) {
+        let root = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../..");
+        let candidate = match name {
+            "backend/index.cjs" => root.join("backend/dist/index.cjs"),
+            "frontend/index.html" => root.join("desktop/dist/index.html"),
+            _ => root.join("packaging/dist").join(name),
+        };
+        if candidate.is_file() {
+            return Some(candidate);
+        }
+    }
+    None
+}
+
 /// A packaged build is not ready until its own authenticated API answers.
 fn wait_for_sidecar(child: &mut Child, port: u16, key: &str) -> Result<(), String> {
     let address: SocketAddr = format!("127.0.0.1:{port}").parse().unwrap();
@@ -160,7 +191,12 @@ fn startup_error(message: &str) {
     #[cfg(all(unix, not(target_os = "macos")))]
     {
         let shown = Command::new("zenity")
-            .args(["--error", "--title=Flyscan could not start", "--text", message])
+            .args([
+                "--error",
+                "--title=Flyscan could not start",
+                "--text",
+                message,
+            ])
             .status()
             .is_ok_and(|status| status.success());
         if !shown {
@@ -360,6 +396,17 @@ fn main() {
                 .open(&log_path)?;
             let path = sidecar_path(&handle)
                 .ok_or("The bundled flight service is missing. Please reinstall Flyscan.")?;
+            let backend = service_resource(&handle, &path, "backend/index.cjs")
+                .ok_or("The bundled TypeScript backend is missing. Please reinstall Flyscan.")?;
+            let transport_name = if cfg!(windows) {
+                "flyscan-transport.exe"
+            } else {
+                "flyscan-transport"
+            };
+            let transport = service_resource(&handle, &path, transport_name)
+                .ok_or("The bundled curl transport is missing. Please reinstall Flyscan.")?;
+            let frontend = service_resource(&handle, &path, "frontend/index.html")
+                .ok_or("The bundled frontend is missing. Please reinstall Flyscan.")?;
             // The window-destroyed handler below is the tidy exit. This
             // is the other half: Ctrl+C in a `tauri dev` terminal, a
             // crash, or a rebuild kills us with no window event at all,
@@ -371,10 +418,17 @@ fn main() {
             command
                 .current_dir(&data_dir)
                 .env("FLYSCAN_API_KEY", &app.state::<Sidecar>().api_key)
-                .env("PYTHONUNBUFFERED", "1")
+                .env("FLYSCAN_TRANSPORT", transport)
+                .env("FLYSCAN_TRANSPORT_ARGS", "[]")
+                .env(
+                    "FLYSCAN_FRONTEND",
+                    frontend.parent().ok_or("Invalid frontend path")?,
+                )
+                .env("FLYSCAN_DESKTOP_SHELL", "1")
                 .stdin(Stdio::null())
                 .stdout(Stdio::from(log.try_clone()?))
                 .stderr(Stdio::from(log))
+                .arg(backend)
                 .arg("--host")
                 .arg("127.0.0.1")
                 .arg("--db")

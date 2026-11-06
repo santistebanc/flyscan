@@ -45,8 +45,13 @@
       "icons/icon.png"
     ],
     "externalBin": [
-      "binaries/flyscan-sidecar"
+      "binaries/flyscan-sidecar",
+      "binaries/flyscan-transport"
     ],
+    "resources": {
+      "../../backend/dist/index.cjs": "backend/index.cjs",
+      "../dist/": "frontend/"
+    },
     "windows": {
       "webviewInstallMode": {
         "type": "embedBootstrapper"

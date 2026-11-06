@@ -69,7 +69,7 @@ jobs:
           else
             git log --no-merges --format='- %s' "$last"..HEAD > packaging/release-notes.md
           fi
-          python3 packaging/set-version.py "$version"
+          node packaging/set-version.mjs "$version"
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git commit -qam "Release v$version"
@@ -99,6 +99,7 @@ jobs:
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version: "22"
+          architecture: ${{ matrix.arch }}
           cache: npm
           cache-dependency-path: desktop/package-lock.json
       - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
@@ -215,9 +216,9 @@ jobs:
           docker build --tag flyscan .
           docker run --detach --name flyscan-smoke flyscan
           trap 'docker rm -f flyscan-smoke' EXIT
-          docker exec -i flyscan-smoke python - < packaging/smoke_web.py
+          docker exec flyscan-smoke node /app/packaging/smoke_web.mjs
           mkdir -p release
-          tar --exclude='desktop/node_modules' --exclude='desktop/dist' --exclude='desktop/src-tauri' --exclude='flyscan/__pycache__' -czf release/flyscan-web.tar.gz Dockerfile .dockerignore railway.json pyproject.toml README.md packaging/requirements-web.lock flyscan desktop
+          tar --exclude='desktop/node_modules' --exclude='desktop/dist' --exclude='desktop/src-tauri' --exclude='backend/node_modules' --exclude='backend/dist' --exclude='flyscan/__pycache__' -czf release/flyscan-web.tar.gz Dockerfile .dockerignore railway.json package.json pyproject.toml uv.lock README.md packaging/requirements-web.lock packaging/smoke_web.mjs flyscan backend shared desktop
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: Flyscan-Web-${{ needs.tag.outputs.tag }}
@@ -242,7 +243,7 @@ jobs:
         env:
           REPOSITORY: ${{ github.repository }}
           RELEASE_TAG: ${{ needs.tag.outputs.tag }}
-        run: python3 packaging/create-update-manifest.py --version "${RELEASE_TAG#v}" --repository "$REPOSITORY" --notes packaging/release-notes.md
+        run: node packaging/create-update-manifest.mjs --version "${RELEASE_TAG#v}" --repository "$REPOSITORY" --notes packaging/release-notes.md
       - name: Publish the complete, verified release
         shell: pwsh
         env:

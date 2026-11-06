@@ -1,5 +1,9 @@
 .git
 .venv
+.venv-migration
+.migration-reference
+backend/node_modules
+backend/dist
 data
 .errors
 .challenges

@@ -1,6 +1,6 @@
 [CmdletBinding()]
 param([string]$Repository = "santistebanc/flyscan")
-# Publish what create-update-manifest.py checked: every asset it listed in SHA256SUMS.txt,
+# Publish what create-update-manifest.mjs checked: every asset it listed in SHA256SUMS.txt,
 # with latest.json and the web release, to a draft that goes public only when complete.
 $ErrorActionPreference = "Stop"
 Set-StrictMode -Version Latest

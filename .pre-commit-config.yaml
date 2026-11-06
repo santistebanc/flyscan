@@ -27,7 +27,13 @@ repos:
     hooks:
       - id: desktop-typecheck
         name: desktop typecheck (tsc)
-        entry: bash -c 'cd desktop && npx --no-install tsc --noEmit'
+        entry: node desktop/node_modules/typescript/bin/tsc --project desktop/tsconfig.json --noEmit
         language: system
-        files: ^desktop/.*\.(ts|tsx)$
+        files: ^(desktop|shared)/.*\.(ts|tsx)$
+        pass_filenames: false
+      - id: backend-typecheck
+        name: backend typecheck (tsc)
+        entry: node backend/node_modules/typescript/bin/tsc --project backend/tsconfig.json --noEmit
+        language: system
+        files: ^(backend|shared)/.*\.ts$
         pass_filenames: false

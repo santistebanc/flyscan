@@ -43,7 +43,7 @@ Use a Railway **project/environment token**, not an account token.
 The `flyscan-public` service runs the Dockerfile and `railway.json` with a
 persistent volume at `/data`, one replica and sleeping enabled. Keep one
 replica: SQLite, the queue, rate budgets and search subscriptions are
-process-local. Production runs Waitress rather than Flask's development server.
+process-local. Production runs the bundled TypeScript backend on Node.js; Python only provides the private curl transport.
 
 Service settings:
 
@@ -84,9 +84,9 @@ desktop clearance does not transfer to the Railway IP.
 
 ## Offline validation
 
-Use `uv run pytest -q`, `npm test --prefix desktop`,
+Use `npm run test:transport`, `npm run test:packaging`, `npm test --prefix backend`, `npm run build --prefix backend`, `npm test --prefix desktop`,
 `npm run build --prefix desktop`, and `uv run pre-commit run --all-files`.
-`tests/test_deployment.py` exercises the source policy and hosted restrictions
+`backend/tests/api.test.ts` exercises the source policy and hosted restrictions
 without contacting providers. The release workflow builds the container and
 probes its version and source policy without scraping. It also smoke-tests the
 packaged sidecar's source list. Running the hosted server, desktop dev app or

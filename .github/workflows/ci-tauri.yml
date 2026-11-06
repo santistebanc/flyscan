@@ -32,13 +32,15 @@ jobs:
       - uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2.9.3
         with:
           workspaces: desktop/src-tauri
-      - name: Placeholders tauri-build expects (web build + Python sidecar)
+      - name: Placeholders tauri-build expects (frontend, backend and runtimes)
         shell: bash
         run: |
-          mkdir -p desktop/dist desktop/src-tauri/binaries
+          mkdir -p desktop/dist backend/dist desktop/src-tauri/binaries
+          touch desktop/dist/index.html backend/dist/index.cjs
           suffix=""
           if [ "$RUNNER_OS" = Windows ]; then suffix=.exe; fi
           touch "desktop/src-tauri/binaries/flyscan-sidecar-$(rustc -vV | sed -n 's/^host: //p')$suffix"
+          touch "desktop/src-tauri/binaries/flyscan-transport-$(rustc -vV | sed -n 's/^host: //p')$suffix"
       - run: cargo check --locked
         working-directory: desktop/src-tauri
       - run: cargo test --locked --bin flyscan-desktop update_access::tests

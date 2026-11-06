@@ -40,21 +40,28 @@ try {
     Invoke-Native "uv" @("venv", "--allow-existing", "--python", $pythonPath, "packaging/.venv-$Architecture")
     Invoke-Native "uv" @("pip", "sync", "--python", $buildPython, "packaging/requirements-windows.lock")
     Invoke-Native "npm.cmd" @("ci", "--prefix", "desktop")
+    Invoke-Native "npm.cmd" @("ci", "--prefix", "backend")
+    $env:FLYSCAN_PYTHON = $buildPython
     if (-not $SkipTests) {
-        Invoke-Native $buildPython @("-m", "unittest", "discover", "-s", "tests", "-q")
+        Invoke-Native "npm.cmd" @("run", "test:packaging")
+        Invoke-Native "npm.cmd" @("run", "test:transport")
         Invoke-Native "npm.cmd" @("test", "--prefix", "desktop")
+        Invoke-Native "npm.cmd" @("test", "--prefix", "backend")
     }
     Invoke-Native "npm.cmd" @("audit", "--prefix", "desktop", "--audit-level=high")
+    Invoke-Native "npm.cmd" @("audit", "--prefix", "backend", "--audit-level=high")
     Invoke-Native "npm.cmd" @("run", "build", "--prefix", "desktop")
+    Invoke-Native "npm.cmd" @("run", "build", "--prefix", "backend")
     $tauriConfig = Join-Path $projectRoot "desktop/src-tauri/tauri.conf.json"
     $sidecar = Join-Path $projectRoot "packaging/dist/$Architecture/flyscan-sidecar.exe"
     $started = [DateTime]::UtcNow
-    Invoke-Native $buildPython @("-m", "PyInstaller", "--noconfirm", "--clean", "--distpath", "packaging/dist/$Architecture", "--workpath", "packaging/build/$Architecture", "packaging/flyscan-sidecar.spec")
+    Invoke-Native "node" @("packaging/build-sidecar.mjs", "--python", $buildPython, "--platform", $Architecture)
     if (-not (Test-Path -LiteralPath $sidecar) -or (Get-Item -LiteralPath $sidecar).LastWriteTimeUtc -lt $started) { throw "The sidecar was not rebuilt; refusing to package a stale binary." }
-    Invoke-Native $buildPython @("packaging/smoke_sidecar.py", $sidecar)
+    Invoke-Native "node" @("packaging/smoke_sidecar.mjs", $sidecar)
     $binaryDirectory = Join-Path $projectRoot "desktop/src-tauri/binaries"
     New-Item -ItemType Directory -Path $binaryDirectory -Force | Out-Null
     Copy-Item -LiteralPath $sidecar -Destination (Join-Path $binaryDirectory "flyscan-sidecar-$target.exe") -Force
+    Copy-Item -LiteralPath (Join-Path $projectRoot "packaging/dist/$Architecture/flyscan-transport.exe") -Destination (Join-Path $binaryDirectory "flyscan-transport-$target.exe") -Force
     Invoke-Native "rustup" @("target", "add", $target)
     if (-not $SkipTests) {
         Invoke-Native "cargo" @("test", "--manifest-path", "desktop/src-tauri/Cargo.toml", "--release", "--target", $target, "--locked", "--bin", "flyscan-desktop")

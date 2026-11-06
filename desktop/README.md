@@ -1,12 +1,12 @@
 # Desktop shell
 
-TypeScript UI, Python scrapers, Tauri in between.
+TypeScript UI and backend, a minimal Python curl transport, and a Tauri shell.
 
-The scraping stays in Python for one concrete reason: `curl_cffi`'s TLS
-impersonation is what makes the sources answer a plain HTTP request at all — a
-real browser gets a captcha where it gets a 200. Node has no equally good
-equivalent, so the shell spawns the packaged Python binary and talks to its
-`/v1` API on localhost. Nothing about the scrapers changes.
+The shell starts the packaged Node runtime directly with the TypeScript backend and talks to its `/v1` API on localhost.
+The backend in `../backend/` owns parsing, storage, scheduling, search lifecycles
+and challenges. `curl_cffi` sessions run in a private Python worker. The release
+bundles Node, Python and native curl libraries, so users install none of them.
+The shared wire types live in `../shared/contracts.ts`.
 
 ## Why a desktop app, and not a web page
 
@@ -89,11 +89,11 @@ returns as a seven-night trip from the default date, and a one-way stays one-way
 There are three ways, one per need.
 
 **Developing on a laptop: `./dev.sh`** from the repository root, then open
-http://localhost:1420. The service restarts itself on Python edits and the UI
+http://localhost:1420. The service restarts itself on TypeScript edits and the UI
 hot-reloads; Vite forwards `/v1` to the service on :5111. A security check
-opens in a Chromium window on the laptop (Playwright is a dev dependency): the
+opens in a Chromium window on the laptop (Playwright is a backend dependency): the
 service owns that browser, so the cookies it earns land where the scraper uses
-them. Dev data lives in `./data`.
+them. Dev data lives in `./data`. Development scripts default to `FLYSCAN_OFFLINE=1`; live source requests need an explicit owner decision.
 
 **Developing from a phone: `beelink/dev.sh`**, run on the Beelink from the
 checkout being edited (T3 Code's worktree, say), then open
@@ -116,7 +116,8 @@ updater, the sidecar lifecycle. Build the sidecar first, then:
 
 ```bash
 cd desktop
-cp ../packaging/dist/flyscan-sidecar.exe    src-tauri/binaries/flyscan-sidecar-$(rustc -vV | sed -n 's/host: //p').exe
+cp ../packaging/dist/x64/flyscan-sidecar.exe src-tauri/binaries/flyscan-sidecar-$(rustc -vV | sed -n 's/host: //p').exe
+cp ../packaging/dist/x64/flyscan-transport.exe src-tauri/binaries/flyscan-transport-$(rustc -vV | sed -n 's/host: //p').exe
 npm run tauri dev
 ```
 
@@ -258,7 +259,8 @@ holds the sidecar binary the build has to replace.
   That last one is nasty: the next `cargo` build panics with a bare
   `PermissionDenied` while trying to delete the locked exe, a long way from its
   cause. So the shell also passes `--exit-with-parent <pid>`, and the sidecar
-  waits on that handle and exits when it goes.
+  polls that process and exits when it goes. Closing Node's private pipe also
+  stops the curl worker, including any active native request.
 - This machine is **aarch64-pc-windows-msvc**. Shipping to x64 needs a sidecar
   built on (or cross-compiled for) that target — PyInstaller does not
   cross-compile.

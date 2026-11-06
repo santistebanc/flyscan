@@ -3,7 +3,7 @@
 For what a release contains, the web deployment and flyscan.site, see
 [RELEASES.md](RELEASES.md).
 
-Every build includes the React UI, Tauri shell and a frozen Python service.
+Every build includes the React UI, Tauri shell, compiled TypeScript backend, Node runtime and a frozen curl-only transport.
 Users do not need Python, Node or Rust. Each OS builds on its own machine,
 because PyInstaller does not cross-compile.
 
@@ -20,7 +20,7 @@ connection. There is no 32-bit build.
 
 ## Build on Windows
 
-The Windows build machine needs Node 22+, Python 3.12, uv, Rust stable and
+The Windows build machine needs Node 22.13+, Python 3.12, uv, Rust stable and
 Visual Studio C++ Build Tools with the Windows SDK and the C++ tools for the
 target architecture. From the repository root:
 
@@ -29,16 +29,16 @@ target architecture. From the repository root:
 ```
 
 That builds the x64 installer with an x64 Python. `-Architecture arm64` builds
-the ARM64 installer, on an ARM64 machine with an ARM64 Python: the frozen
-service runs on the architecture of the Python that froze it. The script creates an
+the ARM64 installer, on an ARM64 machine with ARM64 Node and Python. The frozen
+curl worker runs on the architecture of the Python that froze it. The script creates an
 isolated build environment, synchronizes `requirements-windows.lock`, installs
-the npm lockfile, runs Python, frontend and native regression tests and npm audit, builds the UI,
+the npm lockfile, runs TypeScript, transport and native regression tests and npm audit, builds the UI,
 freezes and smoke-tests the service, and builds NSIS using the Cargo lockfile.
 A stale or missing sidecar fails the build. `-SkipTests` is for local iteration.
 
 ## Build on macOS or Linux
 
-The build machine needs Node 22+, a native Python 3.12, uv and Rust stable;
+The build machine needs Node 22.13+, a native Python 3.12, uv and Rust stable;
 Linux also needs the WebKitGTK development packages Tauri lists
 (`libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf xdg-utils`
 on Debian and Ubuntu). From the repository root:
@@ -68,12 +68,12 @@ gh workflow run release                      # the next patch, notes from the co
 gh workflow run release -f version=0.4.0 -f notes="What changed"
 ```
 
-It bumps every version file (`set-version.py`), writes
+It bumps every version file (`set-version.mjs`), writes
 `packaging/release-notes.md`, commits `Release vX.Y.Z` and its tag to `main`,
 then builds on Windows and Linux (x64 and ARM64) and macOS (Apple Silicon and
 Intel) at once, each on a native runner. Each
 build runs every test, signs its updates and verifies each signature against the
-public key embedded in the app. `create-update-manifest.py` then checks that all
+public key embedded in the app. `create-update-manifest.mjs` then checks that all
 six builds are there, of this version and with the bytes they recorded, and
 writes one `latest.json` for every platform and `SHA256SUMS.txt`. Everything is
 uploaded to a draft release in this repository, which is published once
@@ -151,7 +151,7 @@ code only. `FLYSCAN_DATA_DIR` can override the data path for isolated tests.
 The shell starts a hidden service on a random loopback port with a fresh session
 credential and waits up to 45 seconds for authenticated health before showing
 the main window. Startup failures display an error and log location. The frozen
-service uses Waitress. Closing the main window stops it; it also watches the
+service uses Node's HTTP server. Closing the main window stops it; it also watches the
 shell and exits after a crash. A second launch focuses the existing window.
 External security-check pages do not receive the session credential.
 
@@ -169,7 +169,7 @@ session authentication, EventSource authentication, CORS, bundled UI, SQLite and
 the production server without contacting flight sources:
 
 ```powershell
-./packaging/.venv-x64/Scripts/python.exe packaging/smoke_sidecar.py packaging/dist/x64/flyscan-sidecar.exe
+node packaging/smoke_sidecar.mjs packaging/dist/x64/flyscan-sidecar.exe
 ```
 
 To test the actual installer on a Windows desktop with no existing installation,
@@ -185,60 +185,38 @@ installation. The app's window may briefly appear during this test.
 The release script above is the repeatable release path. The lower-level
 procedure below remains useful for experimenting with the service separately.
 
-The desktop shell (TypeScript UI) does not reimplement the scrapers — it spawns
-this binary and talks to its `/v1` API on localhost. The scraping stays in
-Python because `curl_cffi`'s TLS impersonation is what makes the sources answer
-a plain HTTP request at all; a browser gets a captcha where it gets a 200.
+Build both TypeScript bundles, then prepare the Node runtime and frozen curl worker:
 
 ```bash
+npm ci --prefix backend
+npm run build --prefix backend
+npm ci --prefix desktop
+npm run build --prefix desktop
 uv pip install pyinstaller
-python -m PyInstaller --noconfirm --clean --onefile \
-  --name flyscan-sidecar \
-  --distpath packaging/dist --workpath packaging/build --specpath packaging \
-  --collect-all curl_cffi --collect-submodules flyscan \
-  --add-data "../desktop/dist;frontend" \
-  --exclude-module playwright --exclude-module patchright \
-  --exclude-module scrapling --exclude-module tkinter --exclude-module matplotlib \
-  packaging/sidecar.py
+node packaging/build-sidecar.mjs --python .venv/bin/python --platform linux-x64
+node packaging/smoke_sidecar.mjs packaging/dist/linux-x64/flyscan-sidecar
 ```
 
-`--collect-all curl_cffi` is the one that matters: it carries the native libcurl
-build. Without it the binary imports fine and then fails on the first request.
+On Windows use an absolute or checkout-relative Python executable and the matching
+platform label, for example `--python .venv/Scripts/python.exe --platform x64`.
+Node and Python must have the same architecture. The prepared directory contains
+`flyscan-sidecar` (Node), `flyscan-transport` (only curl/Python), `backend/index.cjs`
+and `frontend/`. Tauri bundles the two executables and maps the frontend and backend
+into its resource directory. Its Rust launcher starts Node directly.
 
-The frontend must be built first — `npm install --prefix desktop && npm run
-build --prefix desktop` — because `--add-data` carries `desktop/dist` into the
-binary as `frontend/`, which is where the server looks when it is packaged.
+The curl worker is frozen from `flyscan/transport.py` using PyInstaller's CLI;
+there is no Python launcher or Python packaging configuration. Standard input and
+output carry JSON lines. Losing the owning pipe terminates the worker even during
+an HTTP request, so closing the desktop app cannot strand a native worker.
 
-`--add-data` is resolved relative to **`--specpath`**, not the working
-directory, which is why it reads `../desktop/dist` while every other path here
-is repo-relative. Get it wrong and PyInstaller prints `Unable to find
-...\packaging\templates` and stops — but still exits **0**, so a script around it
-carries on and ships a stale binary.
+To run the prepared backend manually:
 
-Playwright is excluded on purpose. It exists only to hold a captcha, and the
-desktop shell does that in its own webview — which is worth about 150 MB and a
-separate `playwright install` step.
-
-## Running it
-
-```
-flyscan-sidecar --port 5111      # serve the API (the default)
-flyscan-sidecar scrape BER LON 2026-10-06 --top 5   # any CLI command
+```bash
+packaging/dist/linux-x64/flyscan-sidecar packaging/dist/linux-x64/backend/index.cjs --port 5111 --offline
 ```
 
-Anything that is not a known subcommand is treated as arguments to `serve`,
-so the shell can just pass a port it has already reserved.
-
-## Historical sidecar measurements
-
-| | |
-|---|---|
-| binary | 19 MB, single file |
-| cold start to first `/v1/health` answer | ~2.2 s |
-| scraping | verified from a clean directory with no Python installed |
-
-The ~2.2 s is onefile unpacking to a temp directory on every launch. If that
-matters, `--onedir` trades a single file for a faster start.
+The backend discovers its adjacent transport and frontend. Playwright is omitted
+from installed desktop builds; Tauri owns human verification windows.
 
 ## Rename compatibility
 
@@ -246,4 +224,4 @@ The application identifier `com.flightscraper.desktop` and the existing
 signing-key backup location are deliberately stable so installed applications
 retain their data and update trust. Releases moved from
 `santistebanc/flight-scraper-releases` to this repository in 0.4.0.
-The source repository, Python package and command are now named `flyscan`.
+The source repository and application are named `flyscan`.

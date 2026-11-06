@@ -1,0 +1,12 @@
+{
+  "name": "flyscan",
+  "version": "0.4.0",
+  "private": true,
+  "scripts": {
+    "flyscan": "node backend/dist/index.cjs",
+    "test:packaging": "node --test packaging/tests/*.test.mjs",
+    "test:transport": "npm run test:transport --prefix backend",
+    "build": "npm run build --prefix backend && npm run build --prefix desktop",
+    "test": "npm test --prefix backend && npm run test:packaging && npm run test:transport && npm test --prefix desktop"
+  }
+}

@@ -45,8 +45,8 @@ case "$found" in
     "x86_64 3.12" | "amd64 3.12") [ "$arch" = x64 ] || fail "Use a native $arch Python 3.12, not $found." ;;
     *) fail "Use a native $arch Python 3.12, not $found." ;;
 esac
-version="$("$python" -c 'import json; print(json.load(open("desktop/package.json"))["version"])')"
-tauri_version="$("$python" -c 'import json; print(json.load(open("desktop/src-tauri/tauri.conf.json"))["version"])')"
+version="$(node -p 'require("./desktop/package.json").version')"
+tauri_version="$(node -p 'require("./desktop/src-tauri/tauri.conf.json").version')"
 [ "$version" = "$tauri_version" ] || fail "Frontend and Tauri versions disagree."
 if $updater_release && [ -z "${TAURI_SIGNING_PRIVATE_KEY:-}" ]; then
     fail "An updater release requires TAURI_SIGNING_PRIVATE_KEY."
@@ -57,23 +57,29 @@ build_python="$root/$venv/bin/python"
 uv venv --allow-existing --python "$python" "$venv"
 uv pip sync --python "$build_python" "packaging/requirements-$os.lock"
 npm ci --prefix desktop
+npm ci --prefix backend
+export FLYSCAN_PYTHON="$build_python"
 if ! $skip_tests; then
-    "$build_python" -m unittest discover -s tests -q
+    npm run test:packaging
+    npm run test:transport
     npm test --prefix desktop
+    npm test --prefix backend
 fi
 npm audit --prefix desktop --audit-level=high
+npm audit --prefix backend --audit-level=high
 npm run build --prefix desktop
+npm run build --prefix backend
 
 sidecar="$root/packaging/dist/$platform/flyscan-sidecar"
 stamp="$(mktemp)"
 trap 'rm -f "$stamp"' EXIT
 sleep 1  # file times can be coarse; the sidecar must be newer than the stamp
-"$build_python" -m PyInstaller --noconfirm --clean --distpath "packaging/dist/$platform" \
-    --workpath "packaging/build/$platform" packaging/flyscan-sidecar.spec
+node packaging/build-sidecar.mjs --python "$build_python" --platform "$platform"
 [ "$sidecar" -nt "$stamp" ] || fail "The sidecar was not rebuilt; refusing to package a stale binary."
-"$build_python" packaging/smoke_sidecar.py "$sidecar"
+node packaging/smoke_sidecar.mjs "$sidecar"
 mkdir -p desktop/src-tauri/binaries
 cp "$sidecar" "desktop/src-tauri/binaries/flyscan-sidecar-$target"
+cp "$root/packaging/dist/$platform/flyscan-transport" "desktop/src-tauri/binaries/flyscan-transport-$target"
 
 rustup target add "$target"
 if ! $skip_tests; then
@@ -145,24 +151,5 @@ if $updater_release; then
         files+=("$name.sig")
     done
 fi
-"$build_python" - "$release" "$platform" "$version" "$signing" "${files[@]}" "${updates[@]}" <<'EOF'
-import hashlib, json, subprocess, sys
-from datetime import datetime, timezone
-from pathlib import Path
-
-release, platform, version, signing, *rest = sys.argv[1:]
-split = rest.index("--")
-files, updates = rest[:split], rest[split + 1 :]
-info = {
-    "version": version,
-    "platform": platform,
-    "files": {name: hashlib.sha256((Path(release) / name).read_bytes()).hexdigest() for name in files},
-    "updates": dict(update.split("=", 1) for update in updates),
-    "signature": signing,
-    "commit": subprocess.check_output(["git", "rev-parse", "HEAD"], text=True).strip(),
-    "uncommittedChanges": bool(subprocess.check_output(["git", "status", "--porcelain"])),
-    "builtAtUtc": datetime.now(timezone.utc).isoformat(),
-}
-(Path(release) / f"build-info-{platform}.json").write_text(json.dumps(info, indent=2) + "\n")
-EOF
+node packaging/record-build.mjs "$release" "$platform" "$version" "$signing" "${files[@]}" "${updates[@]}"
 echo "Desktop app ready in $release ($platform, signing: $signing)"

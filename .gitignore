@@ -1,4 +1,7 @@
 .venv/
+.venv-migration/
+backend/node_modules/
+backend/dist/
 __pycache__/
 *.pyc
 out/
@@ -11,7 +14,6 @@ out/
 packaging/build/
 packaging/dist/
 packaging/*.spec
-!packaging/flyscan-sidecar.spec
 packaging/.venv-*/
 release/
 desktop/node_modules/
@@ -25,5 +27,3 @@ desktop/src-tauri/binaries/
 
 # Dev data (./dev.sh): ledger, caches, clearance cookies.
 data/
-
-# Generated, immutable release policy (never credentials).
