@@ -609,3 +609,8 @@ installed desktop builds because Tauri owns the verification webviews.
 See [desktop/README.md](desktop/README.md) for development and
 [packaging/README.md](packaging/README.md) for builds. Releases still go through the
 Release workflow only when requested by the owner.
+
+## Verification
+
+Run `npm run verify -- discover` for offline scenarios and source-bound evidence.
+See [the verification guide](docs/verification.md) for commands, controls and limits.

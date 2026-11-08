@@ -7,6 +7,8 @@
     "test:packaging": "node --test packaging/tests/*.test.mjs",
     "test:transport": "npm run test:transport --prefix backend",
     "build": "npm run build --prefix backend && npm run build --prefix desktop",
-    "test": "npm test --prefix backend && npm run test:packaging && npm run test:transport && npm test --prefix desktop"
+    "test": "npm test --prefix backend && npm run test:packaging && npm run test:transport && npm test --prefix desktop && npm run test:verification",
+    "verify": "node scripts/verify.mjs",
+    "test:verification": "node --test scripts/verification-support.test.cjs && npm run verify -- run recorded-search && npm run verify -- controls recorded-search"
   }
 }

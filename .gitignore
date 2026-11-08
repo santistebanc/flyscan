@@ -27,3 +27,6 @@ desktop/src-tauri/binaries/
 
 # Dev data (./dev.sh): ledger, caches, clearance cookies.
 data/
+
+# Local verification evidence and disposable state.
+tmp/verification/
