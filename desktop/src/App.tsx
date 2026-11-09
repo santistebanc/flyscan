@@ -872,7 +872,7 @@ function Shell() {
   // selected view's ledger, so background query results never enter this table.
   useEffect(() => {
     if (!api || !request || engine.running) return;
-    const timer = window.setInterval(() => void engine.loadStored(request), 3000);
+    const timer = window.setInterval(() => void engine.loadStored(request, { ifChanged: true }), 3000);
     return () => window.clearInterval(timer);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [api, storedKey, engine.running]);

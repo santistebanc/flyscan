@@ -15,12 +15,12 @@ test("new databases apply released migrations once and reopen without changing d
   const path = join(f.directory, "db.sqlite");
   try {
     const store = new FlightStore(path);
-    assert.equal(store.get("PRAGMA user_version")!.user_version, 2);
+    assert.equal(store.get("PRAGMA user_version")!.user_version, 3);
     store.completeFetch(store.beginFetch(Q, "ff-sky"), [makeOffer()]);
     store.close();
     const reopened = new FlightStore(path);
     assert.equal(reopened.stats().offers, 1);
-    assert.equal(reopened.get("PRAGMA user_version")!.user_version, 2);
+    assert.equal(reopened.get("PRAGMA user_version")!.user_version, 3);
     reopened.close();
   } finally {
     await f.close();
@@ -143,6 +143,65 @@ test("failure and challenge records retain earlier offers; only a success replac
     assert.equal(s.plan(Q, ["ff-sky"])["ff-sky"].why, "needs a human");
     s.clearChallenges("ff-sky");
     assert.equal(s.get("SELECT status FROM fetches")!.status, "pending");
+  } finally {
+    await f.close();
+  }
+});
+test("a limited range keeps the cheapest trips plus each date pair's own cheapest", async () => {
+  const f = fixture();
+  try {
+    const s = f.store!,
+      trips = (q: typeof Q, base: number) =>
+        [0, 1, 2, 3, 4].map((i) => {
+          const o = makeOffer(q, base + i);
+          o.itinerary.outbound = {
+            ...o.itinerary.outbound,
+            departure: `${q.depart}T0${i}:00`,
+            arrival: `${q.depart}T0${i + 2}:00`,
+          };
+          return o;
+        }),
+      later = query({ ...Q, depart: "2027-12-22" }),
+      range = { start: Q.depart, end: later.depart };
+    s.completeFetch(s.beginFetch(Q, "ff-sky"), trips(Q, 100));
+    s.completeFetch(s.beginFetch(later, "ff-sky"), trips(later, 200));
+    assert.equal(s.browse({ ...range, limit: null }).length, 10);
+    const cheapest = s.browse({ ...range, limit: 3 });
+    assert.deepEqual(cheapest.map((t) => t.offers[0].price), [100, 101, 102]);
+    const spread = s.browse({ ...range, limit: 3, per_pair: 2 });
+    assert.deepEqual(
+      spread.map((t) => t.offers[0].price),
+      [100, 101, 102, 200, 201],
+    );
+  } finally {
+    await f.close();
+  }
+});
+test("the browse stamp changes only when a fetch for the range lands", async () => {
+  const f = fixture();
+  try {
+    const s = f.store!,
+      range = { origin: "BER", destination: "CDG", start: Q.depart, end: Q.depart },
+      empty = s.browseStamp(range);
+    const id = s.beginFetch(Q, "ff-sky");
+    s.completeFetch(id, [makeOffer()]);
+    const first = s.browseStamp(range);
+    assert.notEqual(first, empty);
+    assert.equal(s.browseStamp(range), first);
+    s.completeFetch(
+      s.beginFetch(query({ ...Q, depart: "2027-12-23" }), "ff-sky"),
+      [makeOffer()],
+    );
+    assert.equal(s.browseStamp(range), first, "another day leaves it alone");
+    // A scrape takes seconds; refetching the same search lands later.
+    s.run(
+      "UPDATE fetches SET last_fetched=? WHERE id=?",
+      new Date(Date.now() - 60000).toISOString(),
+      id,
+    );
+    const aged = s.browseStamp(range);
+    s.completeFetch(id, [makeOffer(Q, 90)]);
+    assert.notEqual(s.browseStamp(range), aged);
   } finally {
     await f.close();
   }

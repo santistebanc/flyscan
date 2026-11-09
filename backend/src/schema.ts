@@ -3,4 +3,6 @@ export const schema =
 export const migrations: string[] = [
   "\n    ALTER TABLE offers ADD COLUMN seen_at TEXT;\n    UPDATE offers SET seen_at = (SELECT last_fetched FROM fetches WHERE fetches.id = offers.fetch_id);\n    ",
   "\n    ALTER TABLE offers ADD COLUMN codes TEXT;\n    ",
+  // Lets a range's cheapest trips be chosen without reading whole offer rows.
+  "\n    CREATE INDEX IF NOT EXISTS idx_offers_fetch_trip_price ON offers (fetch_id, trip_id, price);\n    ",
 ];

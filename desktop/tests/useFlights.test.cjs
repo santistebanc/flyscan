@@ -202,3 +202,20 @@ test("a scheduled ledger read cannot invalidate a newly started search stream", 
   assert.equal(reads, 0);
   assert.deepEqual(Array.from(render().rows, (r) => r.trip_key), ["live"]);
 });
+
+test("polls skip the full read until the stored flights for the view change", async () => {
+  let reads = 0, stamp = "a";
+  const render = host({
+    storedFlights: async () => ({ ...answer(`read${++reads}`), stamp }),
+    storedStamp: async () => ({ stamp }),
+  });
+  await render().loadStored(request);
+  await render().loadStored(request, { ifChanged: true });
+  assert.equal(reads, 1, "an unchanged stamp needs no full read");
+  stamp = "b";
+  await render().loadStored(request, { ifChanged: true });
+  assert.equal(reads, 2);
+  assert.deepEqual(Array.from(render().rows, (r) => r.trip_key), ["read2"]);
+  await render().loadStored(request);
+  assert.equal(reads, 3, "an explicit reload always reads");
+});

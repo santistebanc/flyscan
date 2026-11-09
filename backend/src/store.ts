@@ -489,14 +489,63 @@ export class FlightStore {
         args.push(filters.ret, filters.ret_end || filters.ret);
       } else where.push("f.return_date IS NULL");
     }
+    const limit = filters.limit === undefined ? 300 : filters.limit,
+      perPair = Number(filters.per_pair) || 0;
+    if (limit !== null) {
+      // Choose the trips first, from prices alone, and only then load their
+      // offers and itineraries: a large range holds 100k+ trips of a few KB
+      // each, and reading all of them to keep a few hundred took tens of
+      // seconds. Besides the cheapest overall, each date pair keeps its own
+      // cheapest few, so no departure/return pair drops out of the list.
+      const stops = filters.max_stops !== undefined && filters.max_stops !== null && filters.max_stops !== "";
+      const rows = this.all(
+        `WITH best AS (SELECT o.trip_id, MIN(o.price) AS price, f.depart_date AS d, f.return_date AS r FROM offers o JOIN fetches f ON f.id=o.fetch_id${stops ? " JOIN trips t ON t.id=o.trip_id" : ""} WHERE ${where.join(" AND ")} GROUP BY o.trip_id),
+        ranked AS (SELECT trip_id, ROW_NUMBER() OVER (ORDER BY price, trip_id) AS overall, ROW_NUMBER() OVER (PARTITION BY d, r ORDER BY price, trip_id) AS within FROM best)
+        SELECT t.*,o.price,o.deeplink,o.agent,o.seen_at,o.codes,f.source,f.last_fetched,f.id AS fetch_id FROM offers o JOIN trips t ON t.id=o.trip_id JOIN fetches f ON f.id=o.fetch_id WHERE ${where.join(" AND ")} AND o.trip_id IN (SELECT trip_id FROM ranked WHERE overall<=? OR within<=?) ORDER BY o.price`,
+        ...args,
+        ...args,
+        limit,
+        perPair,
+      );
+      return this.groupTrips(rows, null);
+    }
     const rows = this.all(
       `SELECT t.*,o.price,o.deeplink,o.agent,o.seen_at,o.codes,f.source,f.last_fetched,f.id AS fetch_id FROM offers o JOIN trips t ON t.id=o.trip_id JOIN fetches f ON f.id=o.fetch_id WHERE ${where.join(" AND ")} ORDER BY o.price`,
       ...args,
     );
-    return this.groupTrips(
-      rows,
-      filters.limit === undefined ? 300 : filters.limit,
-    );
+    return this.groupTrips(rows, null);
+  }
+  /**
+   * Changes whenever a fetch for these filters lands, fails or is replaced, so
+   * a client can tell cheaply whether browse() would answer differently.
+   */
+  browseStamp(filters: Row = {}): string {
+    const where = ["adults=?", "children=?", "infants=?", "cabin=?"],
+      args: SQLInputValue[] = [
+        filters.adults ?? 1,
+        filters.children ?? 0,
+        filters.infants ?? 0,
+        filters.cabin || "economy",
+      ];
+    for (const [key, col, op] of [
+      ["origin", "origin", "="],
+      ["destination", "destination", "="],
+      ["start", "depart_date", ">="],
+      ["end", "depart_date", "<="],
+    ])
+      if (filters[key] !== undefined && filters[key] !== null && filters[key] !== "") {
+        where.push(`${col}${op}?`);
+        args.push(filters[key]);
+      }
+    if (filters.ret) {
+      where.push("return_date>=? AND return_date<=?");
+      args.push(filters.ret, filters.ret_end || filters.ret);
+    } else where.push("return_date IS NULL");
+    const r = this.get(
+      `SELECT COUNT(*) AS n, COALESCE(MAX(last_fetched),'') AS last, COALESCE(SUM(count),0) AS offers, COALESCE(MAX(id),0) AS top, COALESCE(SUM(status='success'),0) AS ok, COALESCE(SUM(unixepoch(last_fetched)),0) AS times FROM fetches WHERE ${where.join(" AND ")}`,
+      ...args,
+    )!;
+    return `${r.n}:${r.ok}:${r.offers}:${r.top}:${r.times}:${r.last}`;
   }
   private groupTrips(rows: Row[], limit: number | null): Row[] {
     const trips = new Map<number, Row>(),

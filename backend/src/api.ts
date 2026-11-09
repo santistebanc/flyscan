@@ -540,11 +540,13 @@ export class App {
             infants: this.integer(a.infants, 0, 0),
             max_stops: a.max_stops ? this.integer(a.max_stops, 0) : null,
             limit,
+            per_pair: a.per_pair ? this.integer(a.per_pair, 0, 0, 100) : 0,
           });
           const results = rows.map(storedRow).filter((r) => r.offers.length);
           return {
             count: results.length,
             results,
+            stamp: store.browseStamp(this.browseFilters(a)),
             last_seen: rows.reduce(
               (n, r) => (r.last_fetched > n ? r.last_fetched : n),
               "",
@@ -552,7 +554,12 @@ export class App {
             sources: a.start ? this.sourceStatus(store, a) : [],
           };
         });
-      } else if (method === "GET" && path === "/v1/trips")
+      } else if (method === "GET" && path === "/v1/flights/stamp")
+        // Cheap enough to poll: tells a client whether /v1/flights changed.
+        data = this.withStore(a.db, (store) => ({
+          stamp: store.browseStamp(this.browseFilters(a)),
+        }));
+      else if (method === "GET" && path === "/v1/trips")
         data = this.withStore(a.db, (store) => ({
           results: store
             .findTrips({
@@ -776,6 +783,17 @@ export class App {
         : {}),
     });
     res.end(readFileSync(target));
+  }
+  private browseFilters(a: Data): Data {
+    return {
+      ...a,
+      origin: a.origin?.toUpperCase(),
+      destination: a.destination?.toUpperCase(),
+      end: a.end || a.start,
+      adults: this.integer(a.adults, 1, 1),
+      children: this.integer(a.children, 0, 0),
+      infants: this.integer(a.infants, 0, 0),
+    };
   }
   private stream(
     req: IncomingMessage,

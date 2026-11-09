@@ -11,6 +11,28 @@ import { AirportCities } from "./airportCities";
 import type { SourceName, Cabin, PlaceSuggestion, QueueState, QueueActionResult, SearchRequest, FlightRow, ManualPrice, ManualOfferRequest, SearchStatus, SearchSummary, SearchEvent, SourceStatus, PendingChallenge } from "../../shared/contracts";
 export type * from "../../shared/contracts";
 
+/** Trips loaded for the selected search: the cheapest overall… */
+export const STORED_LIMIT = 1000;
+/** …and the cheapest of every departure/return date pair. */
+export const STORED_PER_PAIR = 10;
+
+function storedQuery(request: SearchRequest): URLSearchParams {
+  const query = new URLSearchParams({
+    origin: request.origin,
+    destination: request.destination,
+    start: request.start,
+    adults: String(request.adults ?? 1),
+    children: String(request.children ?? 0),
+    infants: String(request.infants ?? 0),
+    cabin: request.cabin ?? "economy",
+  });
+  if (request.end) query.set("end", request.end);
+  // Sent even when empty: a blank return means "one-way only", not "either".
+  if (request.ret) query.set("ret", request.ret);
+  if (request.ret_end) query.set("ret_end", request.ret_end);
+  return query;
+}
+
 export class FlyscanApi {
   readonly airportCities = new AirportCities((code) => this.places(code));
   private placeQueries = new Map<string, { until: number; promise: Promise<PlaceSuggestion[]> }>();
@@ -203,29 +225,25 @@ export class FlyscanApi {
    * This is the read side, and it is why editing the form can fill the table
    * instantly: asking the sources is a separate, deliberate act.
    */
-  storedFlights(request: SearchRequest, limit = 0) {
-    const query = new URLSearchParams({
-      origin: request.origin,
-      destination: request.destination,
-      start: request.start,
-      adults: String(request.adults ?? 1),
-      children: String(request.children ?? 0),
-      infants: String(request.infants ?? 0),
-      cabin: request.cabin ?? "economy",
-      limit: String(limit === 0 ? 1000 : limit),
-    });
-    // Older sidecars ignore `all` and still return a bounded, usable list.
-    if (limit === 0) query.set("all", "1");
-    if (request.end) query.set("end", request.end);
-    // Sent even when empty: a blank return means "one-way only", not "either".
-    if (request.ret) query.set("ret", request.ret);
-    if (request.ret_end) query.set("ret_end", request.ret_end);
+  storedFlights(request: SearchRequest, limit = STORED_LIMIT) {
+    const query = storedQuery(request);
+    // The cheapest trips overall, plus each date pair's own cheapest few, so
+    // a range with 100k+ stored trips still answers in about a second.
+    query.set("limit", String(limit));
+    query.set("per_pair", String(STORED_PER_PAIR));
     return this.json<{
       count: number;
       results: FlightRow[];
       last_seen: string;
       sources: SourceStatus[];
+      /** Absent from older sidecars. */
+      stamp?: string;
     }>(`/flights?${query}`);
+  }
+
+  /** Changes when the stored flights for this search would. Cheap to poll. */
+  storedStamp(request: SearchRequest) {
+    return this.json<{ stamp: string }>(`/flights/stamp?${storedQuery(request)}`);
   }
 
   createSearch(request: SearchRequest) {

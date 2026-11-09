@@ -186,6 +186,8 @@ export function useFlights(api: FlyscanApi | null, onChallenge?: () => void) {
    * back each time.
    */
   const answered = useRef(false);
+  /** The stamp of the last full read, so polls can skip unchanged reads. */
+  const lastStamp = useRef<{ key: string; stamp: string } | null>(null);
 
   const sources = merge(stored, live);
   const anyRunning = sources.some((s) => s.running);
@@ -225,9 +227,17 @@ export function useFlights(api: FlyscanApi | null, onChallenge?: () => void) {
   }, [publish]);
 
   /** Read the database. No source is contacted. */
-  const loadStored = useCallback(async (request: SearchRequest) => {
+  const loadStored = useCallback(async (request: SearchRequest, options: { ifChanged?: boolean } = {}) => {
     if (!api || searching.current) return;
     const key = JSON.stringify(request);
+    // A poll first asks whether anything landed for this search; a large
+    // range is expensive to read, and most polls find nothing new.
+    if (options.ifChanged && answered.current && lastStamp.current?.key === key && api.storedStamp) {
+      try {
+        const { stamp } = await api.storedStamp(request);
+        if (stamp === lastStamp.current?.stamp) return;
+      } catch { /* read in full below */ }
+    }
     const pending = storedRead.current;
     // A slow initial read must survive the next poll. Supersede reads only
     // when the selected query changes, not when the same query refreshes.
@@ -240,6 +250,7 @@ export function useFlights(api: FlyscanApi | null, onChallenge?: () => void) {
       try {
         const answer = await api.storedFlights(request);
         if (mine !== token.current) return;   // the form moved on
+        lastStamp.current = answer.stamp ? { key, stamp: answer.stamp } : null;
         byKey.current = new Map(answer.results.map((row) => [row.trip_key, row]));
         publish();
         setStored(answer.sources ?? []);
