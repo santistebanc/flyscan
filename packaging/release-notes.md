@@ -1,1 +1,1 @@
-Searches that run out of time are now retried instead of failing, and each source has its own time limits. Large queues no longer freeze the app or show Reconnecting. The background downloader restarts by itself if it crashes.
+- Read large stored ranges in about a second and poll only for changes
