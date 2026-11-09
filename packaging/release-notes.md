@@ -1,1 +1,1 @@
-- Read large stored ranges in about a second and poll only for changes
+- Compare late and early enqueue cost instead of a wall-clock budget
