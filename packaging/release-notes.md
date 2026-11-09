@@ -1,4 +1,1 @@
-- Reuse scrapes fetched within the last 24 hours
-- Ignore hook Git paths when identifying verification source
-- Isolate verification Git fixtures from hook environment
-- Expose offline replay and queue verification with source-bound evidence
+Searches that run out of time are now retried instead of failing, and each source has its own time limits. Large queues no longer freeze the app or show Reconnecting. The background downloader restarts by itself if it crashes.
