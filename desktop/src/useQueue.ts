@@ -91,9 +91,9 @@ export function useQueue(api: FlyscanApi | null, mine: SearchRequest | null,
       }
       if (polling) { refreshAgain = true; return; }
       polling = true;
-      const started = performance.now();
+      const started = Date.now();
       const next = await readQueue(() => !disposed);
-      const took = performance.now() - started;
+      const took = Date.now() - started;
       polling = false;
       if (disposed) return;
       if (refreshAgain) {

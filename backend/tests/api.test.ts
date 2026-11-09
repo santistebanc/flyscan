@@ -529,3 +529,34 @@ test("the grouped queue view leaves out the flat job list", async () => {
     await f.close();
   }
 });
+test("progress events carry only rows that changed, and day_done the full set", async () => {
+  const f = await api();
+  // Jetradar answers last with nothing new, so its event repeats no rows.
+  f.scheduler.sourceFactory = (name) =>
+    name === "jetradar"
+      ? new FakeSource(name, async () => {
+          await new Promise((r) => setTimeout(r, 50));
+          return [];
+        })
+      : new FakeSource(name);
+  try {
+    const r = await f.request("/v1/searches", "POST", {
+      origin: Q.origin,
+      destination: Q.destination,
+      start: Q.depart,
+      sources: ["ff-sky", "jetradar"],
+    });
+    const id = r.data.search_id;
+    await eventually(() => !!f.app.searches.get(id)?.done);
+    const events = f.app.searches.get(id)!.log.snapshot(),
+      partials = events.filter((e) => e.event === "day_partial"),
+      done = events.find((e) => e.event === "day_done")!;
+    assert.equal(partials.length, 2);
+    assert.equal(partials[0].rows.length, 1);
+    assert.equal(partials[1].rows.length, 0);
+    assert.equal(partials[1].shown, 1);
+    assert.equal(done.rows.length, 1);
+  } finally {
+    await f.close();
+  }
+});

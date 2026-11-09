@@ -372,7 +372,9 @@ export class Search {
           key = `${day}/${ret || ""}`,
           offers: Offer[] = [],
           errors: Data = {},
-          started = Date.now();
+          started = Date.now(),
+          // What this trip's last progress event already carried, by trip key.
+          sent = new Map<string, string>();
         let sourcesDone = 0;
         this.emit("day_start", { day, ret, sources: p.sources });
         await Promise.all(
@@ -413,6 +415,15 @@ export class Search {
               rows,
               complete: false,
             });
+            // Only rows that are new or changed: clients merge by trip key,
+            // and resending every row per source made large searches flood
+            // the event stream. day_done still carries the full set.
+            const changed = rows.filter((row) => {
+              const signature = JSON.stringify(row);
+              if (sent.get(row.trip_key) === signature) return false;
+              sent.set(row.trip_key, signature);
+              return true;
+            });
             this.emit("day_partial", {
               day,
               ret,
@@ -421,7 +432,7 @@ export class Search {
               sources_done: sourcesDone,
               sources_total: p.sources.length,
               shown: rows.length,
-              rows,
+              rows: changed,
             });
           }),
         );

@@ -176,7 +176,7 @@ test("queue reads remain global; selection and exact group controls use separate
   await api.queryJobAction("one", "retry");
   await api.queryJobAction("one", "cancel", "ff-sky");
   await api.queueRangeAction({ origin: "BER", destination: "CDG", start: "2026-12-21", end: "2026-12-23" }, "cancel");
-  assert.equal(calls[0].url, "http://local/v1/jobs");
+  assert.equal(calls[0].url, "http://local/v1/jobs?view=groups");
   assert.equal(calls[1].url, "http://local/v1/queue/selection");
   assert.equal(JSON.parse(calls[1].body).currency, "USD");
   assert.equal(calls[2].url, "http://local/v1/query-jobs/one/retry");

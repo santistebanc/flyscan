@@ -321,6 +321,7 @@ export type SearchEvent =
       itineraries: number;
       sources_done: number;
       sources_total: number;
+      /** Rows new or changed since this trip's previous event; merge by trip_key. */
       rows: FlightRow[];
     }
   | {
