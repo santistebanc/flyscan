@@ -487,27 +487,38 @@ test("enqueueing thousands of scrapes stays fast", async () => {
     return s;
   };
   try {
-    const started = performance.now();
-    for (let i = 0; i < 2000; i++) {
-      const q = query({
-        ...Q,
-        depart: new Date(Date.UTC(2028, 0, 1) + i * 86400000)
-          .toISOString()
-          .slice(0, 10),
-      });
-      for (const name of [
-        "ff-sky",
-        "ff-kiwi",
-        "jetradar",
-        "ff-kayak",
-        "momondo",
-      ])
-        f.scheduler.submit(hang(name), q, { owner: "bulk" });
-    }
+    // Time the first and last fifth of 10,000 submissions. Each costs about
+    // the same when submitting is constant-time; when every submission
+    // rescanned the queue (~12 s in all), the last fifth cost ~9x the first.
+    // A ratio, not a wall-clock budget, so slow CI runners pass too.
+    const batch = (from: number, to: number) => {
+      const started = performance.now();
+      for (let i = from; i < to; i++) {
+        const q = query({
+          ...Q,
+          depart: new Date(Date.UTC(2028, 0, 1) + i * 86400000)
+            .toISOString()
+            .slice(0, 10),
+        });
+        for (const name of [
+          "ff-sky",
+          "ff-kiwi",
+          "jetradar",
+          "ff-kayak",
+          "momondo",
+        ])
+          f.scheduler.submit(hang(name), q, { owner: "bulk" });
+      }
+      return performance.now() - started;
+    };
+    const first = batch(0, 400);
+    batch(400, 1600);
+    const last = batch(1600, 2000);
     await delay(0);
-    const elapsed = performance.now() - started;
-    // 10,000 submissions took ~12 s when each one rescanned the queue.
-    assert.ok(elapsed < 4000, `enqueue took ${Math.round(elapsed)} ms`);
+    assert.ok(
+      last < first * 3 + 250,
+      `the last 2,000 submissions took ${Math.round(last)} ms, the first ${Math.round(first)} ms`,
+    );
     assert.equal(
       f.scheduler.snapshot().queued + f.scheduler.snapshot().running,
       10000,
