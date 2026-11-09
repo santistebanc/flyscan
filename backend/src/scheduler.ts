@@ -16,7 +16,7 @@ import {
   webMode,
   type AttemptContext,
 } from "./sources.js";
-import { FlightStore } from "./store.js";
+import { CACHE_HOURS, FlightStore } from "./store.js";
 import { ErrorLog, Rates, type Data } from "./support.js";
 import { type Transport } from "./transport.js";
 
@@ -105,7 +105,7 @@ export class Scheduler {
     public errors = new ErrorLog(),
     public maxWorkers = 12,
     public maxPending = 10000,
-    public ttl = 6,
+    public ttl = CACHE_HOURS,
     public maxRetries = 3,
     public sourceFactory = (name: string) => new Source(name, transport),
   ) {

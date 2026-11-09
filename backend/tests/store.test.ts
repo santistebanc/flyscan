@@ -86,14 +86,15 @@ test("newer database versions fail without downgrading or erasing data", async (
 });
 for (const [status, retries, age, why, fetch] of [
   ["success", 0, 1, "fresh", false],
-  ["success", 0, 7, "stale", true],
+  ["success", 0, 23.9, "fresh", false],
+  ["success", 0, 24.1, "stale", true],
   ["failed", 1, 0, "retrying", true],
   ["failed", 3, 0, "retries exhausted", false],
   ["challenge", 0, 48, "needs a human", false],
   ["loading", 0, 0.01, "in flight", false],
   ["loading", 0, 1, "stuck loading", true],
 ] as const)
-  test(`ledger plan: ${why}`, async () => {
+  test(`ledger plan: ${status} ${age}h old is ${why}`, async () => {
     const f = fixture();
     try {
       const id = f.store!.beginFetch(Q, "ff-sky");

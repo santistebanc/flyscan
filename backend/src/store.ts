@@ -17,6 +17,9 @@ import {
 } from "./models.js";
 import { migrations, schema } from "./schema.js";
 
+/** How long a source's successful answer is reused before it is asked again. */
+export const CACHE_HOURS = 24;
+
 type Row = Record<string, any>;
 const round = roundMoney;
 const json = (v: any, fallback: any = []) => {
@@ -214,7 +217,7 @@ export class FlightStore {
   plan(
     q: Query,
     sources: string[],
-    ttlHours = 6,
+    ttlHours = CACHE_HOURS,
     maxRetries = 3,
   ): Record<string, Row> {
     return Object.fromEntries(

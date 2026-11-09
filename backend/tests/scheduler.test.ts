@@ -322,6 +322,26 @@ test("fresh ledger answers do not execute the source and preserve count", async 
     await f.close();
   }
 });
+test("a scrape answered within the last day is reused without asking the source again", async () => {
+  const f = fixture();
+  const s = new FakeSource();
+  try {
+    await f.scheduler.submit(s, Q).result;
+    const ago = (hours: number) =>
+      f.store!.run(
+        "UPDATE fetches SET last_fetched=?",
+        new Date(Date.now() - hours * 3600000).toISOString(),
+      );
+    ago(23);
+    assert.equal(f.scheduler.submit(s, Q).id, null);
+    assert.equal(s.calls, 1);
+    ago(25);
+    await f.scheduler.submit(s, Q).result;
+    assert.equal(s.calls, 2);
+  } finally {
+    await f.close();
+  }
+});
 test("foreground selection reprioritizes work without submitting or cancelling it", async () => {
   const f = fixture(false);
   f.scheduler.challenges.record(

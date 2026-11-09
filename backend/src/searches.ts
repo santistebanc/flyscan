@@ -154,7 +154,7 @@ export function parseParams(form: Data, scheduler: Scheduler): Data {
     timeout: number("timeout", 60, 0.001),
     retries: number("retries", 2, 1),
     workers: number("workers", scheduler.maxWorkers, 1),
-    cache_hours: number("cache_hours", 6, 0),
+    cache_hours: number("cache_hours", scheduler.ttl, 0),
     refresh: !!form.refresh,
     db:
       form.db === undefined
@@ -201,7 +201,7 @@ export function parseParams(form: Data, scheduler: Scheduler): Data {
       throw new Error("hosted searches support at most 31 dates");
     Object.assign(params, {
       refresh: false,
-      cache_hours: 6,
+      cache_hours: scheduler.ttl,
       retries: 1,
       timeout: 60,
     });
