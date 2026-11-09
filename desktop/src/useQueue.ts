@@ -91,7 +91,9 @@ export function useQueue(api: FlyscanApi | null, mine: SearchRequest | null,
       }
       if (polling) { refreshAgain = true; return; }
       polling = true;
+      const started = performance.now();
       const next = await readQueue(() => !disposed);
+      const took = performance.now() - started;
       polling = false;
       if (disposed) return;
       if (refreshAgain) {
@@ -100,7 +102,9 @@ export function useQueue(api: FlyscanApi | null, mine: SearchRequest | null,
         return;
       }
       const moving = active || acting.current || Boolean(next && (next.scheduler.running || next.scheduler.queued));
-      timer = window.setTimeout(poll, moving ? 1000 : 3000);
+      // A large queue takes longer to build and parse; poll no more often
+      // than four times that, so reading the queue never crowds out the app.
+      timer = window.setTimeout(poll, Math.min(10_000, Math.max(moving ? 1000 : 3000, took * 4)));
     };
     const resume = () => { if (document.visibilityState !== "hidden") void poll(); };
     window.addEventListener("focus", resume);

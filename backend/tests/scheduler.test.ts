@@ -64,7 +64,13 @@ test("completed query history is bounded while challenge-held groups remain", as
     await f.close();
   }
 });
-import { ChallengeRequired, RateLimited, SourceError } from "../src/sources.js";
+import {
+  ChallengeRequired,
+  RateLimited,
+  Source,
+  SourceError,
+} from "../src/sources.js";
+import { OfflineTransport } from "../src/transport.js";
 import { FakeSource, Q, eventually, fixture, makeOffer } from "./helpers.js";
 test("concurrent attempts on a reused source keep independent cancellation contexts", async () => {
   const f = fixture(false);
@@ -224,6 +230,8 @@ test("timed out physical request settles promptly, keeps its slot, and never wri
       return [makeOffer(q)];
     });
   s.jobTimeout = 0.02;
+  s.retries = 1;
+  f.scheduler.timeoutGrace = 0.02;
   try {
     const a = f.scheduler.submit(s, Q);
     await a.result;
@@ -405,5 +413,107 @@ test("queue restoration keeps settled work as history and resumes only unfinishe
     await eventually(() => next.scheduler.snapshot().running === 0);
   } finally {
     await next.close();
+  }
+});
+test("an attempt that runs out of time is retried with backoff instead of failing", async () => {
+  const f = fixture();
+  const s = new FakeSource("ff-sky", async (q) => {
+    if (s.calls === 1) await s.pause(60);
+    return [makeOffer(q)];
+  });
+  s.jobTimeout = 0.05;
+  Object.defineProperty(s, "timeoutBackoff", { value: 0.01 });
+  try {
+    const result = await f.scheduler.submit(s, Q).result;
+    assert.equal(result.error, "");
+    assert.equal(result.offers.length, 1);
+    assert.equal(s.calls, 2);
+  } finally {
+    await f.close();
+  }
+});
+test("a polling loop stops before the attempt deadline and keeps what it found", async () => {
+  const f = fixture();
+  const s = new FakeSource("jetradar", async (q) => {
+    const found = [],
+      deadline = s.loopDeadline(45000);
+    while (Date.now() < deadline) {
+      found.push(makeOffer(q, 100 + found.length, "jetradar"));
+      await s.pause(0.02);
+    }
+    return found;
+  });
+  s.jobTimeout = 0.5;
+  s.timeout = 0.05;
+  s.loopMargin = 0.05;
+  try {
+    const result = await f.scheduler.submit(s, Q).result;
+    assert.equal(result.error, "");
+    assert.ok(result.offers.length > 0);
+    assert.equal(s.calls, 1);
+  } finally {
+    await f.close();
+  }
+});
+test("sources keep their own limits and time budgets", () => {
+  const t = new OfflineTransport(),
+    momondo = new Source("momondo", t),
+    kayak = new Source("ff-kayak", t),
+    sky = new Source("ff-sky", t),
+    jetradar = new Source("jetradar", t);
+  for (const s of [momondo, kayak]) {
+    assert.equal(s.maxConcurrency, 1);
+    assert.equal(s.minInterval, 2.5);
+  }
+  for (const s of [sky, jetradar]) {
+    assert.equal(s.maxConcurrency, 2);
+    assert.equal(s.minInterval, 0.5);
+  }
+  for (const s of [momondo, kayak, sky, jetradar]) {
+    assert.ok(s.retries > 1, `${s.name} retries`);
+    // One request and the margin always fit inside an attempt.
+    assert.ok(s.timeout + s.loopMargin < s.jobTimeout, `${s.name} budget`);
+  }
+  assert.ok(jetradar.jobTimeout < sky.jobTimeout);
+  assert.ok(sky.jobTimeout < momondo.jobTimeout);
+});
+test("enqueueing thousands of scrapes stays fast", async () => {
+  const f = fixture();
+  const hang = (name: string) => {
+    const s: FakeSource = new FakeSource(name, async () => {
+      await s.pause(3600);
+      return [];
+    });
+    return s;
+  };
+  try {
+    const started = performance.now();
+    for (let i = 0; i < 2000; i++) {
+      const q = query({
+        ...Q,
+        depart: new Date(Date.UTC(2028, 0, 1) + i * 86400000)
+          .toISOString()
+          .slice(0, 10),
+      });
+      for (const name of [
+        "ff-sky",
+        "ff-kiwi",
+        "jetradar",
+        "ff-kayak",
+        "momondo",
+      ])
+        f.scheduler.submit(hang(name), q, { owner: "bulk" });
+    }
+    await delay(0);
+    const elapsed = performance.now() - started;
+    // 10,000 submissions took ~12 s when each one rescanned the queue.
+    assert.ok(elapsed < 4000, `enqueue took ${Math.round(elapsed)} ms`);
+    assert.equal(
+      f.scheduler.snapshot().queued + f.scheduler.snapshot().running,
+      10000,
+    );
+  } finally {
+    f.scheduler.cancelQueued();
+    await f.close();
   }
 });

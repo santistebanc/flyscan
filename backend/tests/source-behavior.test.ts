@@ -337,3 +337,30 @@ test("forced transport shutdown rejects active requests and releases the worker 
     rmSync(dir, { recursive: true, force: true });
   }
 });
+test("a crashed transport worker is replaced on the next request", async () => {
+  const dir = mkdtempSync(join(tmpdir(), "flyscan-worker-")),
+    previous = process.env.FLYSCAN_TRANSPORT_ARGS;
+  const worker = join(dir, "worker.cjs");
+  // Answers open and close; dies on the first request, as a native crash would.
+  writeFileSync(
+    worker,
+    `const readline=require('node:readline');readline.createInterface({input:process.stdin}).on('line',line=>{const m=JSON.parse(line);if(m.op==='request')process.exit(3);process.stdout.write(JSON.stringify({id:m.id,result:null})+'\\n');});`,
+  );
+  process.env.FLYSCAN_TRANSPORT_ARGS = JSON.stringify([worker]);
+  const transport = new PythonTransport(process.execPath);
+  try {
+    const first = await transport.open();
+    await assert.rejects(
+      () => first.request("GET", "https://example.invalid"),
+      /transport exited/,
+    );
+    await first.close();
+    const second = await transport.open();
+    await second.close();
+  } finally {
+    await transport.close(true);
+    if (previous === undefined) delete process.env.FLYSCAN_TRANSPORT_ARGS;
+    else process.env.FLYSCAN_TRANSPORT_ARGS = previous;
+    rmSync(dir, { recursive: true, force: true });
+  }
+});

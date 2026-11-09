@@ -10,6 +10,7 @@ import {
 import {
   ChallengeRequired,
   RateLimited,
+  RetryableError,
   Source,
   SourceError,
   allowedSources,
@@ -86,9 +87,16 @@ export interface Submission {
 }
 export class Scheduler {
   actionTimeout = 900;
+  /** Seconds an aborted attempt may take to let go before it is settled anyway. */
+  timeoutGrace = 10;
   private nextId = 1;
   private pending = new Map<string, Scrape>();
   private scrapes = new Map<number, Scrape>();
+  /** Scrapes not yet terminal, so a large finished history costs nothing. */
+  private open = new Set<Scrape>();
+  private busyCount = 0;
+  private dispatchQueued = false;
+  private sincePrune = 0;
   private groups = new Map<string, Map<string, Scrape>>();
   private gates = new Map<string, { busy: number; next: number }>();
   private timer?: ReturnType<typeof setTimeout>;
@@ -181,11 +189,7 @@ export class Scheduler {
     const fresh = decision?.why === "fresh";
     const skip =
       decision && !decision.fetch && decision.why !== "needs a human";
-    if (
-      !skip &&
-      [...this.scrapes.values()].filter((s) => !terminal(s.state)).length >=
-        this.maxPending
-    )
+    if (!skip && this.open.size >= this.maxPending)
       throw new QueueFull(`queue capacity (${this.maxPending}) reached`);
     const id = this.nextId++;
     task = {
@@ -216,6 +220,7 @@ export class Scheduler {
       cached: !!fresh,
     };
     this.scrapes.set(id, task);
+    if (!skip) this.open.add(task);
     this.remember(task);
     this.stats.submitted++;
     if (skip) {
@@ -245,7 +250,7 @@ export class Scheduler {
     }
     this.pending.set(key, task);
     const submission = this.subscribe(task, owner, progress);
-    queueMicrotask(() => this.dispatch());
+    this.dispatchSoon();
     return submission;
   }
   private subscribe(t: Scrape, owner: string, progress: Progress): Submission {
@@ -264,9 +269,21 @@ export class Scheduler {
     group.set(t.source.name, t);
     this.groups.delete(id);
     this.groups.set(id, group);
-    this.prune();
+    // Pruning walks every scrape; doing it per submission made bulk enqueues
+    // quadratic. Readers (jobs, queryJobs) still prune before they answer.
+    if (++this.sincePrune >= 256) this.prune();
+  }
+  /** One dispatch for a burst of submissions or completions. */
+  private dispatchSoon(): void {
+    if (this.dispatchQueued) return;
+    this.dispatchQueued = true;
+    queueMicrotask(() => {
+      this.dispatchQueued = false;
+      this.dispatch();
+    });
   }
   private prune(): void {
+    this.sincePrune = 0;
     const completed = [...this.groups.entries()].filter(([, group]) =>
       [...group.values()].every((t) => terminal(t.state) && !t.busy),
     );
@@ -311,6 +328,7 @@ export class Scheduler {
   ): void {
     if (terminal(t.state)) return;
     t.state = state;
+    this.open.delete(t);
     t.error = error;
     t.finished = Date.now();
     const result: SourceResult = {
@@ -359,7 +377,7 @@ export class Scheduler {
     }
     const time = Date.now();
     let wake = Infinity;
-    for (const t of this.scrapes.values())
+    for (const t of [...this.open])
       if (
         t.state === "waiting_action" &&
         t.actionDeadline &&
@@ -368,8 +386,8 @@ export class Scheduler {
         t.controller?.abort(new JobTimeout());
         this.settle(t, "timed_out", "challenge wait timed out");
       }
-    let busy = [...this.scrapes.values()].filter((t) => t.busy).length;
-    const waiting = [...this.scrapes.values()]
+    let busy = this.busyCount;
+    const waiting = [...this.open]
       .filter(
         (t) =>
           ["queued", "retry_wait", "waiting_action"].includes(t.state) &&
@@ -415,6 +433,7 @@ export class Scheduler {
       gate.busy++;
       gate.next = time + t.source.minInterval * 1000;
       busy++;
+      this.busyCount++;
       t.busy = true;
       t.state = "running";
       t.started = time;
@@ -447,10 +466,20 @@ export class Scheduler {
         if (Date.now() >= deadline) throw new JobTimeout();
       },
     };
+    // Out of time, the attempt is aborted and handled like any failed attempt:
+    // retried with backoff while attempts remain. Should the source not let go
+    // within a grace period, the scrape is settled anyway.
+    let grace: ReturnType<typeof setTimeout> | undefined;
+    const attempt = t.attempts;
     const timeout = setTimeout(() => {
       controller.abort(new JobTimeout());
-      this.settle(t, "timed_out", "attempt timed out");
-      this.dispatch();
+      grace = setTimeout(() => {
+        if (t.busy && t.attempts === attempt) {
+          this.settle(t, "timed_out", "attempt timed out");
+          this.dispatch();
+        }
+      }, this.timeoutGrace * 1000);
+      grace.unref();
     }, t.source.jobTimeout * 1000);
     timeout.unref();
     t.source.cookies = this.challenges.cookies.load(t.source.name);
@@ -476,12 +505,15 @@ export class Scheduler {
     } catch (e) {
       if (terminal(t.state)) return;
       const error = e instanceof Error ? e : new Error(String(e));
-      if (controller.signal.aborted || e instanceof Cancelled)
-        this.settle(
-          t,
-          e instanceof JobTimeout ? "timed_out" : "cancelled",
-          error.message,
-        );
+      const timedOut =
+        e instanceof JobTimeout ||
+        controller.signal.reason instanceof JobTimeout;
+      const slow =
+        timedOut ||
+        (e instanceof RetryableError &&
+          /did not finish in time/.test(error.message));
+      if ((controller.signal.aborted && !timedOut) || e instanceof Cancelled)
+        this.settle(t, "cancelled", error.message);
       else if (e instanceof ChallengeRequired) {
         this.challenges.record(t.source.name, e.url, t.fetchId);
         this.emit(t, "challenge_required", { url: e.url });
@@ -499,35 +531,38 @@ export class Scheduler {
           t.actionDeadline = Date.now() + this.actionTimeout * 1000;
         }
       } else if (!(e instanceof SourceError) && ++t.failures < t.maxAttempts) {
+        const base = slow ? t.source.timeoutBackoff : 1.5;
         let seconds =
           e instanceof RateLimited
             ? e.retryAfter
-            : Math.min(60, 1.5 * 2 ** Math.min(t.failures - 1, 30)) *
+            : Math.min(
+                slow ? 120 : 60,
+                base * 2 ** Math.min(t.failures - 1, 30),
+              ) *
               (0.5 + Math.random() * 0.5);
         if (e instanceof RateLimited)
           gate.next = Math.max(gate.next, Date.now() + seconds * 1000);
         t.ready = Date.now() + seconds * 1000;
         t.state = "retry_wait";
-        t.error = error.message;
-        this.emit(t, "source_retry", { error: error.message });
+        t.error = timedOut ? "attempt timed out" : error.message;
+        this.emit(t, "source_retry", { error: t.error });
       } else {
         this.errors.record(`source.${t.source.name}`, error, {
           query: t.q,
           attempts: t.attempts,
         });
-        this.settle(
-          t,
-          e instanceof JobTimeout ? "timed_out" : "failed",
-          `${error.name}: ${error.message}`,
-        );
+        if (timedOut) this.settle(t, "timed_out", "attempt timed out");
+        else this.settle(t, "failed", `${error.name}: ${error.message}`);
       }
     } finally {
       clearTimeout(timeout);
+      clearTimeout(grace);
       t.busy = false;
+      this.busyCount--;
       gate.busy--;
       if (terminal(t.state) && this.pending.get(t.key) === t)
         this.pending.delete(t.key);
-      this.dispatch();
+      this.dispatchSoon();
     }
   }
   cancelOwner(owner: string): number {
@@ -778,9 +813,11 @@ export class Scheduler {
     }
   }
   snapshot(): Data {
-    const all = [...this.scrapes.values()],
-      count = (s: State) => all.filter((t) => t.state === s).length,
-      busy = all.filter((t) => t.busy).length;
+    const counts: Partial<Record<State, number>> = {};
+    for (const t of this.scrapes.values())
+      counts[t.state] = (counts[t.state] || 0) + 1;
+    const count = (s: State) => counts[s] || 0,
+      busy = this.busyCount;
     return {
       ...this.stats,
       queued: count("queued") + count("retry_wait"),

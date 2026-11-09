@@ -71,6 +71,55 @@ export const labels: Record<string, string> = {
   momondo: "Momondo",
   jetradar: "Jetradar",
 };
+/**
+ * How hard each source may be asked, and how long it may take. Kayak's sites
+ * challenge bursts, so they run one search at a time; the FlightsFinder portals
+ * poll for up to 45 s; Jetradar is a plain API. Concurrency and spacing are
+ * deliberately conservative: no source has answered 429 at these settings.
+ */
+export interface SourcePolicy {
+  maxConcurrency: number;
+  /** Seconds between attempt starts. */
+  minInterval: number;
+  /** Seconds one HTTP request may take. A stalled site fails fast and retries. */
+  requestTimeout: number;
+  /** Seconds one attempt may take, all requests and polling included. */
+  jobTimeout: number;
+  /** Attempts per scrape, the first included. */
+  attempts: number;
+  /** First backoff in seconds after an attempt runs out of time. */
+  timeoutBackoff: number;
+}
+const kayakPolicy: SourcePolicy = {
+  maxConcurrency: 1,
+  minInterval: 2.5,
+  requestTimeout: 30,
+  jobTimeout: 150,
+  attempts: 3,
+  timeoutBackoff: 20,
+};
+const portalPolicy: SourcePolicy = {
+  maxConcurrency: 2,
+  minInterval: 0.5,
+  requestTimeout: 25,
+  jobTimeout: 120,
+  attempts: 3,
+  timeoutBackoff: 10,
+};
+export const policies: Record<string, SourcePolicy> = {
+  "ff-kayak": kayakPolicy,
+  momondo: kayakPolicy,
+  "ff-sky": portalPolicy,
+  "ff-kiwi": portalPolicy,
+  jetradar: {
+    maxConcurrency: 2,
+    minInterval: 0.5,
+    requestTimeout: 20,
+    jobTimeout: 90,
+    attempts: 3,
+    timeoutBackoff: 10,
+  },
+};
 export function webMode(): boolean {
   const m = process.env.FLYSCAN_MODE || "desktop";
   if (!["desktop", "web"].includes(m))
@@ -90,12 +139,15 @@ export function allowedSources(): string[] {
   );
 }
 export class Source {
-  retries = 2;
+  retries: number;
   readonly label: string;
   readonly fixedCurrency: string | null;
   readonly maxConcurrency: number;
   readonly minInterval: number;
-  jobTimeout = 180;
+  readonly timeoutBackoff: number;
+  jobTimeout: number;
+  /** Seconds kept free at the end of an attempt to finish and store results. */
+  loopMargin = 2;
   get context(): AttemptContext | undefined {
     return attemptContext.getStore();
   }
@@ -109,14 +161,40 @@ export class Source {
     public name: string,
     public transport: Transport,
     public cookies: Cookie[] = [],
-    public timeout = 60,
+    public timeout = policies[name]?.requestTimeout ?? 60,
     public onProgress: Progress = () => {},
   ) {
     if (!sourceNames.includes(name)) throw new SourceError("unknown source");
+    const policy = policies[name];
     this.label = labels[name];
     this.fixedCurrency = this.kayak ? "EUR" : null;
-    this.maxConcurrency = this.kayak ? 1 : 2;
-    this.minInterval = this.kayak ? 2.5 : 0.5;
+    this.maxConcurrency = policy.maxConcurrency;
+    this.minInterval = policy.minInterval;
+    this.jobTimeout = policy.jobTimeout;
+    this.retries = policy.attempts;
+    this.timeoutBackoff = policy.timeoutBackoff;
+  }
+  /**
+   * When a polling loop must stop: its own limit, or early enough that one more
+   * request still fits inside the attempt, so what was found is kept.
+   */
+  loopDeadline(ms: number): number {
+    const own = Date.now() + ms,
+      remaining = this.context?.remaining();
+    if (remaining === undefined) return own;
+    return Math.min(
+      own,
+      Date.now() + (remaining - this.timeout - this.loopMargin) * 1000,
+    );
+  }
+  /** A loop that ran out of attempt time with nothing found should try again. */
+  private outOfTime(found: number): void {
+    if (
+      !found &&
+      this.context &&
+      this.context.remaining() <= this.timeout + this.loopMargin
+    )
+      throw new RetryableError("search did not finish in time");
   }
   get kayak(): boolean {
     return ["ff-kayak", "momondo"].includes(this.name);
@@ -200,7 +278,10 @@ export class Source {
     };
     let r: HttpResponse;
     try {
-      r = await session.request(method, url, options);
+      r = await abortable(
+        session.request(method, url, options),
+        this.context?.signal,
+      );
     } catch (e) {
       if (["Timeout", "ConnectionError"].includes((e as Error).name))
         throw new RetryableError((e as Error).message);
@@ -247,7 +328,7 @@ export class Source {
     let offers: Offer[] = [],
       settled = 0,
       last = "";
-    const deadline = Date.now() + 45000;
+    const deadline = this.loopDeadline(45000);
     while (Date.now() < deadline) {
       let poll: HttpResponse;
       try {
@@ -263,6 +344,10 @@ export class Source {
       } catch (e) {
         if (e instanceof RateLimited || this.context?.signal.aborted) throw e;
         if (offers.length && !(e instanceof SourceError)) return offers;
+        // The portal forgets a search's poll endpoint after a while; a fresh
+        // attempt opens a new one.
+        if (e instanceof SourceError && /^HTTP 404:/.test(e.message))
+          throw new RetryableError(`poll endpoint expired: ${e.message}`);
         throw e;
       }
       const parts = poll.text.split("|");
@@ -284,6 +369,7 @@ export class Source {
       if (settled >= 2 && offers.length) break;
       await this.pause(0.8);
     }
+    this.outOfTime(offers.length);
     return offers;
   }
   kayakBody(q: Query): any {
@@ -384,7 +470,7 @@ export class Source {
         if (!collected.has(o.source_id)) collected.set(o.source_id, o);
     };
     let payload: any = {};
-    let deadline = Date.now() + 60000;
+    let deadline = this.loopDeadline(60000);
     while (Date.now() < deadline) {
       let poll: HttpResponse;
       try {
@@ -406,7 +492,8 @@ export class Source {
     }
     const pageSize = Number(payload.pageSize || 0),
       expected = Number(payload.filteredCount || 0);
-    deadline = Date.now() + 45000;
+    this.outOfTime(collected.size);
+    deadline = this.loopDeadline(45000);
     if (pageSize)
       for (
         let n = 2;
@@ -515,7 +602,7 @@ export class Source {
     const url = `https://${opening.results_url}/search/wl/results`,
       interval = (opening.polling_interval_ms || 1000) / 1000,
       collected = new Map<string, Offer>(),
-      deadline = Date.now() + 45000;
+      deadline = this.loopDeadline(45000);
     while (Date.now() < deadline) {
       const poll = await this.request(session, "POST", url, {
         json: { search_id: opening.search_id },
@@ -538,8 +625,34 @@ export class Source {
       if (finished || !chunks.length) break;
       await this.pause(interval);
     }
+    this.outOfTime(collected.size);
     return [...collected.values()];
   }
+}
+/** Stop waiting when the attempt is aborted; the transport finishes on its own. */
+function abortable<T>(work: Promise<T>, signal?: AbortSignal): Promise<T> {
+  if (!signal) return work;
+  if (signal.aborted) {
+    work.catch(() => {});
+    return Promise.reject(signal.reason);
+  }
+  return new Promise<T>((resolve, reject) => {
+    const stop = () => {
+      work.catch(() => {});
+      reject(signal.reason);
+    };
+    signal.addEventListener("abort", stop, { once: true });
+    work.then(
+      (v) => {
+        signal.removeEventListener("abort", stop);
+        resolve(v);
+      },
+      (e) => {
+        signal.removeEventListener("abort", stop);
+        reject(e);
+      },
+    );
+  });
 }
 export function extractPoll(html: string): [string, Record<string, string>] {
   const m = html.match(

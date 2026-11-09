@@ -86,8 +86,10 @@ export class FlyscanApi {
    * the page can tell its own work from a search someone left running.
    */
   queue(mine?: SearchRequest) {
-    if (!mine) return this.queueJson<QueueState>("/jobs");
+    // Only the grouped view is read; the flat list doubled every poll.
+    if (!mine) return this.queueJson<QueueState>("/jobs?view=groups");
     const query = new URLSearchParams({
+      view: "groups",
       origin: mine.origin, destination: mine.destination, start: mine.start,
       end: mine.end ?? mine.start,
       adults: String(mine.adults ?? 1), children: String(mine.children ?? 0),

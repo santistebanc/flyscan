@@ -349,9 +349,15 @@ export class App {
         ];
       else if (method === "GET" && path === "/v1/jobs")
         data = {
-          jobs: this.scheduler
-            .jobs()
-            .map((j) => (a.origin ? { ...j, mine: belongsTo(j, a) } : j)),
+          // view=groups leaves out the flat list, which repeats every source
+          // row of query_jobs; the desktop polls this every second.
+          ...(a.view === "groups"
+            ? {}
+            : {
+                jobs: this.scheduler
+                  .jobs()
+                  .map((j) => (a.origin ? { ...j, mine: belongsTo(j, a) } : j)),
+              }),
           query_jobs: this.scheduler
             .queryJobs()
             .map((g) => (a.origin ? { ...g, mine: belongsTo(g, a) } : g)),

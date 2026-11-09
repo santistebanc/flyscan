@@ -94,7 +94,8 @@ export interface QueryJob {
 }
 
 export interface QueueState {
-  jobs: QueueJob[];
+  /** Absent when asked for view=groups. */
+  jobs?: QueueJob[];
   query_jobs: QueryJob[];
   scheduler: {
     queued: number;

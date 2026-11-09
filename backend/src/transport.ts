@@ -106,14 +106,15 @@ export class PythonTransport implements Transport {
         child.kill();
       }
     });
+    // A crashed or unstartable worker fails what it was doing; the next
+    // request starts a fresh one. Only close() stops the transport for good.
     child.on("error", (e) => {
-      this.stopped = true;
+      if (this.child === child) this.child = undefined;
       this.fail(e);
     });
     child.stdin.on("error", (e) => this.fail(e));
     child.on("close", (code, signal) => {
-      this.child = undefined;
-      this.stopped = true;
+      if (this.child === child) this.child = undefined;
       this.fail(
         new Error(
           `Python transport exited (${code ?? signal})${stderr ? ": " + stderr : ""}`,
@@ -145,7 +146,11 @@ export class PythonTransport implements Transport {
     const session = randomUUID();
     await this.rpc("open", { session, cookies, impersonate });
     let active = false,
-      closed = false;
+      closed = false,
+      closeAfter = false;
+    const shut = async () => {
+      if (this.child) await this.rpc("close", { session }).catch(() => {});
+    };
     return {
       request: async (method, url, options = {}) => {
         if (closed) throw new Error("session is closed");
@@ -167,14 +172,19 @@ export class PythonTransport implements Transport {
           );
         } finally {
           active = false;
+          if (closeAfter) void shut();
         }
       },
       close: async () => {
         if (closed) return;
-        if (active)
-          throw new Error("cannot close a session with an active request");
         closed = true;
-        await this.rpc("close", { session });
+        // An abandoned request (its attempt was aborted) closes the session
+        // once the worker answers it.
+        if (active) {
+          closeAfter = true;
+          return;
+        }
+        await shut();
       },
     };
   }

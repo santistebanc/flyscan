@@ -512,3 +512,20 @@ for (const [changes, expected] of [
       expected,
     );
   });
+test("the grouped queue view leaves out the flat job list", async () => {
+  const f = await api();
+  try {
+    await f.scheduler.submit(new FakeSource("ff-sky"), Q).result;
+    const full = (await f.request("/v1/jobs")).data,
+      grouped = (await f.request("/v1/jobs?view=groups")).data;
+    assert.equal(full.jobs.length, 1);
+    assert.equal(grouped.jobs, undefined);
+    assert.deepEqual(
+      grouped.query_jobs.map((g: any) => g.sources.length),
+      full.query_jobs.map((g: any) => g.sources.length),
+    );
+    assert.equal(grouped.scheduler.done, 1);
+  } finally {
+    await f.close();
+  }
+});

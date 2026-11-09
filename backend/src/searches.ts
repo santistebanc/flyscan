@@ -151,8 +151,9 @@ export function parseParams(form: Data, scheduler: Scheduler): Data {
     base_currency: String(form.base_currency || "EUR").toUpperCase(),
     sources: [...new Set(sources)],
     prefer: form.prefer || "city",
-    timeout: number("timeout", 60, 0.001),
-    retries: number("retries", 2, 1),
+    // Unset, each source uses its own policy (sources.ts).
+    timeout: form.timeout == null ? null : number("timeout", 60, 0.001),
+    retries: form.retries == null ? null : number("retries", 2, 1),
     workers: number("workers", scheduler.maxWorkers, 1),
     cache_hours: number("cache_hours", scheduler.ttl, 0),
     refresh: !!form.refresh,
@@ -203,7 +204,7 @@ export function parseParams(form: Data, scheduler: Scheduler): Data {
       refresh: false,
       cache_hours: scheduler.ttl,
       retries: 1,
-      timeout: 60,
+      timeout: null,
     });
   }
   const trips = tripPairs(params.start, params.end, params.ret, params.ret_end);
@@ -378,10 +379,10 @@ export class Search {
           p.sources.map(async (name: string) => {
             if (this.cancelled) return;
             const source = this.scheduler.source(name);
-            source.timeout = p.timeout;
+            if (p.timeout !== null) source.timeout = p.timeout;
             const submission = this.scheduler.submit(source, q, {
               owner: this.id,
-              retries: p.retries,
+              retries: p.retries ?? undefined,
               refresh: p.refresh,
               ttl: p.cache_hours,
               progress: (event, data) => {
