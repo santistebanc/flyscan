@@ -1,5 +1,4 @@
-Moved the backend to TypeScript, keeping curl_cffi in a private transport worker.
-
-- Preserves existing flight data, search queues and human verification flows.
-- Bundles Node and the native curl transport with desktop installers.
-- Moves launchers, release tools and regression tests to Node/TypeScript.
+- Reuse scrapes fetched within the last 24 hours
+- Ignore hook Git paths when identifying verification source
+- Isolate verification Git fixtures from hook environment
+- Expose offline replay and queue verification with source-bound evidence
