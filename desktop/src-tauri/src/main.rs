@@ -516,7 +516,7 @@ mod tests {
     #[test]
     fn strips_verbatim_drive_prefix() {
         assert_eq!(
-            plain_path(r"\?\C:\Program Files\Flyscan\backend\index.cjs"),
+            plain_path(r"\\?\C:\Program Files\Flyscan\backend\index.cjs"),
             PathBuf::from(r"C:\Program Files\Flyscan\backend\index.cjs")
         );
     }
@@ -524,8 +524,8 @@ mod tests {
     #[test]
     fn turns_verbatim_unc_into_plain_unc() {
         assert_eq!(
-            plain_path(r"\?\UNC\server\share\Flyscan\backend\index.cjs"),
-            PathBuf::from(r"\server\share\Flyscan\backend\index.cjs")
+            plain_path(r"\\?\UNC\server\share\Flyscan\backend\index.cjs"),
+            PathBuf::from(r"\\server\share\Flyscan\backend\index.cjs")
         );
     }
 
@@ -533,8 +533,8 @@ mod tests {
     fn leaves_other_paths_alone() {
         for path in [
             r"C:\Program Files\Flyscan\backend\index.cjs",
-            r"\server\share\index.cjs",
-            r"\?\Volume{0b1c2d3e-0000-0000-0000-000000000000}\index.cjs",
+            r"\\server\share\index.cjs",
+            r"\\?\Volume{0b1c2d3e-0000-0000-0000-000000000000}\index.cjs",
             "/opt/flyscan/backend/index.cjs",
         ] {
             assert_eq!(plain_path(path), PathBuf::from(path));
