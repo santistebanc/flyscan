@@ -98,6 +98,28 @@ fn sidecar_path(app: &AppHandle) -> Option<std::path::PathBuf> {
     None
 }
 
+/// Drop a Windows verbatim prefix (`\\?\C:\…` or `\\?\UNC\server\share\…`).
+///
+/// Tauri's `resource_dir` can hand back verbatim paths, and the bundled Node
+/// cannot `realpath` them: it fails with `EISDIR … lstat 'C:'` before the
+/// backend runs. Every path the sidecar sees goes through here first.
+fn plain_path(path: impl Into<std::path::PathBuf>) -> std::path::PathBuf {
+    let path = path.into();
+    let Some(text) = path.to_str() else {
+        return path;
+    };
+    if let Some(rest) = text.strip_prefix(r"\\?\UNC\") {
+        return format!(r"\\{rest}").into();
+    }
+    if let Some(rest) = text.strip_prefix(r"\\?\") {
+        let bytes = rest.as_bytes();
+        if bytes.len() >= 2 && bytes[0].is_ascii_alphabetic() && bytes[1] == b':' {
+            return rest.into();
+        }
+    }
+    path
+}
+
 /// Resources are beside the Node sidecar in a package or in the prepared dev bundle.
 fn service_resource(
     app: &AppHandle,
@@ -381,9 +403,11 @@ fn main() {
         ])
         .setup(move |app| {
             let handle = app.handle().clone();
-            let data_dir = std::env::var_os("FLYSCAN_DATA_DIR")
-                .map(std::path::PathBuf::from)
-                .unwrap_or(handle.path().app_local_data_dir()?);
+            let data_dir = plain_path(
+                std::env::var_os("FLYSCAN_DATA_DIR")
+                    .map(std::path::PathBuf::from)
+                    .unwrap_or(handle.path().app_local_data_dir()?),
+            );
             fs::create_dir_all(&data_dir)?;
             let log_path = data_dir.join("sidecar.log");
             if fs::metadata(&log_path).is_ok_and(|m| m.len() > 2 * 1024 * 1024) {
@@ -395,8 +419,10 @@ fn main() {
                 .append(true)
                 .open(&log_path)?;
             let path = sidecar_path(&handle)
+                .map(plain_path)
                 .ok_or("The bundled flight service is missing. Please reinstall Flyscan.")?;
             let backend = service_resource(&handle, &path, "backend/index.cjs")
+                .map(plain_path)
                 .ok_or("The bundled TypeScript backend is missing. Please reinstall Flyscan.")?;
             let transport_name = if cfg!(windows) {
                 "flyscan-transport.exe"
@@ -404,8 +430,10 @@ fn main() {
                 "flyscan-transport"
             };
             let transport = service_resource(&handle, &path, transport_name)
+                .map(plain_path)
                 .ok_or("The bundled curl transport is missing. Please reinstall Flyscan.")?;
             let frontend = service_resource(&handle, &path, "frontend/index.html")
+                .map(plain_path)
                 .ok_or("The bundled frontend is missing. Please reinstall Flyscan.")?;
             // The window-destroyed handler below is the tidy exit. This
             // is the other half: Ctrl+C in a `tauri dev` terminal, a
@@ -477,5 +505,39 @@ fn main() {
     if let Err(error) = result {
         startup_error(&format!("{error}\n\nTry reinstalling the app. Your saved searches are kept in your local app data folder."));
         std::process::exit(1);
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::plain_path;
+    use std::path::PathBuf;
+
+    #[test]
+    fn strips_verbatim_drive_prefix() {
+        assert_eq!(
+            plain_path(r"\?\C:\Program Files\Flyscan\backend\index.cjs"),
+            PathBuf::from(r"C:\Program Files\Flyscan\backend\index.cjs")
+        );
+    }
+
+    #[test]
+    fn turns_verbatim_unc_into_plain_unc() {
+        assert_eq!(
+            plain_path(r"\?\UNC\server\share\Flyscan\backend\index.cjs"),
+            PathBuf::from(r"\server\share\Flyscan\backend\index.cjs")
+        );
+    }
+
+    #[test]
+    fn leaves_other_paths_alone() {
+        for path in [
+            r"C:\Program Files\Flyscan\backend\index.cjs",
+            r"\server\share\index.cjs",
+            r"\?\Volume{0b1c2d3e-0000-0000-0000-000000000000}\index.cjs",
+            "/opt/flyscan/backend/index.cjs",
+        ] {
+            assert_eq!(plain_path(path), PathBuf::from(path));
+        }
     }
 }
