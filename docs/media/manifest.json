@@ -1,0 +1,97 @@
+{
+  "schema": 1,
+  "tool": "project-showcase/capture.mjs",
+  "project": "flyscan",
+  "source": "http://127.0.0.1:5000",
+  "commit": "00bf9aa",
+  "capturedAt": "2026-11-11T13:14:32.968Z",
+  "viewports": {
+    "desktop": {
+      "width": 1440,
+      "height": 900
+    }
+  },
+  "warnings": [],
+  "items": [
+    {
+      "id": "results",
+      "kind": "screenshot",
+      "file": "screens/results-desktop-dark.png",
+      "viewport": "desktop",
+      "theme": "dark",
+      "caption": "One list of flights from every source, each on a timeline with its price and duration",
+      "path": "/",
+      "hero": true,
+      "width": 1440,
+      "bytes": 98927
+    },
+    {
+      "id": "flight-detail",
+      "kind": "screenshot",
+      "file": "screens/flight-detail-desktop-dark.png",
+      "viewport": "desktop",
+      "theme": "dark",
+      "caption": "A selected flight with its legs and every booking option, seller by seller",
+      "path": "/",
+      "hero": false,
+      "width": 1440,
+      "bytes": 130775
+    },
+    {
+      "id": "filters",
+      "kind": "screenshot",
+      "file": "screens/filters-desktop-dark.png",
+      "viewport": "desktop",
+      "theme": "dark",
+      "caption": "Filter by stops, price, duration, layovers and times",
+      "path": "/",
+      "hero": false,
+      "width": 1440,
+      "bytes": 114475
+    },
+    {
+      "id": "compare-sellers",
+      "kind": "clip",
+      "files": {
+        "gif": "clips/compare-sellers.gif",
+        "poster": "clips/compare-sellers.png",
+        "webm": "clips/compare-sellers.webm"
+      },
+      "viewport": "desktop",
+      "theme": "dark",
+      "caption": "Sort by cheapest, open a flight and compare what each seller charges for it",
+      "path": "/",
+      "hero": false,
+      "durationS": 11.2,
+      "gifWidth": 800,
+      "videoWidth": 1440,
+      "bytes": {
+        "gif": 157687,
+        "poster": 139534,
+        "webm": 278252
+      }
+    },
+    {
+      "id": "filter-direct",
+      "kind": "clip",
+      "files": {
+        "gif": "clips/filter-direct.gif",
+        "poster": "clips/filter-direct.png",
+        "webm": "clips/filter-direct.webm"
+      },
+      "viewport": "desktop",
+      "theme": "dark",
+      "caption": "Keep only direct flights and sort them by duration",
+      "path": "/",
+      "hero": false,
+      "durationS": 7.6,
+      "gifWidth": 800,
+      "videoWidth": 1440,
+      "bytes": {
+        "gif": 159014,
+        "poster": 99682,
+        "webm": 173990
+      }
+    }
+  ]
+}
