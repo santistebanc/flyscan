@@ -8,7 +8,7 @@ Live requests to the flight sites risk IP bans and bot challenges. Set `FLYSCAN_
 
 ## Showing a change
 
-Working on the Beelink (the owner on a phone): run `beelink/dev.sh` from the checkout you edit and give the owner http://beelink-home:1420. It hot-reloads from then on; run it again only after switching checkouts. Releases go through the `Release` workflow, started only when the owner asks.
+On the shared dev server (the owner on a phone): run `remote-dev/dev.sh` from the checkout you edit and give the owner the URL it prints. It hot-reloads from then on; run it again only after switching checkouts. Releases go through the `Release` workflow, started only when the owner asks.
 
 ## Checks
 

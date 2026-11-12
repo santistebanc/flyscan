@@ -6,7 +6,7 @@ import react from "@vitejs/plugin-react";
 // files: both load the app from somewhere other than a server root.
 //
 // In dev the page calls its own origin and Vite forwards /v1 to the service, so
-// the same dev server works from this machine and from a phone on the tailnet.
+// the same dev server works from this machine and from another device on the private network.
 // FLYSCAN_API moves the service; FLYSCAN_DEV_HOST is the name the
 // page is opened by from elsewhere (Vite refuses hosts it was not told about).
 export default defineConfig({

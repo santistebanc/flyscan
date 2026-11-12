@@ -14,7 +14,7 @@ npm run flyscan -- --help
 
 Every source answers over plain HTTP; no browser, no driver. A browser is only
 opened for a person to clear a source's security check (see below). How the app
-runs on a laptop, on the Beelink for a phone, and as the installed desktop app
+runs on a laptop, on a remote dev server, and as the installed desktop app
 is in [`desktop/README.md`](../desktop/README.md#running-it).
 
 ## Usage

@@ -1,12 +1,12 @@
 #!/usr/bin/env bash
-# The dev loop on the Beelink, for working from a phone (T3 Code runs there). Run it from the
-# checkout being edited and open http://beelink-home:1420 on the tailnet: TypeScript edits restart
+# The dev loop on a shared Linux dev server, for working from a phone. Run it from the
+# checkout being edited and open the URL it prints on the private network: TypeScript edits restart
 # the service, UI edits show at once, nothing needs committing. A check opens in a real
 # Chromium on a phone-shaped virtual screen, streamed by noVNC; Verify opens the stream.
 #
-#   beelink/dev.sh          point the dev slot at this checkout and (re)start it
-#   beelink/dev.sh stop     stop it all: service, UI, virtual screen, stream
-#   beelink/dev.sh status
+#   remote-dev/dev.sh       point the dev slot at this checkout and (re)start it
+#   remote-dev/dev.sh stop     stop it all: service, UI, virtual screen, stream
+#   remote-dev/dev.sh status
 set -euo pipefail
 export PATH="$HOME/.local/bin:$PATH"
 
@@ -36,7 +36,7 @@ case "${1:-}" in
     exit 0
     ;;
   "") ;;
-  *) echo "usage: beelink/dev.sh [stop|status]" >&2; exit 2 ;;
+  *) echo "usage: remote-dev/dev.sh [stop|status]" >&2; exit 2 ;;
 esac
 
 echo "Preparing $CHECKOUT…"
@@ -74,7 +74,7 @@ WantedBy=default.target
 EOF
 cat >"$UNITS/flyscan-dev-novnc.service" <<EOF
 [Unit]
-Description=flyscan dev: noVNC stream on the tailnet
+Description=flyscan dev: noVNC stream on the private network
 BindsTo=flyscan-dev-vnc.service
 After=flyscan-dev-vnc.service
 [Service]
@@ -98,7 +98,7 @@ Environment=DISPLAY=:$DISPLAY_NUMBER
 Environment=FLYSCAN_CHECK_SCREEN=$SCREEN
 Environment="FLYSCAN_CHALLENGE_VIEWER_URL=$VIEWER"
 ExecStart=$(command -v npm) run dev --prefix $CHECKOUT/backend -- --host 127.0.0.1 --port $API_PORT
-# The Beelink is shared and often busy; a check's browser starts a third faster with priority.
+# The server is shared and often busy; a check's browser starts a third faster with priority.
 CPUWeight=1000
 Restart=on-failure
 RestartSec=3

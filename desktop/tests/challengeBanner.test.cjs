@@ -98,10 +98,10 @@ test("asynchronous server launch errors appear beside the affected source", () =
 test("in a browser with a stream, verify opens the stream before asking the server", async () => {
   const events = [];
   const render = host({ isDesktop: false, openExternal: async (url) => { events.push(`open ${url}`); } });
-  const props = { viewerUrl: "http://beelink.test:6080/vnc.html",
+  const props = { viewerUrl: "http://devserver.test:6080/vnc.html",
     api: { solveChallenge: async (source) => { events.push(`solve ${source}`); } } };
   await buttons(render(props))[0].props.onClick();
-  assert.deepEqual(events, ["open http://beelink.test:6080/vnc.html", "solve ff-kayak"]);
+  assert.deepEqual(events, ["open http://devserver.test:6080/vnc.html", "solve ff-kayak"]);
   assert.match(renderToStaticMarkup(render(props)), /streaming the server’s browser/);
 });
 
@@ -115,10 +115,10 @@ test("in a browser without a stream, verify only asks the server", async () => {
 test("a streamed check already open on the server offers its stream instead of a disabled button", async () => {
   const opened = [];
   const render = host({ isDesktop: false, openExternal: async (url) => { opened.push(url); } });
-  const tree = render({ viewerUrl: "http://beelink.test:6080/vnc.html", pending: [{ ...requests[0], solving: true }] });
+  const tree = render({ viewerUrl: "http://devserver.test:6080/vnc.html", pending: [{ ...requests[0], solving: true }] });
   const [button] = buttons(tree);
   assert.equal(Boolean(button.props.disabled), false);
   assert.match(renderToStaticMarkup(tree), /Open stream/);
   button.props.onClick();
-  assert.deepEqual(opened, ["http://beelink.test:6080/vnc.html"]);
+  assert.deepEqual(opened, ["http://devserver.test:6080/vnc.html"]);
 });

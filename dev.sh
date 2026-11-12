@@ -2,7 +2,7 @@
 # The dev loop: the backend restarts on TypeScript edits, the UI hot-reloads.
 #   ./dev.sh     then open http://localhost:1420
 # A check opens in a Chromium window here (Playwright, a dev dependency). Data lives in
-# ./data, apart from any installed app. On the Beelink, use beelink/dev.sh instead.
+# ./data, apart from any installed app. On a remote dev server, use remote-dev/dev.sh instead.
 set -euo pipefail
 cd "$(dirname "$0")"
 export FLYSCAN_DATA_DIR="${FLYSCAN_DATA_DIR:-$PWD/data}"

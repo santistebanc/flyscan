@@ -56,5 +56,5 @@ Development runs offline by default: no flight site is contacted until the owner
 
 - [Using flyscan](docs/usage.md): install, CLI commands and the price spread between sellers.
 - [How it works](docs/how-it-works.md): the sources, cabins, round trips, currency, storage, backend architecture, API, offline tests, packaging and verification.
-- [Running the desktop app](desktop/README.md#running-it) on a laptop, on the Beelink for a phone, and as the installed app.
+- [Running the desktop app](desktop/README.md#running-it) on a laptop, on a remote dev server, and as the installed app.
 - [Media and capture config](docs/media/), refreshed with the project-showcase capture script.
