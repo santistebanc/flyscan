@@ -1,0 +1,12 @@
+{
+  "parts": [
+    {"id": "screens", "name": "Desktop app screens", "about": "Search, results, trip view and filters", "paths": ["desktop/src"], "links": ["backend", "contracts"]},
+    {"id": "shell", "name": "Desktop shell", "about": "Desktop window, updates and app files", "paths": ["desktop"], "links": ["screens"]},
+    {"id": "backend", "name": "Search server", "about": "Runs searches, queue and stored results", "paths": ["backend"], "links": ["capture", "contracts"]},
+    {"id": "capture", "name": "Price capture", "about": "Reads prices from the five flight sources", "paths": ["backend/src/capture.ts", "backend/src/sources.ts", "backend/src/challenges.ts", "backend/src/challenge-page.ts", "backend/src/manual.ts", "backend/src/transport.ts", "flyscan", "pyproject.toml", "uv.lock"], "links": []},
+    {"id": "contracts", "name": "Shared contracts", "about": "Data shapes used by app and server", "paths": ["shared"], "links": []},
+    {"id": "packaging", "name": "Packaging and hosting", "about": "Installers, Docker and remote setup", "paths": ["packaging", "Dockerfile", "railway.json", "remote-dev", "dev.sh", "package.json"], "links": []},
+    {"id": "tests", "name": "Tests", "about": "Unit, flow and recorded-source tests", "paths": ["tests", "backend/tests", "desktop/tests", "packaging/tests", "scripts"], "links": []},
+    {"id": "docs", "name": "Docs", "about": "README, glossary and coding rules", "paths": ["README.md", "docs", "AGENTS.md", "CLAUDE.md", "CODING_STANDARDS.md", "GLOSSARY.md"], "links": []}
+  ]
+}
