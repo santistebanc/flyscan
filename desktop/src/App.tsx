@@ -1031,7 +1031,10 @@ function Shell() {
   [step, stepDirection, pickInTrip, unpinInTrip]);
   /** A handle on a Trip view timeline sets the same time limits as the Times filter. */
   const setTripTimes = useCallback((direction: "outbound" | "inbound", patch: TimesPatch) => setFilters((old) => {
-    return setDirectionLimits(setSeparate(old, "times", true), "times", direction, patch);
+    const limits: Partial<DirectionLimits> = {};
+    if (patch.depart !== undefined) limits.depart = { from: patch.depart, to: 1440 };
+    if (patch.arrive !== undefined) limits.arrive = { from: 0, to: patch.arrive };
+    return setDirectionLimits(setSeparate(old, "times", true), "times", direction, limits);
   }), []);
 
   /**

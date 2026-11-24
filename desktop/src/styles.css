@@ -467,8 +467,6 @@ button.primary:hover:not(:disabled) { background: var(--accent-strong); }
 .leg-midnight { position: absolute; top: 2px; width: 1px; height: 26px; background: var(--line); }
 /* Time the departure and arrival filters leave out, under everything else; its edge marks the limit. */
 .leg-filtered { position: absolute; top: 8px; height: 18px; background: rgb(0 0 0 / .28); }
-.leg-filtered.depart { height: 9px; }
-.leg-filtered.arrive { top: 17px; height: 9px; }
 .leg-filtered.before { box-shadow: inset -1px 0 0 var(--muted); }
 .leg-filtered.after { box-shadow: inset 1px 0 0 var(--muted); }
 /* In the strip above the bars, which start 14px down. */
@@ -1125,23 +1123,20 @@ button.primary:hover:not(:disabled) { background: var(--accent-strong); }
 .trip-timeline .jt-end { font-size: 13px; }
 .trip-timeline .jt-end.departs { top: 20px; }
 .trip-timeline .jt-end.arrives { top: 76px; }
-/* The departure and arrival windows use separate bands on each timeline. */
-.trip-timeline { position: relative; padding: 22px 0 26px; }
+/* The time filter handles stand at the timeline's ends; their limits read underneath. */
+.trip-timeline { position: relative; padding-bottom: 20px; }
 /* The layer clips sideways without becoming a scroll box, so a handle at an
    end adds nothing to scroll; its label still hangs below. */
-.time-handles { position: absolute; left: 0; right: 0; top: 0; bottom: 0; pointer-events: none; overflow-x: clip; }
-.time-filtered { position: absolute; height: 25%; background: repeating-linear-gradient(135deg, #0000004d 0 4px, #00000026 4px 8px); }
-/* The lead places the handle on the timeline. Sticky positioning keeps it
-   reachable at the viewport edge while the zoomed timeline scrolls. */
-.time-handle-track { position: absolute; left: 0; right: 0; height: 25%; display: flex; pointer-events: none; }
-.time-handles > .depart { top: 16px; }
-.time-handles > .arrive { bottom: 16px; }
-.time-range-summary { position: sticky; left: 8px; display: table; margin-left: 8px; font: 11px/16px var(--mono); color: var(--ink-soft); }
-.time-handles > .time-range-summary.depart { top: 0; }
-.time-handles > .time-range-summary.arrive { top: calc(100% - 16px); }
-.time-handle-track[data-close] .time-handle { height: 50%; }
-.time-handle-track[data-close] .time-handle.to { align-self: end; }
-.time-handle-track[data-close] .time-handle-grip { height: 16px; margin-top: -8px; }
+.time-handles { position: absolute; left: 0; right: 0; top: 14px; bottom: 20px; pointer-events: none; overflow-x: clip; }
+.time-filtered { position: absolute; top: 0; bottom: 0; background: repeating-linear-gradient(135deg, #0000004d 0 4px, #00000026 4px 8px); }
+/* Each handle runs on a track as long as its limits reach, behind a lead as
+   wide as its place on it, and is sticky to the scrolling box: the browser
+   itself holds it at the edge in sight as a zoomed timeline scrolls, with no
+   lag, until the edge passes the end of its track. */
+.time-handle-track { position: absolute; top: 0; bottom: 0; display: flex; pointer-events: none; }
+.time-handles[data-close] .time-handle-track.depart { bottom: 50%; }
+.time-handles[data-close] .time-handle-track.arrive { top: 50%; }
+.time-handles[data-close] .time-handle-track.depart .time-handle-label { top: auto; bottom: 0; }
 .time-handle-lead { flex: none; }
 .time-handle {
   --stem-at: 9px; --grip-shift: 4px; position: sticky; left: calc(-1 * var(--stem-at)); right: calc(-1 * var(--stem-at)); flex: none; height: 100%; width: 20px; margin-left: -10px; display: flex; justify-content: center;
@@ -1154,18 +1149,16 @@ button.primary:hover:not(:disabled) { background: var(--accent-strong); }
 }
 .time-handle:hover::before, .time-handle:focus-visible::before { background: var(--muted); }
 .time-handle:hover .time-handle-grip, .time-handle:focus-visible .time-handle-grip { border-color: var(--ink); }
+.time-handle:focus-visible .time-handle-grip { outline: 2px solid var(--ink); outline-offset: 2px; }
 .time-handle[data-active]::before, .time-handle[data-dragging]::before { background: var(--accent); }
 .time-handle[data-active] .time-handle-grip, .time-handle[data-dragging] .time-handle-grip { border-color: var(--accent); background: var(--accent-soft); }
 .time-handle-label { position: absolute; top: calc(100% + 3px); font: 500 11px/14px var(--mono); color: var(--accent); white-space: nowrap; pointer-events: none; }
-.time-handle.from .time-handle-label { left: 0; }
-.time-handle.to .time-handle-label { right: 0; }
+.time-handle.depart .time-handle-label { left: 0; }
+.time-handle.arrive .time-handle-label { right: 0; }
 @media (pointer: coarse) { .time-handle { --stem-at: 15px; --grip-shift: 6px; width: 32px; margin-left: -16px; } .time-handle-grip { width: 14px; height: 32px; margin-top: -16px; } }
 /* Held at an edge in sight, a handle's stem lies right on the edge (its box
    sticks out past it) and its grip and label sit inwards, whole. Its stem
    fades when its limit lies further on, out of sight. */
-.time-handle-label { visibility: hidden; z-index: 1; background: var(--panel); padding: 0 3px; border-radius: 3px; }
-.time-handle:is(:hover, :focus-visible, [data-dragging]) .time-handle-label { visibility: visible; }
-.time-handle:focus-visible .time-handle-grip { outline: 2px solid var(--ink); outline-offset: 2px; }
 .time-handle[data-edge="start"] .time-handle-grip { transform: translateX(var(--grip-shift)); }
 .time-handle[data-edge="end"] .time-handle-grip { transform: translateX(calc(-1 * var(--grip-shift))); }
 .time-handle[data-edge="start"] .time-handle-label { left: var(--stem-at); right: auto; }

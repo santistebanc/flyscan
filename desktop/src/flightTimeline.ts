@@ -1,4 +1,3 @@
-import type { DirectionTimes } from "./flightFilters";
 import type { FlightRow, Leg, Segment } from "./api";
 import { durationMinutes } from "./flightRatings";
 import { yearIfFar } from "./dates";
@@ -248,32 +247,38 @@ export function localMidnights(timing: JourneyTiming, scale?: Pick<TimelineScale
   return scale ? marks.filter(({ at }) => at > scale.min && at <= scale.max) : marks;
 }
 /** `side`: before the earliest departure, or after the latest arrival. */
-export interface FilteredSpan {
-  start: number;
-  end: number;
-  kind: keyof DirectionTimes;
-  side: "before" | "after";
-}
-
-/** Shade outside each window on the clock of its airport. */
-export function timeWindowSpans(timing: JourneyTiming, scale: Pick<TimelineScale, "min" | "max">,
-  times: DirectionTimes): FilteredSpan[] {
-  const axis = timeFilterAxis(timing);
-  if (!axis) return [];
+export interface FilteredSpan { start: number; end: number; side: "before" | "after" }
+/**
+ * Where a row's timeline falls outside the time filters, which is how they
+ * judge a flight: before the earliest departure on the departure's local
+ * clock, and after the latest arrival on the destination's clock.
+ * Both are minutes from local midnight on the departure day, so a latest
+ * arrival past 1440 lands on a later day; null means no limit.
+ */
+export function filteredOutSpans(timing: JourneyTiming, scale: Pick<TimelineScale, "min" | "max">,
+  earliestDeparture: number | null, latestArrival: number | null): FilteredSpan[] {
   const spans: FilteredSpan[] = [];
-  for (const kind of ["depart", "arrive"] as const) {
-    const { from, to } = times[kind];
-    const before = Math.min(axis[kind] + from, scale.max);
-    const after = Math.max(axis[kind] + to, scale.min);
-    if (from > 0 && before > scale.min) spans.push({ start: scale.min, end: before, kind, side: "before" });
-    if (to < (kind === "depart" ? DAY : 3 * DAY) && after < scale.max) {
-      spans.push({ start: after, end: scale.max, kind, side: "after" });
-    }
+  const first = timing.parts[0], last = timing.parts[timing.parts.length - 1];
+  const departed = first ? fromWall(first.part) : null;
+  if (departed === null) return spans;
+  const departureDay = Math.floor(departed / DAY) * DAY;
+  if (earliestDeparture !== null) {
+    const at = Math.min(first!.start + departureDay + earliestDeparture - departed, scale.max);
+    if (at > scale.min) spans.push({ start: scale.min, end: at, side: "before" });
+  }
+  const arrived = last ? toWall(last.part) : null;
+  if (latestArrival !== null && arrived !== null) {
+    const at = Math.max(last!.end + departureDay + latestArrival - arrived, scale.min);
+    if (at < scale.max) spans.push({ start: at, end: scale.max, side: "after" });
   }
   return spans;
 }
-
-/** Timeline coordinates of local midnight on the direction's departure day. */
+/**
+ * Where the time filters' clocks sit on a timeline, as `filteredOutSpans`
+ * places them: a limit of `v` minutes from local midnight on the departure
+ * day lands at `depart + v` for the earliest departure, read on the departure
+ * clock, and at `arrive + v` for the latest arrival, on the destination clock.
+ */
 export function timeFilterAxis(timing: JourneyTiming): { depart: number; arrive: number } | null {
   const first = timing.parts[0], last = timing.parts[timing.parts.length - 1];
   const departed = first ? fromWall(first.part) : null;

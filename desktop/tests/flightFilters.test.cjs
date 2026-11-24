@@ -8,7 +8,7 @@ const code = buildSync({ entryPoints: [path.join(__dirname, "../src/flightFilter
 const mod = { exports: {} };
 vm.runInNewContext(code, { module: mod, exports: mod.exports });
 const { matchesFlight, sanitizeFilters, filtersActive, filtersChanged, setDirectionLimits, setSeparate, OPEN_FILTERS, DEFAULT_FILTERS,
-  FILTERS_VERSION, ANY_ARRIVAL, revisitsAirport, timesMiss } = mod.exports;
+  FILTERS_VERSION, ANY_ARRIVAL, revisitsAirport } = mod.exports;
 
 const segment = (origin, destination, departure, arrival, duration) => ({
   origin, destination, departure, arrival, duration, carrier: "AA", carrier_name: "American", flight_number: "AA1",
@@ -108,17 +108,17 @@ test("departure and arrival windows use local clocks and skip return limits on o
   }), 100), false);
 });
 
-test("task 303: departure and arrival windows include their boundary times", () => {
+test("departure is a minimum and arrival is a maximum, including their boundary times", () => {
   const bounds = limits({ outbound: {
     depart: { from: 8 * 60, to: 12 * 60 },
     arrive: { from: 6 * 60, to: 18 * 60 },
   } });
   assert.equal(matchesFlight(row(), bounds, 100), true);
   const flightAt = (departure, arrival) => row({ outbound: { ...row().outbound, departure, arrival } });
-  assert.equal(matchesFlight(flightAt("2026-12-10T13:00", "2026-12-10T17:00"), bounds, 100), false,
-    "a departure after the end of its window is excluded");
-  assert.equal(matchesFlight(flightAt("2026-12-10T08:00", "2026-12-10T05:00"), bounds, 100), false,
-    "an arrival before the start of its window is excluded");
+  assert.equal(matchesFlight(flightAt("2026-12-10T13:00", "2026-12-10T17:00"), bounds, 100), true,
+    "later departures must not retain the old opposite bound");
+  assert.equal(matchesFlight(flightAt("2026-12-10T08:00", "2026-12-10T05:00"), bounds, 100), true,
+    "earlier arrivals, as on a westbound flight, must not retain the old opposite bound");
   assert.equal(matchesFlight(flightAt("2026-12-10T07:59", "2026-12-10T18:00"), bounds, 100), false);
   assert.equal(matchesFlight(flightAt("2026-12-10T08:00", "2026-12-10T18:01"), bounds, 100), false);
   assert.equal(matchesFlight(flightAt("2026-12-10T20:00", "2026-12-11T05:00"), bounds, 100), false,
@@ -295,22 +295,17 @@ test("filters saved before version 4 keep one limit for both directions, and tim
   assert.equal(current.separate.duration, false);
 });
 
-test("task 303: latest departure and earliest arrival also filter trips", () => {
-  const limits = { ...OPEN_FILTERS, outbound: { ...OPEN_FILTERS.outbound,
-    depart: { from: 0, to: 7 * 60 + 45 }, arrive: { from: 18 * 60 + 15, to: ANY_ARRIVAL },
-  } };
-  assert.equal(matchesFlight(row(), limits, 100), false);
-  assert.equal(timesMiss(row(), limits), 30);
-  assert.equal(matchesFlight(row(), { ...limits, outbound: OPEN_FILTERS.outbound, inbound: limits.outbound }, 100), true);
-});
-
-test("task 303: saved time windows keep quarter-hour bounds for each direction", () => {
-  const depart = { from: 6 * 60 + 15, to: 9 * 60 + 45 };
-  const arrive = { from: 1440 + 6 * 60 + 45, to: 1440 + 10 * 60 + 15 };
-  const reloaded = sanitizeFilters({ version: FILTERS_VERSION, outbound: { depart }, inbound: { arrive } });
-  assert.deepEqual({ ...reloaded.outbound.depart }, depart);
-  assert.deepEqual({ ...reloaded.inbound.arrive }, arrive);
-  assert.equal(reloaded.outbound.arrive.from, 0);
-  assert.equal(reloaded.inbound.depart.to, 1440);
-  assert.equal(reloaded.separate.times, true);
+test("task 304: old extra bounds are removed and the four saved handle values keep their precision", () => {
+  const previous = (version) => sanitizeFilters({
+    version,
+    outbound: { depart: { from: 435, to: 720 }, arrive: { from: 600, to: 1065 } },
+    inbound: { depart: { from: 555, to: 825 }, arrive: { from: 690, to: 1275 } },
+  });
+  for (const version of [5, FILTERS_VERSION]) {
+    const limits = previous(version);
+    assert.deepEqual({ ...limits.outbound.depart }, { from: 435, to: 1440 });
+    assert.deepEqual({ ...limits.outbound.arrive }, { from: 0, to: 1065 });
+    assert.deepEqual({ ...limits.inbound.depart }, { from: 555, to: 1440 });
+    assert.deepEqual({ ...limits.inbound.arrive }, { from: 0, to: 1275 });
+  }
 });
