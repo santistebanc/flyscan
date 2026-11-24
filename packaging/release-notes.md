@@ -1,1 +1,7 @@
-- Compare late and early enqueue cost instead of a wall-clock budget
+- Set independent time windows in Trip view
+- Add the project map file docs/map.json (task #157)
+- Remove private host details; shorten desktop README
+- README showcase: template README, screenshots and clips (task #24)
+- Run the offline verification replay in CI (task #92)
+- Fix plain_path test literals that lost their leading backslash
+- Strip verbatim \?\ prefixes from paths handed to the sidecar
