@@ -4,11 +4,7 @@ import { dayOffset, partsOf } from "./flightTimeline";
 
 /** Minutes from local midnight. 1440 means the end of the day, after 23:59. */
 export interface TimeWindow { from: number; to: number }
-/** Only depart.from (earliest) and arrive.to (latest) constrain a direction.
- * arrive.to counts from midnight of the direction's departure day, so it can
- * fall on the next day or the one after; ANY_ARRIVAL means no limit.
- * Keep the stored window shape so older saved preferences can be normalized.
- */
+/** Arrival bounds count from local midnight on the direction's departure day. */
 export interface DirectionTimes { depart: TimeWindow; arrive: TimeWindow }
 
 /** Everything one direction of a trip is held to. */
@@ -69,18 +65,31 @@ export const OPEN_FILTERS: ListFilters = {
 /**
  * 3: arrive.to counts from the departure day, and no limit moved from 1440 to ANY_ARRIVAL.
  * 4: stops, duration and layover limits moved into each direction.
+ * 5: both ends of each time window are used and saved at quarter-hour precision.
  */
-export const FILTERS_VERSION = 4;
+export const FILTERS_VERSION = 5;
 const defaultDirection = (): DirectionLimits => ({ ...openDirection(), maxLayoverMinutes: 12 * 60 });
 export const DEFAULT_FILTERS: ListFilters = {
   ...OPEN_FILTERS, excludeRepeatedAirports: true, outbound: defaultDirection(), inbound: defaultDirection(),
 };
 
+export function timeBounds({ depart, arrive }: DirectionTimes): number {
+  return Number(depart.from > 0) + Number(depart.to < 1440)
+    + Number(arrive.from > 0) + Number(arrive.to < ANY_ARRIVAL);
+}
+
+/** Move one end of a window without moving its other end. */
+export function withTimeBound(window: TimeWindow, end: keyof TimeWindow, value: number): TimeWindow {
+  return end === "from" ? { ...window, from: Math.min(value, window.to) }
+    : { ...window, to: Math.max(value, window.from) };
+}
+
 const directionActive = (limits: DirectionLimits) => limits.maxStops !== null || limits.maxDurationMinutes !== null
-  || limits.maxLayoverMinutes !== null || limits.depart.from > 0 || limits.arrive.to < ANY_ARRIVAL;
+  || limits.maxLayoverMinutes !== null || timeBounds(limits) > 0;
 const directionChanged = (limits: DirectionLimits, defaults: DirectionLimits) => limits.maxStops !== defaults.maxStops
   || limits.maxDurationMinutes !== defaults.maxDurationMinutes || limits.maxLayoverMinutes !== defaults.maxLayoverMinutes
-  || limits.depart.from !== defaults.depart.from || limits.arrive.to !== defaults.arrive.to;
+  || limits.depart.from !== defaults.depart.from || limits.depart.to !== defaults.depart.to
+  || limits.arrive.from !== defaults.arrive.from || limits.arrive.to !== defaults.arrive.to;
 
 export function filtersActive(filters: ListFilters): boolean {
   return filters.maxPriceEur !== null || filters.excludeRepeatedAirports
@@ -128,18 +137,19 @@ export function clockMinutes(iso: string): number | null {
   return hour * 60 + minute;
 }
 
-/** Local airport time of day, which is what the row itself prints. */
-function departsInTime(iso: string, earliest: number): boolean {
-  if (earliest <= 0) return true;
-  const minute = clockMinutes(iso);
-  return minute !== null && minute >= earliest;
+function windowMiss(window: TimeWindow, maximum: number, time: string, days = 0): number {
+  if (window.from === 0 && window.to === maximum) return 0;
+  const clock = clockMinutes(time);
+  if (clock === null) return Infinity;
+  const minute = days * 1440 + clock;
+  return Math.max(0, window.from === 0 ? 0 : window.from - minute,
+    window.to === maximum ? 0 : minute - window.to);
 }
 
-/** Local arrival time plus the days since departure, the "+1" the row prints. */
-function arrivesInTime(departure: string, arrival: string, latest: number): boolean {
-  if (latest >= ANY_ARRIVAL) return true;
-  const minute = clockMinutes(arrival);
-  return minute !== null && dayOffset(departure, arrival) * 1440 + minute <= latest;
+function directionTimeMiss({ departure, arrival }: DirectionFacts, { depart, arrive }: DirectionTimes): number {
+  const departureMiss = windowMiss(depart, 1440, departure);
+  if (arrive.from === 0 && arrive.to === ANY_ARRIVAL) return departureMiss;
+  return departureMiss + windowMiss(arrive, ANY_ARRIVAL, arrival, dayOffset(departure, arrival));
 }
 
 export function longestLayover(leg: Leg | null): number {
@@ -191,30 +201,18 @@ function directionFits(facts: DirectionFacts, limits: DirectionLimits): boolean 
     if (stops !== null && stops > limits.maxStops) return false;
   }
   if (limits.maxLayoverMinutes !== null && longestLayover(facts.leg) > limits.maxLayoverMinutes) return false;
-  return departsInTime(facts.departure, limits.depart.from)
-    && arrivesInTime(facts.departure, facts.arrival, limits.arrive.to);
+  return directionTimeMiss(facts, limits) === 0;
 }
 
 /**
- * How far a row falls outside its time limits: the minutes it departs too
- * early plus those it arrives too late, over both directions. 0 when it is
- * within them; Infinity when a limit is set and its clock is unknown.
+ * Minutes outside the time windows across both directions, or Infinity
+ * when a time window is set and the corresponding clock is unknown.
  */
 export function timesMiss(row: FlightRow, limits: Pick<FlightLimits, "outbound" | "inbound">): number {
   let miss = 0;
   for (const direction of ["outbound", "inbound"] as const) {
-    const facts = directionFacts(row, direction), { depart, arrive } = limits[direction];
-    if (!facts) continue;
-    if (depart.from > 0) {
-      const minute = clockMinutes(facts.departure);
-      if (minute === null) return Infinity;
-      miss += Math.max(0, depart.from - minute);
-    }
-    if (arrive.to < ANY_ARRIVAL) {
-      const minute = clockMinutes(facts.arrival);
-      if (minute === null) return Infinity;
-      miss += Math.max(0, dayOffset(facts.departure, facts.arrival) * 1440 + minute - arrive.to);
-    }
+    const facts = directionFacts(row, direction);
+    if (facts) miss += directionTimeMiss(facts, limits[direction]);
   }
   return miss;
 }
@@ -269,11 +267,11 @@ function wholeNumber(value: unknown): number | null {
   return typeof value === "number" && Number.isFinite(value) && value >= 0 ? Math.round(value) : null;
 }
 
-function boundOf(value: unknown, key: "from" | "to", fallback: number, max: number): number {
+function boundOf(value: unknown, key: "from" | "to", fallback: number, max: number, step: number): number {
   const raw = value && typeof value === "object" ? value as Record<string, unknown> : {};
   const part = raw[key];
   const number = typeof part === "number" && Number.isFinite(part) ? part : fallback;
-  return Math.min(max, Math.max(0, Math.round(number / 30) * 30));
+  return Math.min(max, Math.max(0, Math.round(number / step) * step));
 }
 
 const versionOf = (raw: Record<string, unknown>) => typeof raw.version === "number" ? raw.version : 0;
@@ -290,11 +288,14 @@ function layoverLimit(value: unknown, version: number): number | null {
 function directionOf(value: unknown, version: number, shared: Record<string, unknown>): DirectionLimits {
   const raw = value && typeof value === "object" ? value as Record<string, unknown> : {};
   const limits = version >= 4 ? raw : shared;
-  const arrive = boundOf(raw.arrive, "to", ANY_ARRIVAL, ANY_ARRIVAL);
+  const step = version >= 5 ? 15 : 30;
+  const departTo = version >= 5 ? boundOf(raw.depart, "to", 1440, 1440, step) : 1440;
+  const storedArrival = boundOf(raw.arrive, "to", ANY_ARRIVAL, ANY_ARRIVAL, step);
+  const arriveTo = version >= 3 || storedArrival < 1440 ? storedArrival : ANY_ARRIVAL;
+  const arriveFrom = version >= 5 ? boundOf(raw.arrive, "from", 0, arriveTo, step) : 0;
   return {
-    depart: { from: boundOf(raw.depart, "from", 0, 1440), to: 1440 },
-    // Before version 3, 1440 was no limit; a limit below it is kept, now on the departure day.
-    arrive: { from: 0, to: version >= 3 || arrive < 1440 ? arrive : ANY_ARRIVAL },
+    depart: { from: boundOf(raw.depart, "from", 0, departTo, step), to: departTo },
+    arrive: { from: arriveFrom, to: arriveTo },
     maxStops: wholeNumber(limits.maxStops),
     maxDurationMinutes: positive(limits.maxDurationMinutes),
     maxLayoverMinutes: layoverLimit(limits.maxLayoverMinutes, version),

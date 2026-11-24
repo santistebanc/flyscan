@@ -1,54 +1,23 @@
-/**
- * Handles at either end of a Trip view timeline for the time filters: drag
- * the left one to depart no earlier, the right one to arrive no later. They
- * set the same limits as the Times filter above the list, and only when let
- * go, so the trips do not change under the finger.
- */
 import { useRef, useState, type KeyboardEvent, type PointerEvent } from "react";
-import { ANY_ARRIVAL, type DirectionTimes } from "./flightFilters";
-import { filteredOutSpans, percent, timeFilterAxis, type JourneyTiming, type TimelineScale } from "./flightTimeline";
+import { ANY_ARRIVAL, formatArrival, formatClock, withTimeBound, type DirectionTimes, type TimeWindow } from "./flightFilters";
+import { timeWindowSpans, percent, timeFilterAxis, type JourneyTiming, type TimelineScale } from "./flightTimeline";
 
-export type TimesPatch = { depart?: number; arrive?: number };
+export type TimesPatch = Partial<DirectionTimes>;
 /** The part of the timeline in sight, as percentages of its width. */
 export type View = { from: number; to: number };
-type Which = "depart" | "arrive";
 const STEP = 15;
+const RANGES = [
+  { kind: "depart", name: "departure", verb: "Depart", max: 1440, format: formatClock },
+  { kind: "arrive", name: "arrival", verb: "Arrive", max: ANY_ARRIVAL, format: formatArrival },
+] as const;
+type Range = typeof RANGES[number];
+type End = keyof TimeWindow;
 
-/** "07:30", or "01:15 +1" for a limit on a later day than the departure. */
-export function limitClock(minutes: number): string {
-  const day = Math.floor(minutes / 1440), within = minutes - day * 1440;
-  const clock = `${String(Math.floor(within / 60)).padStart(2, "0")}:${String(within % 60).padStart(2, "0")}`;
-  return day > 0 ? `${clock} +${day}` : clock;
-}
-
-/**
- * A limit from a place on the timeline, snapped to a quarter hour. The left
- * end means no earliest departure and the right end no latest arrival, so a
- * handle dragged all the way out lifts its limit.
- */
-export function limitAt(which: Which, minute: number, base: number, scale: Pick<TimelineScale, "min" | "max">): number {
+export function limitAt(end: End, minute: number, base: number, max: number, scale: Pick<TimelineScale, "min" | "max">): number {
   const edge = (scale.max - scale.min) / 100;
-  if (which === "depart") {
-    if (minute <= scale.min + edge) return 0;
-    return Math.min(1440, Math.max(0, Math.round((minute - base) / STEP) * STEP));
-  }
-  if (minute >= scale.max - edge) return ANY_ARRIVAL;
-  return Math.min(ANY_ARRIVAL - STEP, Math.max(0, Math.round((minute - base) / STEP) * STEP));
-}
-
-/**
- * A limit held on its own side of the other handle's, so the two never pass
- * each other: no departure later than the latest arrival, no arrival earlier
- * than the earliest departure. A limit the other side does not set holds
- * nothing back. `axis` places both on the timeline, as `timeFilterAxis` does.
- */
-export function keptApart(which: Which, value: number, other: number, axis: { depart: number; arrive: number }): number {
-  if (which === "depart") {
-    if (other >= ANY_ARRIVAL) return value;
-    return Math.min(value, Math.max(0, Math.floor((axis.arrive + other - axis.depart) / STEP) * STEP));
-  }
-  if (other <= 0 || value >= ANY_ARRIVAL) return value;
-  return Math.max(value, Math.ceil((axis.depart + other - axis.arrive) / STEP) * STEP);
+  if (end === "from" && minute <= scale.min + edge) return 0;
+  if (end === "to" && minute >= scale.max - edge) return max;
+  return Math.min(max, Math.max(0, Math.round((minute - base) / STEP) * STEP));
 }
 
 /**
@@ -70,81 +39,92 @@ export function TimeHandles({ timing, scale, times, title, view = { from: 0, to:
   onChange: (patch: TimesPatch) => void;
 }) {
   const layer = useRef<HTMLDivElement>(null);
-  const [drag, setDrag] = useState<{ which: Which; value: number } | null>(null);
+  const [drag, setDrag] = useState<{ kind: Range["kind"]; end: End; window: TimeWindow } | null>(null);
   const axis = timeFilterAxis(timing);
   if (!axis) return null;
-  const value = (which: Which) => drag?.which === which ? drag.value : which === "depart" ? times.depart.from : times.arrive.to;
-  const depart = value("depart"), arrive = value("arrive");
+  const shown = drag ? { ...times, [drag.kind]: drag.window } : times;
   const span = scale.max - scale.min;
   const clamp = (minute: number) => Math.min(100, Math.max(0, percent(minute, scale)));
-  const place = (which: Which) => which === "depart"
-    ? depart > 0 ? clamp(axis.depart + depart) : 0
-    : arrive < ANY_ARRIVAL ? clamp(axis.arrive + arrive) : 100;
-  // As far as each limit goes: a departure by the end of its day, an arrival from that day on.
-  const reach = (which: Which): View => which === "depart"
-    ? { from: 0, to: clamp(axis.depart + 1440) } : { from: clamp(axis.arrive), to: 100 };
   const minuteAt = (clientX: number) => {
     const box = layer.current!.getBoundingClientRect();
     return scale.min + Math.min(1, Math.max(0, (clientX - box.left) / box.width)) * span;
   };
-  const base = (which: Which) => which === "depart" ? axis.depart : axis.arrive;
-  // The other handle as set, so neither is dragged or stepped past it.
-  const apart = (which: Which, to: number) => keptApart(which, to, which === "depart" ? times.arrive.to : times.depart.from, axis);
-  const label = (which: Which) => which === "depart"
-    ? depart > 0 ? `Depart after ${limitClock(depart)}` : "Any departure time"
-    : arrive < ANY_ARRIVAL ? `Arrive before ${limitClock(arrive)}` : "Any arrival time";
 
-  const onPointerDown = (which: Which) => (event: PointerEvent<HTMLSpanElement>) => {
-    event.preventDefault();
-    event.currentTarget.setPointerCapture(event.pointerId);
-    setDrag({ which, value: value(which) });
-  };
-  const onPointerMove = (which: Which) => (event: PointerEvent) => {
-    if (drag?.which !== which) return;
-    setDrag({ which, value: apart(which, limitAt(which, minuteAt(event.clientX), base(which), scale)) });
-  };
-  const onPointerUp = (which: Which) => () => {
-    if (drag?.which !== which) return;
-    setDrag(null);
-    if (drag.value !== (which === "depart" ? times.depart.from : times.arrive.to)) onChange({ [which]: drag.value });
-  };
-  // A quarter hour per arrow press; Home and End lift the limit.
-  const onKeyDown = (which: Which) => (event: KeyboardEvent) => {
-    const now = which === "depart" ? times.depart.from : times.arrive.to;
-    const open = which === "depart" ? 0 : ANY_ARRIVAL;
-    // From no limit, the first press starts at the trip's own departure or arrival.
-    const from = now !== open ? now : which === "depart"
-      ? Math.max(0, Math.round((timing.start - axis.depart) / STEP) * STEP)
-      : Math.round((timing.parts[timing.parts.length - 1]!.end - axis.arrive) / STEP) * STEP;
-    const next = event.key === "ArrowLeft" ? from - STEP : event.key === "ArrowRight" ? from + STEP
-      : event.key === "Home" || event.key === "End" ? open : null;
-    if (next === null) return;
-    event.preventDefault();
-    event.stopPropagation();
-    onChange({ [which]: apart(which, which === "depart" ? Math.min(1440, Math.max(0, next)) : Math.min(ANY_ARRIVAL, Math.max(0, next))) });
-  };
+  const position = (value: number, open: number, edge: number, base: number) =>
+    value === open ? edge : clamp(base + value);
 
-  const shaded = filteredOutSpans(timing, scale, depart > 0 ? depart : null, arrive < ANY_ARRIVAL ? arrive : null);
-  return <div className="time-handles" ref={layer} data-dragging={drag ? true : undefined}>
-    {shaded.map(({ start, end, side }) => <span key={side} className="time-filtered"
-      style={{ left: `${percent(start, scale)}%`, width: `${(end - start) / span * 100}%` }} />)}
-    {(["depart", "arrive"] as const).map((which) => {
-      const active = which === "depart" ? depart > 0 : arrive < ANY_ARRIVAL;
-      // The stylesheet keeps the handle in sight as the timeline scrolls, within its reach; `view` only says where its label reads and whether it fades.
-      const { from, to } = reach(which);
-      const at = handleAt(place(which), view, { from, to });
-      return <span key={which} className="time-handle-track" style={{ left: `${from}%`, width: `${to - from}%` }}>
-        <span className="time-handle-lead" style={{ width: `${to > from ? (place(which) - from) / (to - from) * 100 : 0}%` }} />
-        <span className={`time-handle ${which}`} data-active={active || undefined}
-        data-edge={at.edge} data-beyond={at.beyond || undefined} data-dragging={drag?.which === which || undefined}
-        role="slider" tabIndex={0} aria-label={`${title}: ${which === "depart" ? "earliest departure" : "latest arrival"}`}
-        aria-valuetext={label(which)} aria-valuemin={0} aria-valuemax={which === "depart" ? 1440 : ANY_ARRIVAL}
-        aria-valuenow={which === "depart" ? depart : arrive} title={`${label(which)}\nDrag, or use ← and →`}
-        onPointerDown={onPointerDown(which)} onPointerMove={onPointerMove(which)}
-        onPointerUp={onPointerUp(which)} onPointerCancel={() => setDrag(null)} onKeyDown={onKeyDown(which)}>
+  const renderHandle = ({ kind, name, verb, max, format }: Range, end: End) => {
+    const window = shown[kind];
+    const open = end === "from" ? 0 : max;
+    const value = window[end];
+    const active = value !== open;
+    const dragging = drag?.kind === kind && drag.end === end;
+    const minimum = end === "from" ? 0 : window.from;
+    const maximum = end === "to" ? max : window.to;
+    const place = position(value, open, end === "from" ? 0 : 100, axis[kind]);
+    const close = Math.abs(position(window.from, 0, 0, axis[kind]) - position(window.to, max, 100, axis[kind])) < 5;
+    const at = handleAt(place, view);
+    const otherPlace = end === "from" ? position(window.to, max, 100, axis[kind]) : position(window.from, 0, 0, axis[kind]);
+    const sameEdge = at.edge && at.edge === handleAt(otherPlace, view).edge;
+    const label = active ? `${verb} ${end === "from" ? "after" : "before"} ${format(value)}`
+      : `No ${end === "from" ? "earliest" : "latest"} ${name}`;
+
+    const move = (event: PointerEvent) => {
+      if (!dragging) return;
+      const next = limitAt(end, minuteAt(event.clientX), axis[kind], max, scale);
+      setDrag({ kind, end, window: withTimeBound(times[kind], end, next) });
+    };
+    const keyDown = (event: KeyboardEvent) => {
+      const point = kind === "depart" ? timing.start : timing.parts[timing.parts.length - 1]!.end;
+      const start = active ? value : Math.round((point - axis[kind]) / STEP) * STEP;
+      const next = event.key === "ArrowLeft" || event.key === "ArrowDown" ? start - STEP
+        : event.key === "ArrowRight" || event.key === "ArrowUp" ? start + STEP
+        : event.key === "Home" ? minimum : event.key === "End" ? maximum
+        : event.key === "Delete" ? open : null;
+      if (next === null) return;
+      event.preventDefault();
+      event.stopPropagation();
+      const bounded = Math.min(maximum, Math.max(minimum, next));
+      if (bounded !== value) onChange({ [kind]: withTimeBound(times[kind], end, bounded) });
+    };
+
+    return <span key={`${kind}-${end}`} className={`time-handle-track ${kind}`} data-close={close || sameEdge || undefined}>
+      <span className="time-handle-lead" style={{ width: `${place}%` }} />
+      <span className={`time-handle ${end}`} data-active={active || undefined}
+        data-edge={at.edge} data-beyond={at.beyond || undefined} data-dragging={dragging || undefined}
+        role="slider" tabIndex={0} aria-label={`${title} ${end === "from" ? "earliest" : "latest"} ${name}`}
+        aria-valuetext={label} aria-valuemin={minimum} aria-valuemax={maximum} aria-valuenow={value} title={label}
+        onPointerDown={(event) => {
+          if (event.button !== 0) return;
+          event.preventDefault();
+          event.currentTarget.focus({ preventScroll: true });
+          event.currentTarget.setPointerCapture(event.pointerId);
+          setDrag({ kind, end, window: times[kind] });
+        }}
+        onPointerMove={move}
+        onPointerUp={() => {
+          if (!dragging) return;
+          setDrag(null);
+          if (value !== times[kind][end]) onChange({ [kind]: window });
+        }}
+        onLostPointerCapture={() => setDrag(null)} onKeyDown={keyDown}>
         <span className="time-handle-grip" />
-        {(active || drag?.which === which) && <span className="time-handle-label">{label(which)}</span>}
-      </span></span>;
+        <span className="time-handle-label" aria-hidden="true">{label}</span>
+      </span>
+    </span>;
+  };
+
+  return <div className="time-handles" ref={layer} data-dragging={drag ? true : undefined}>
+    {timeWindowSpans(timing, scale, shown).map(({ start, end, kind, side }) =>
+      <span key={`${kind}-${side}`} className={`time-filtered ${kind}`}
+        style={{ left: `${percent(start, scale)}%`, width: `${(end - start) / span * 100}%` }} />)}
+    {RANGES.map((range) => {
+      const { kind, verb, max, format } = range;
+      const { from, to } = shown[kind];
+      const summary = from > 0 && to < max ? `${format(from)} - ${format(to)}`
+        : from > 0 ? `after ${format(from)}` : to < max ? `before ${format(to)}` : "any time";
+      return <span key={kind} className={`time-range-summary ${kind}`}>{verb} {summary}</span>;
     })}
+    {RANGES.flatMap((range) => [renderHandle(range, "from"), renderHandle(range, "to")])}
   </div>;
 }

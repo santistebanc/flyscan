@@ -6,7 +6,7 @@ import { Icon } from "./Icon";
 import { elapsed } from "./flightTimeline";
 import { roundLimitPresets, type ConnectionFilterOptions, type FilterRanges } from "./filterSuggestions";
 import { ANY_ARRIVAL, DEFAULT_FILTERS, filtersActive, filtersChanged, formatArrival, formatClock, setDirectionLimits,
-  setSeparate, type DirectionLimits, type DirectionalFilter, type ListFilters } from "./flightFilters";
+  setSeparate, timeBounds, withTimeBound, type DirectionLimits, type DirectionalFilter, type ListFilters } from "./flightFilters";
 
 export const FILTERS_KEY = "flyscan:list-filters";
 type Panel = "stops" | "price" | "duration" | "layovers" | "times";
@@ -15,8 +15,8 @@ const FILTER_ICONS = { stops: "stops", price: "price", duration: "duration", lay
 type Direction = "outbound" | "inbound";
 const TITLES: Record<Panel, string> = { stops: "Stops", price: "Price", duration: "Duration", layovers: "Layovers", times: "Departure and arrival times" };
 const DIRECTION_NAMES: Record<Direction, string> = { outbound: "Outbound", inbound: "Return" };
-/** Every half hour of a day, 00:00 to 23:30. */
-const timeOptions = Array.from({ length: 48 }, (_, i) => i * 30);
+/** Every quarter hour of a day. */
+const timeOptions = Array.from({ length: 96 }, (_, i) => i * 15);
 
 function LimitInput({ label, accessibleLabel = label, unit, value, onCommit }: {
   label: string; accessibleLabel?: string; unit: string; value: number | null; onCommit: (value: number | null) => void;
@@ -38,32 +38,30 @@ function LimitInput({ label, accessibleLabel = label, unit, value, onCommit }: {
   </label>;
 }
 
-/** The design's quick picks; the dropdown still reaches any half hour. */
-const DEPART_PRESETS = [0, 360, 540, 720, 900];
-const ARRIVE_PRESETS = [ANY_ARRIVAL, 1080, 1320, 1440 + 720, 2 * 1440 + 720];
-/** Arrival choices by day: the departure day, the next one, and the one after. */
 const ARRIVE_DAYS = ["Departure day", "Next day", "Two days later"];
 
-function TimeBound({ label, accessibleLabel, value, minimum, autoFocus, onChange }: {
-  label: string; accessibleLabel: string; value: number; minimum: boolean; autoFocus?: boolean; onChange: (next: number) => void;
+function TimeBound({ label, accessibleLabel, value, minimum, arrival, autoFocus, onChange }: {
+  label: string; accessibleLabel: string; value: number; minimum: boolean; arrival: boolean;
+  autoFocus?: boolean; onChange: (next: number) => void;
 }) {
-  const unrestricted = minimum ? 0 : ANY_ARRIVAL;
-  const format = minimum ? formatClock : formatArrival;
+  const unrestricted = minimum ? 0 : arrival ? ANY_ARRIVAL : 1440;
+  const format = arrival ? formatArrival : formatClock;
+  const presets = arrival ? [unrestricted, 1080, 1320, 2160, 3600] : [unrestricted, 360, 540, 720, 900];
+  const options = (offset: number) => timeOptions.map((m) => offset + m).filter((m) => m !== unrestricted)
+    .map((m) => <option key={m} value={m}>{format(m)}</option>);
   return <div className="filter-time-range">
     <label className="filter-time-bound-label">
       <span>{label}</span>
       <select data-autofocus={autoFocus || undefined} aria-label={accessibleLabel} value={value} onChange={(e) => onChange(Number(e.target.value))}>
-        {minimum ? timeOptions.map((m) => <option key={m} value={m}>{m === unrestricted ? "Any time" : format(m)}</option>) : <>
-          <option value={unrestricted}>Any time</option>
-          {ARRIVE_DAYS.map((day, d) => <optgroup key={day} label={day}>
-            {timeOptions.map((m) => d * 1440 + m).filter((m) => m > 0).map((m) =>
-              <option key={m} value={m}>{format(m)}</option>)}
-          </optgroup>)}
-        </>}
+        <option value={unrestricted}>Any time</option>
+        {arrival ? ARRIVE_DAYS.map((day, d) => <optgroup key={day} label={day}>
+          {options(d * 1440)}
+        </optgroup>) : options(0)}
+        {minimum && value === (arrival ? ANY_ARRIVAL : 1440) && <option value={value}>{format(value)}</option>}
       </select>
     </label>
     <div className="filter-dayparts" role="group" aria-label={`${accessibleLabel} quick times`}>
-      {(minimum ? DEPART_PRESETS : ARRIVE_PRESETS).map((minutes) => <button type="button" key={minutes}
+      {presets.map((minutes) => <button type="button" key={minutes}
         aria-pressed={value === minutes} onClick={() => onChange(minutes)}>
         {minutes === unrestricted ? "Any" : format(minutes)}
       </button>)}
@@ -71,7 +69,6 @@ function TimeBound({ label, accessibleLabel, value, minimum, autoFocus, onChange
   </div>;
 }
 
-const timeBounds = (limits: DirectionLimits) => Number(limits.depart.from > 0) + Number(limits.arrive.to < ANY_ARRIVAL);
 const stopsText = (stops: number | null) => stops === null ? undefined : stops === 0 ? "Nonstop" : `≤ ${stops}`;
 const minutesText = (minutes: number | null) => minutes === null ? undefined : `≤ ${elapsed(minutes)}`;
 
@@ -258,12 +255,14 @@ export function FlightFiltersBar({ filters, onChange, shown, total, roundTrip = 
       {open === "times" && <>
         {directional("times", (direction, name, first) => {
           const times = filters[direction];
-          return <>
-            <TimeBound label="Depart after" accessibleLabel={labelled(name, "Depart after")} minimum value={times.depart.from} autoFocus={first}
-              onChange={(from) => set("times", direction, { depart: { from, to: 1440 } })} />
-            <TimeBound label="Arrive before" accessibleLabel={labelled(name, "Arrive before")} minimum={false} value={times.arrive.to}
-              onChange={(to) => set("times", direction, { arrive: { from: 0, to } })} />
-          </>;
+          return (["depart", "arrive"] as const).flatMap((kind) =>
+            (["from", "to"] as const).map((end) => {
+              const label = `${kind === "depart" ? "Depart" : "Arrive"} ${end === "from" ? "after" : "before"}`;
+              return <TimeBound key={`${kind}-${end}`} label={label} accessibleLabel={labelled(name, label)}
+                minimum={end === "from"} arrival={kind === "arrive"} value={times[kind][end]}
+                autoFocus={first && kind === "depart" && end === "from"}
+                onChange={(value) => set("times", direction, { [kind]: withTimeBound(times[kind], end, value) })} />;
+            }));
         })}
         <div className="filter-times-footer"><span>Local airport times</span>{timeCount > 0 && <button type="button"
           onClick={() => onChange({ ...filters,

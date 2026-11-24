@@ -2,8 +2,8 @@ import { useLayoutEffect, useRef, useState, type CSSProperties } from "react";
 import type { Leg } from "./api";
 import type { Rating } from "./flightRatings";
 import { AirportLabel } from "./AirportLabel";
-import { ANY_ARRIVAL, type DirectionTimes } from "./flightFilters";
-import { airlineColor, clock, dayOffset, elapsed, filteredOutSpans, isOvernight, localHourMarks, localMidnights, partLabel, percent, timingNote,
+import type { DirectionTimes } from "./flightFilters";
+import { airlineColor, clock, dayOffset, elapsed, timeWindowSpans, isOvernight, localHourMarks, localMidnights, partLabel, percent, timingNote,
   timelineScaleFor, timelineScaleLabel, type JourneyTiming, type TimelineMode, type TimelineScale } from "./flightTimeline";
 
 /** An element's rendered width, kept current as the layout changes. */
@@ -71,10 +71,9 @@ export function FlightTimeline({ label, leg, scale: sharedScale, timing, mode = 
     <span className="leg-track">
       {timing && scale ? <span className="leg-plot" role="img" ref={plot}
         aria-label={`${timelineScaleLabel(scale, mode)} timeline`}>
-        {times && filteredOutSpans(timing, scale,
-          times.depart.from > 0 ? times.depart.from : null, times.arrive.to < ANY_ARRIVAL ? times.arrive.to : null).map(({ start, end, side }) =>
-          <span key={side} className={`leg-filtered ${side}`}
-            title={side === "before" ? "Before the earliest departure filter" : "After the latest arrival filter"}
+        {times && timeWindowSpans(timing, scale, times).map(({ start, end, kind, side }) =>
+          <span key={`${kind}-${side}`} className={`leg-filtered ${kind} ${side}`}
+            title={`${side === "before" ? "Before earliest" : "After latest"} ${kind === "depart" ? "departure" : "arrival"}`}
             style={{ left: `${percent(start, scale)}%`, width: `${(end - start) / (scale.max - scale.min) * 100}%` }} />)}
         {dateMarks.map((mark) => {
           const left = percent(mark.at, scale);

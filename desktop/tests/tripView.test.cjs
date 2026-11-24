@@ -13,7 +13,7 @@ const code = buildSync({ stdin: { contents: `
   export { normalizeLayout } from './src/LayoutToggle';
   export { CurrencyProvider } from './src/currency';
   export { journeyTiming, journeyScale, journeyHourMarks, flightTimelines, timeFilterAxis } from './src/flightTimeline';
-  export { handleAt, keptApart, limitAt, limitClock } from './src/TimeHandles';
+  export { handleAt, limitAt } from './src/TimeHandles';
   export { pickGroups, legKey } from './src/pairPicking';
   export { OPEN_FILTERS, ANY_ARRIVAL, nearestTrip } from './src/flightFilters';
 `, resolveDir: path.join(__dirname, "..") }, bundle: true, external: ["react", "react-dom"],
@@ -22,7 +22,7 @@ const mod = { exports: {} };
 vm.runInNewContext(code, { module: mod, exports: mod.exports, require, window: {},
   localStorage: { getItem: () => null } });
 const { JourneyTimeline, placeEndLabels, TripView, tripStats, distribution, placeIn, tripDistributions, normalizeLayout, CurrencyProvider,
-  journeyTiming, journeyScale, journeyHourMarks, flightTimelines, timeFilterAxis, handleAt, keptApart, limitAt, limitClock, pickGroups, legKey,
+  journeyTiming, journeyScale, journeyHourMarks, flightTimelines, timeFilterAxis, handleAt, limitAt, pickGroups, legKey,
   OPEN_FILTERS, ANY_ARRIVAL, nearestTrip } = mod.exports;
 
 const segment = (origin, destination, departure, arrival, duration, flight) => ({
@@ -162,7 +162,7 @@ test("with nothing matching, the nearest trip stays faded under the notice, its 
   assert.match(html, /No trips/);
   assert.doesNotMatch(html, /Book<span|Booking options and leg details/, "nothing to book or open");
   assert.match(html, /class="trip-stat-value trip-anim-in"[^>]*>–</, "the figures read as dashes");
-  assert.equal((html.match(/role="slider"/g) || []).length, 4, "the handles stay to relax a time limit");
+  assert.equal((html.match(/role="slider"/g) || []).length, 8, "the handles stay to relax a time limit");
   assert.match(html, /Outbound timeline: BER 06:10/, "its flight drawn, faded by the stylesheet");
   assert.match(html, /Faded below, the trip nearest your time limits/);
 });
@@ -181,7 +181,7 @@ test("a trip kept on from rows since reloaded still has its handles", () => {
   const kept = trip("a", 240, oneStop, back);
   const reloaded = trip("a", 240, { ...oneStop }, { ...back });
   const html = renderTrip([kept], 0, { empty: { title: "Nothing matches these limits." }, timelines: flightTimelines([reloaded]) });
-  assert.equal((html.match(/role="slider"/g) || []).length, 4);
+  assert.equal((html.match(/role="slider"/g) || []).length, 8);
 });
 
 test("the Trip view counts the trips and stops Prev and Next at either end", () => {
@@ -248,7 +248,7 @@ test("with no outbounds left to pick, both directions' handles stay out", () => 
   const html = renderTrip([pairs[0]], 0, { stage, empty: { title: "Nothing matches these limits." } });
   assert.match(html, /Outbound timeline/);
   assert.match(html, /Return timeline/, "a return limit may be what ruled them out");
-  assert.equal((html.match(/role="slider"/g) || []).length, 4);
+  assert.equal((html.match(/role="slider"/g) || []).length, 8);
 });
 
 test("the pairs of a picked outbound keep it pinned above them, with a way to pick again", () => {
@@ -272,12 +272,10 @@ test("a time limit lands on the timeline from the local midnight of the departur
 
 test("a dragged handle snaps to a quarter hour, and dragged out to its end lifts the limit", () => {
   const scale = { min: 300, max: 1740 };
-  assert.equal(limitAt("depart", 300 + 7 * 60 + 8, 300, scale), 7 * 60 + 15);
-  assert.equal(limitAt("depart", 300, 0, scale), 0);
-  assert.equal(limitAt("arrive", 1740, 0, scale), ANY_ARRIVAL);
-  assert.equal(limitAt("arrive", 1500, 0, scale), 1500);
-  assert.equal(limitClock(1500), "01:00 +1");
-  assert.equal(limitClock(7 * 60 + 30), "07:30");
+  assert.equal(limitAt("from", 300 + 7 * 60 + 8, 300, 1440, scale), 7 * 60 + 15);
+  assert.equal(limitAt("from", 300, 0, 1440, scale), 0);
+  assert.equal(limitAt("to", 1740, 0, ANY_ARRIVAL, scale), ANY_ARRIVAL);
+  assert.equal(limitAt("to", 1500, 0, ANY_ARRIVAL, scale), 1500);
 });
 
 test("a handle whose limit is scrolled out of sight waits at the edge in sight", () => {
@@ -293,24 +291,4 @@ test("scrolled past as far as its limits reach, a handle goes by with the timeli
   assert.deepEqual({ ...handleAt(40, { from: 60, to: 80 }, reach) }, { beyond: false });
   assert.deepEqual({ ...handleAt(10, { from: 20, to: 50 }, reach) }, { edge: "start", beyond: true }, "still within reach");
   assert.deepEqual({ ...handleAt(90, { from: 10, to: 30 }, { from: 50, to: 100 }) }, { beyond: false });
-});
-
-test("the two handles are never dragged or stepped past each other", () => {
-  const axis = { depart: 0, arrive: 0 };
-  assert.equal(keptApart("depart", 20 * 60, 18 * 60, axis), 18 * 60, "no departure after the latest arrival");
-  assert.equal(keptApart("depart", 20 * 60, ANY_ARRIVAL, axis), 20 * 60, "no arrival limit holds nothing back");
-  assert.equal(keptApart("arrive", 6 * 60, 9 * 60, axis), 9 * 60, "no arrival before the earliest departure");
-  assert.equal(keptApart("arrive", 6 * 60, 0, axis), 6 * 60);
-  assert.equal(keptApart("arrive", ANY_ARRIVAL, 9 * 60, axis), ANY_ARRIVAL, "dragged out, it still lifts the limit");
-  assert.equal(keptApart("depart", 20 * 60, 18 * 60, { depart: 0, arrive: -60 }), 17 * 60, "the arrival's clock an hour behind");
-});
-
-test("set time limits show on the handles and shade the hours they rule out", () => {
-  const times = { ...OPEN_FILTERS, outbound: { ...OPEN_FILTERS.outbound, depart: { from: 7 * 60, to: 1440 } } };
-  const html = renderTrip([trip("a", 240, oneStop, back)], 0, { times });
-  assert.match(html, /aria-valuetext="Depart after 07:00"/);
-  assert.match(html, /class="time-handle-label">Depart after 07:00</);
-  assert.match(html, /aria-valuetext="Any arrival time"/);
-  assert.equal((html.match(/class="time-filtered"/g) || []).length, 1);
-  assert.equal((html.match(/role="slider"/g) || []).length, 4, "two handles on each direction");
 });

@@ -47,7 +47,7 @@ import { LAYOUT_KEY, LayoutToggle, normalizeLayout, type Layout } from "./Layout
 import { tripDistributions, tripStats } from "./tripStats";
 import { elapsed, flightTimelines, type FlightTimelines } from "./flightTimeline";
 import { FILTERS_KEY, FlightFiltersBar } from "./FilterBar";
-import { DEFAULT_FILTERS, FILTERS_VERSION, matchesFlight, nearestTrip, OPEN_FILTERS, sanitizeFilters, setDirectionLimits, withoutLimit, type DirectionLimits, type ListFilters } from "./flightFilters";
+import { DEFAULT_FILTERS, FILTERS_VERSION, matchesFlight, nearestTrip, OPEN_FILTERS, sanitizeFilters, setDirectionLimits, setSeparate, withoutLimit, type DirectionLimits, type ListFilters } from "./flightFilters";
 import { connectionFilterOptions, filterRanges } from "./filterSuggestions";
 import { PlaceInput } from "./PlaceInput";
 import { TravellersPicker, CABIN_LABELS } from "./TravellersPicker";
@@ -1031,10 +1031,7 @@ function Shell() {
   [step, stepDirection, pickInTrip, unpinInTrip]);
   /** A handle on a Trip view timeline sets the same time limits as the Times filter. */
   const setTripTimes = useCallback((direction: "outbound" | "inbound", patch: TimesPatch) => setFilters((old) => {
-    let next = old;
-    if (patch.depart !== undefined) next = setDirectionLimits(next, "times", direction, { depart: { from: patch.depart, to: 1440 } });
-    if (patch.arrive !== undefined) next = setDirectionLimits(next, "times", direction, { arrive: { from: 0, to: patch.arrive } });
-    return next;
+    return setDirectionLimits(setSeparate(old, "times", true), "times", direction, patch);
   }), []);
 
   /**

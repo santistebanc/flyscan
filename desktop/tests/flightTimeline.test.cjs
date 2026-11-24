@@ -7,7 +7,7 @@ const code = buildSync({ entryPoints: [path.join(__dirname, "../src/flightTimeli
   bundle: true, write: false, format: "cjs", platform: "node" }).outputFiles[0].text;
 const mod = { exports: {} };
 vm.runInNewContext(code, { module: mod, exports: mod.exports });
-const { airlineColor, partsOf, journeyTiming, flightTimelines, percent, dayOffset, scaleClock, timingNote, localMidnights, localHourMarks, isOvernight, partLabel, filteredOutSpans } = mod.exports;
+const { airlineColor, partsOf, journeyTiming, flightTimelines, percent, dayOffset, scaleClock, timingNote, localMidnights, localHourMarks, isOvernight, partLabel, timeWindowSpans } = mod.exports;
 
 test("filtered bounds shrink without reusing hidden outliers from the timing cache", () => {
   const normal = { departure: "2026-11-01T08:00", duration: "3h", segments: [] };
@@ -288,14 +288,16 @@ test("an airline has the same color in every search", () => {
 });
 
 // Plain objects: the module runs in its own vm context, so its arrays and objects have other prototypes.
-const spansOf = (...args) => JSON.parse(JSON.stringify(filteredOutSpans(...args)));
+const spansOf = (timing, scale, from, to) => JSON.parse(JSON.stringify(timeWindowSpans(timing, scale, {
+  depart: { from: from ?? 0, to: 1440 }, arrive: { from: 0, to: to ?? 4320 },
+})));
 
 test("filtered-out spans run to the earliest departure and from the latest arrival", () => {
   const timing = journeyTiming(leg("2026-11-01T08:00", "3h", { arrival: "2026-11-01T11:00" }));
   const scale = { min: timing.start - 480, max: timing.start + 1440 };
   assert.deepEqual(spansOf(timing, scale, 6 * 60, 20 * 60), [
-    { start: scale.min, end: timing.start - 120, side: "before" },
-    { start: timing.start + 180 + 540, end: scale.max, side: "after" },
+    { start: scale.min, end: timing.start - 120, kind: "depart", side: "before" },
+    { start: timing.start + 180 + 540, end: scale.max, kind: "arrive", side: "after" },
   ]);
   assert.deepEqual(spansOf(timing, scale, null, null), []);
 });
@@ -304,7 +306,7 @@ test("a latest arrival counts from the departure day, and spans stay inside the 
   // Leaves 08:00, lands 01:00 the next day.
   const timing = journeyTiming(leg("2026-11-01T08:00", "17h", { arrival: "2026-11-02T01:00" }));
   const scale = { min: timing.start, max: timing.end + 300 };
-  assert.deepEqual(spansOf(timing, scale, null, 1440 + 3 * 60), [{ start: timing.end + 120, end: scale.max, side: "after" }]);
+  assert.deepEqual(spansOf(timing, scale, null, 1440 + 3 * 60), [{ start: timing.end + 120, end: scale.max, kind: "arrive", side: "after" }]);
   assert.deepEqual(spansOf(timing, scale, null, 2 * 1440), [], "00:00 two days on is past the scale");
   assert.deepEqual(spansOf(timing, scale, 7 * 60, null), [], "the earliest departure falls before the scale");
 });
