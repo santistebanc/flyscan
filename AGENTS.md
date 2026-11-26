@@ -16,4 +16,5 @@ On the shared dev server (the owner on a phone): run `remote-dev/dev.sh` from th
 - Curl transport: `npm run test:transport` (after `uv sync`). Release tools: `npm run test:packaging`.
 - Desktop: `cd desktop && npm ci` once, then `npm test` and `npm run build` (tsc + vite).
 - Everything the commit hook runs: `uv run pre-commit run --all-files`.
+- Run `deslop-please` from `desktop/src-tauri` when Rust modules or their interfaces change. Investigate the module boundaries behind each new finding. Install the tools with `cargo install deslop-please --version 0.1.6 --locked` and `rustup component add rust-analyzer`.
 - Rust/Tauri builds are heavy: let CI run them (`CI (Tauri)` on PRs that touch `desktop/src-tauri/`).
